@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Nine Squares</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;800&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#f4f0e8;--ink:#22201c;--muted:#7d766a;--accent:#3b6ea8;--f-display:"Fraunces",Georgia,serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#ffffff;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+:root{color-scheme:light}.card{background:#fbf8f2}
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#ffffff}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#ffffff;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Nine Squares</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Tap a square, then a number · Notes mode adds pencil marks</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=600,FONT="system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const CS=38,GX=(LW-CS*9)/2,GY=8,PADY=GY+CS*9+18;
+const CLUES={easy:40,med:32,hard:27,expert:24};
+let sol,givens,grid,notes,sel=-1,notesMode=false,hist=[],mistakes=0,hints=3,usedHint=false,state="menu",t0=0,elapsed=0;
+const rowOf=i=>Math.floor(i/9),colOf=i=>i%9,boxOf=i=>Math.floor(rowOf(i)/3)*3+Math.floor(colOf(i)/3);
+function ok(g,i,v){const r=rowOf(i),c=colOf(i),b=boxOf(i);for(let k=0;k<81;k++)if(g[k]===v&&k!==i&&(rowOf(k)===r||colOf(k)===c||boxOf(k)===b))return false;return true}
+function fill(g){const i=g.indexOf(0);if(i<0)return true;for(const v of [1,2,3,4,5,6,7,8,9].sort(()=>Math.random()-.5)){if(ok(g,i,v)){g[i]=v;if(fill(g))return true;g[i]=0}}return false}
+function count(g,lim=2){let best=-1,bestN=10;for(let i=0;i<81;i++)if(!g[i]){let n=0;for(let v=1;v<=9;v++)if(ok(g,i,v))n++;if(n<bestN){bestN=n;best=i;if(n<=1)break}}if(best<0)return 1;if(bestN===0)return 0;
+  let tot=0;for(let v=1;v<=9;v++)if(ok(g,best,v)){g[best]=v;tot+=count(g,lim-tot);g[best]=0;if(tot>=lim)break}return tot}
+function generate(level){const g=Array(81).fill(0);fill(g);sol=g.slice();const p=g.slice(),order=[...Array(81).keys()].sort(()=>Math.random()-.5);let clues=81;const target=CLUES[level];
+  for(const i of order){if(clues<=target)break;const v=p[i];p[i]=0;if(count(p.slice())!==1)p[i]=v;else clues--}return p}
+function newGame(){const lv=setting("diff","easy");givens=generate(lv);grid=givens.slice();notes=Array.from({length:81},()=>new Set());sel=-1;hist=[];mistakes=0;hints=+setting("hints",3);usedHint=false;t0=performance.now();state="play";hud()}
+function hud(){stats({Level:({easy:"Easy",med:"Medium",hard:"Hard",expert:"Expert"})[setting("diff","easy")],...(setting("limit","3")!=="off"?{"✗":`${mistakes}/3`}:{}),Hints:hints,Time:fmt(elapsed)})}
+const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+function snap(){hist.push(JSON.stringify({grid,notes:notes.map(s=>[...s])}))}
+function undo(){if(!hist.length)return;const o=JSON.parse(hist.pop());grid=o.grid;notes=o.notes.map(a=>new Set(a))}
+function place(v){if(state!=="play"||sel<0||givens[sel])return;snap();
+  if(notesMode&&v){grid[sel]=0;notes[sel].has(v)?notes[sel].delete(v):notes[sel].add(v);return}
+  if(!v){grid[sel]=0;notes[sel].clear();return}
+  grid[sel]=v;notes[sel].clear();
+  if(v!==sol[sel]){if(setting("limit","3")!=="off"){mistakes++;hud();if(navigator.vibrate)try{navigator.vibrate(40)}catch(e){}if(mistakes>=3){state="lost";setTimeout(()=>card(`<h1>Three mistakes</h1><p>Want another go at a fresh grid?</p>`,"New puzzle",newGame),400);return}}}
+  else if(setting("autonotes","on")==="on"){for(let k=0;k<81;k++)if(rowOf(k)===rowOf(sel)||colOf(k)===colOf(sel)||boxOf(k)===boxOf(sel))notes[k].delete(v)}
+  if(grid.every((x,i)=>x===sol[i]))win()}
+function hint(){if(state!=="play"||hints<=0)return;let i=sel>=0&&grid[sel]!==sol[sel]?sel:-1;if(i<0){const c=[];for(let k=0;k<81;k++)if(grid[k]!==sol[k])c.push(k);if(!c.length)return;i=pick(c)}snap();grid[i]=sol[i];notes[i].clear();sel=i;hints--;usedHint=true;hud();if(grid.every((x,k)=>x===sol[k]))win()}
+function win(){state="won";const lv=setting("diff","easy");award("solve_"+lv);if(!mistakes)award("clean");if(!usedHint)award("nohint");if(lv==="med"&&elapsed<600)award("fast");persist();
+  for(let i=0;i<40;i++)burst(rnd(GX,GX+CS*9),rnd(GY,GY+CS*9),pick(["#3b6ea8","#e2a03b","#5fb27a"]),2,100,1.2);
+  setTimeout(()=>card(`<h1>Solved</h1><p>${({easy:"Easy",med:"Medium",hard:"Hard",expert:"Expert"})[lv]} in ${fmt(elapsed)}</p>${mistakes?`<p class="sub">${mistakes} mistake${mistakes>1?"s":""}</p>`:""}`,"New puzzle",newGame),800)}
+const PAD=[1,2,3,4,5,6,7,8,9],BTN=[["✎ Notes","notes"],["⌫ Erase","erase"],["↶ Undo","undo"],["💡 Hint","hint"]];
+const padW=(LW-16)/9,btnW=(LW-16)/4;
+pointer({down:l=>{if(state!=="play")return;const c=Math.floor((l.x-GX)/CS),r=Math.floor((l.y-GY)/CS);if(c>=0&&c<9&&r>=0&&r<9){sel=r*9+c;return}
+  if(l.y>=PADY&&l.y<=PADY+52){const k=Math.floor((l.x-8)/padW);if(k>=0&&k<9)place(PAD[k]);return}
+  if(l.y>=PADY+62&&l.y<=PADY+104){const k=Math.floor((l.x-8)/btnW);const a=BTN[k]&&BTN[k][1];if(a==="notes")notesMode=!notesMode;if(a==="erase")place(0);if(a==="undo")undo();if(a==="hint")hint()}}});
+addEventListener("keydown",e=>{if(state!=="play")return;const n=parseInt(e.key);if(n>=1&&n<=9)place(n);if(e.key==="Backspace")place(0);if(e.key==="n")notesMode=!notesMode;
+  if(sel>=0){if(e.key==="ArrowRight")sel=Math.min(80,sel+1);if(e.key==="ArrowLeft")sel=Math.max(0,sel-1);if(e.key==="ArrowDown")sel=Math.min(80,sel+9);if(e.key==="ArrowUp")sel=Math.max(0,sel-9)}});
+function draw(){ctx.fillStyle="#f4f0e8";ctx.fillRect(0,0,LW,LH);if(!grid)return;const sv=sel>=0?grid[sel]:0;
+  for(let i=0;i<81;i++){const x=GX+colOf(i)*CS,y=GY+rowOf(i)*CS;let bg="#fffdf8";if(sel>=0&&(rowOf(i)===rowOf(sel)||colOf(i)===colOf(sel)||boxOf(i)===boxOf(sel)))bg="#eae4d6";if(sv&&grid[i]===sv)bg="#d6e2f0";if(i===sel)bg="#b9cfe8";ctx.fillStyle=bg;ctx.fillRect(x,y,CS,CS);
+    const v=grid[i];if(v){const wrong=v!==sol[i]&&setting("show","on")==="on";ctx.fillStyle=givens[i]?"#22201c":wrong?"#c0392b":"#3b6ea8";ctx.font=`${givens[i]?800:600} 22px system-ui`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(v,x+CS/2,y+CS/2+1)}
+    else if(notes[i].size){ctx.fillStyle="#7d766a";ctx.font="600 10px system-ui";ctx.textAlign="center";ctx.textBaseline="middle";for(const n of notes[i])ctx.fillText(n,x+((n-1)%3+.5)*CS/3,y+(Math.floor((n-1)/3)+.5)*CS/3)}}
+  for(let k=0;k<=9;k++){ctx.strokeStyle=k%3?"#cfc6b4":"#22201c";ctx.lineWidth=k%3?1:2;ctx.beginPath();ctx.moveTo(GX+k*CS,GY);ctx.lineTo(GX+k*CS,GY+9*CS);ctx.stroke();ctx.beginPath();ctx.moveTo(GX,GY+k*CS);ctx.lineTo(GX+9*CS,GY+k*CS);ctx.stroke()}
+  PAD.forEach((n,k)=>{const x=8+k*padW,left=9-grid.filter(v=>v===n&&sol.indexOf(n)>=0).filter((v,ix)=>true).length;const done=grid.filter((v,i)=>v===n&&v===sol[i]).length>=9;ctx.fillStyle=done?"#e6e0d2":"#fffdf8";rr(x+2,PADY,padW-4,52,8);ctx.fill();ctx.strokeStyle="#cfc6b4";ctx.stroke();
+    ctx.fillStyle=done?"#b3aa99":notesMode?"#7d766a":"#3b6ea8";ctx.font=`${notesMode?600:800} ${notesMode?20:26}px system-ui`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(n,x+padW/2,PADY+26)});
+  BTN.forEach(([lab,a],k)=>{const x=8+k*btnW,on=a==="notes"&&notesMode;ctx.fillStyle=on?"#3b6ea8":"#fffdf8";rr(x+3,PADY+62,btnW-6,42,10);ctx.fill();ctx.strokeStyle="#cfc6b4";ctx.stroke();ctx.fillStyle=on?"#fff":"#22201c";ctx.font="700 13px system-ui";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(a==="hint"?`${lab} ${hints}`:lab,x+btnW/2,PADY+83)});
+  drawParts()}
+loop(dt=>{if(state==="play"){elapsed=(performance.now()-t0)/1000;if(Math.floor(elapsed)!==Math.floor(elapsed-dt))hud()}stepParts(dt);draw()});
+function openMenu(){menu({title:"Nine Squares",html:`<p class="sub">Fill the grid so every row, column and 3×3 box has 1 through 9 once. Every puzzle is freshly generated and has exactly one solution.</p>`,
+  settings:[{k:"diff",label:"Difficulty",def:"easy",opts:[["easy","Easy"],["med","Medium"],["hard","Hard"],["expert","Expert"]]},{k:"show",label:"Show wrong numbers",def:"on",opts:[["on","Red"],["off","Hidden"]]},{k:"limit",label:"Mistake limit",def:"3",opts:[["3","3 strikes"],["off","Off"]]},{k:"hints",label:"Hints",def:3,opts:[[0,"None"],[3,"3"],[9,"9"]]},{k:"autonotes",label:"Clear notes automatically",def:"on",opts:[["on","On"],["off","Off"]]}],
+  challenges:[{id:"solve_easy",text:"Solve an Easy"},{id:"solve_med",text:"Solve a Medium"},{id:"solve_hard",text:"Solve a Hard"},{id:"solve_expert",text:"Solve an Expert"},{id:"clean",text:"Solve with zero mistakes"},{id:"nohint",text:"Solve without hints"},{id:"fast",text:"Solve a Medium in under 10 minutes"}],play:"New puzzle"},newGame)}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>

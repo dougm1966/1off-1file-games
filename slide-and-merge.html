@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Slide & Merge</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Righteous&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#1b1530;--ink:#f5f0ff;--muted:#a99cd0;--accent:#ffb547;--f-display:"Righteous",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2a1700;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.tool{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:2}.tool button{height:38px;padding:0 14px;border-radius:10px;border:1px solid #a99cd0;background:#1b1530;color:#f5f0ff;font:700 14px system-ui;white-space:nowrap}
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#2a1700}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#2a1700;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Slide & Merge</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Swipe to slide every tile · matching tiles merge</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=540,FONT="system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const TARGETS=[128,256,512,1024,2048,4096,8192];const LEVELS=TARGETS.map(t=>`Reach ${t}`);
+let N=4,tiles=[],idc=0,score=0,best=0,state="menu",undoStack=[],undosLeft=0,target=2048,lvl=1,anim=0,keepGoing=false,moves=0;
+const tool=document.createElement("div");tool.className="tool";tool.innerHTML=`<button id="un">↶ Undo</button><button id="rs">Restart</button>`;stage.appendChild(tool);
+document.getElementById("un").onclick=()=>{if(state!=="play"||!undoStack.length||undosLeft===0)return;const o=undoStack.pop();tiles=o.tiles.map(t=>({...t}));score=o.score;if(undosLeft>0)undosLeft--;hud()};
+document.getElementById("rs").onclick=()=>{if(state!=="menu")start(lvl)};
+const geo=()=>{const size=Math.min(LW-16,LH-60),cs=(size-8)/N;return {X:(LW-size)/2,Y:6,size,cs}};
+function start(l){lvl=l;N=+setting("size",4);target=TARGETS[l-1];tiles=[];score=0;moves=0;undoStack=[];undosLeft=({0:0,3:3,inf:-1})[setting("undo","3")];keepGoing=false;
+  if(setting("rocks","off")==="on"){for(let k=0;k<(N>4?2:1);k++){const e=empties();const p=pick(e);tiles.push({id:idc++,x:p[0],y:p[1],v:0,rock:true,px:p[0],py:p[1],born:1})}}
+  spawn();spawn();state="play";hud()}
+function hud(){best=Math.max(SAVE.best["b"+N]||0,score);SAVE.best["b"+N]=best;persist();stats({Score:score,Best:best,Goal:target,Undo:undosLeft<0?"∞":undosLeft})}
+function empties(){const e=[];for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(!tiles.some(t=>t.x===x&&t.y===y))e.push([x,y]);return e}
+function spawn(){const e=empties();if(!e.length)return;const p=pick(e);tiles.push({id:idc++,x:p[0],y:p[1],v:Math.random()<.9?2:4,px:p[0],py:p[1],born:0})}
+function at(x,y){return tiles.find(t=>t.x===x&&t.y===y&&!t.gone)}
+function move(dx,dy){if(state!=="play"||anim>0)return;const snap={tiles:tiles.map(t=>({...t})),score};let moved=false;
+  for(const t of tiles){t.px=t.x;t.py=t.y;t.merged=false}tiles=tiles.filter(t=>!t.gone);
+  const xs=[...Array(N).keys()],ys=[...Array(N).keys()];if(dx>0)xs.reverse();if(dy>0)ys.reverse();
+  for(const y of ys)for(const x of xs){const t=at(x,y);if(!t||t.rock)continue;let nx=x,ny=y;
+    while(true){const tx=nx+dx,ty=ny+dy;if(tx<0||ty<0||tx>=N||ty>=N)break;const o=at(tx,ty);if(!o){nx=tx;ny=ty;continue}if(!o.rock&&o.v===t.v&&!o.merged&&!t.merged){t.gone=true;t.x=tx;t.y=ty;o.v*=2;o.merged=true;o.pop=1;score+=o.v;moved=true;if(o.v>=2048)award("t2048");if(o.v>=1024&&N===6)award("big6");if(o.v>=512&&N===4&&setting("rocks","off")==="on")award("rock");if(o.v>=target&&!keepGoing)reached()}break}
+    if(nx!==x||ny!==y){t.x=nx;t.y=ny;moved=true}}
+  if(!moved)return;undoStack.push(snap);if(undoStack.length>30)undoStack.shift();moves++;anim=1;setTimeout(()=>{tiles=tiles.filter(t=>!t.gone);spawn();hud();if(!canMove())over()},110);hud()}
+function canMove(){if(empties().length)return true;for(const t of tiles){if(t.rock)continue;for(const [dx,dy] of [[1,0],[0,1]]){const o=at(t.x+dx,t.y+dy);if(o&&!o.rock&&o.v===t.v)return true}}return false}
+function reached(){keepGoing=true;unlock(lvl+1);award("goal");if(moves<target*.6)award("efficient");persist();setTimeout(()=>{state="paused";card(`<h1>${target}!</h1><p>Goal reached in ${moves} moves.</p>`,"Keep going",()=>{state="play"})},350)}
+function over(){state="over";card(`<h1>No moves left</h1><p>Score ${score}</p><p class="sub">Best on ${N}×${N}: ${SAVE.best["b"+N]||score}</p>`,"Try again",()=>start(lvl))}
+pointer({up:(l,p)=>{const dx=l.x-p.x0,dy=l.y-p.y0;if(Math.hypot(dx,dy)<20)return;Math.abs(dx)>Math.abs(dy)?move(Math.sign(dx),0):move(0,Math.sign(dy))}});
+addEventListener("keydown",e=>{const m={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(m)move(...m)});
+const COLORS={2:"#3d3466",4:"#4a3f80",8:"#ff8a5b",16:"#ff6b6b",32:"#f0507f",64:"#e33a9a",128:"#ffcf5c",256:"#ffc142",512:"#ffb52e",1024:"#5ce1e6",2048:"#7cf28a",4096:"#b18cff",8192:"#ffffff"};
+function draw(dt){ctx.fillStyle="#1b1530";ctx.fillRect(0,0,LW,LH);if(state==="menu"&&!tiles.length)return;const {X,Y,size,cs}=geo();ctx.fillStyle="#2a2250";rr(X,Y,size,size,14);ctx.fill();
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){ctx.fillStyle="#352c62";rr(X+4+x*cs+4,Y+4+y*cs+4,cs-8,cs-8,10);ctx.fill()}
+  const k=1-anim;for(const t of tiles){const gx=t.px+(t.x-t.px)*k,gy=t.py+(t.y-t.py)*k;const s=Math.min(1,.4+(t.born+=dt*6)*.6)*(1+(t.pop||0)*.12);t.pop=Math.max(0,(t.pop||0)-dt*5);
+    const cx=X+4+gx*cs+cs/2,cy=Y+4+gy*cs+cs/2,w=(cs-8)*s;
+    if(t.rock){ctx.fillStyle="#6b6385";rr(cx-w/2,cy-w/2,w,w,10);ctx.fill();ctx.fillStyle="#4d4668";ctx.beginPath();ctx.arc(cx-w*.15,cy-w*.1,w*.18,0,TAU);ctx.arc(cx+w*.2,cy+w*.15,w*.12,0,TAU);ctx.fill();continue}
+    ctx.fillStyle=COLORS[t.v]||"#fff";rr(cx-w/2,cy-w/2,w,w,10);ctx.fill();ctx.fillStyle="rgba(255,255,255,.15)";rr(cx-w/2,cy-w/2,w,w*.3,10);ctx.fill();
+    const fs=cs*(t.v<100?.42:t.v<1000?.34:t.v<10000?.27:.22)*s;ctx.fillStyle=t.v<=4?"#e0d8ff":"#1b1530";ctx.font=`800 ${fs}px Righteous,system-ui`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(t.v,cx,cy+1)}
+  drawParts()}
+loop(dt=>{anim=Math.max(0,anim-dt/.11);stepParts(dt);draw(dt)});
+function openMenu(){menu({title:"Slide & Merge",html:`<p class="sub">Swipe to slide every tile at once. Two matching tiles merge into their sum. Reach the goal tile before the board fills up.</p>`,
+  settings:[{k:"size",label:"Board",def:4,opts:[[4,"4×4"],[5,"5×5"],[6,"6×6"]]},{k:"undo",label:"Undos",def:"3",opts:[["0","None"],["3","3"],["inf","Unlimited"]]},{k:"rocks",label:"Rock tiles",def:"off",opts:[["off","Off"],["on","On"]]}],
+  levels:LEVELS,challenges:[{id:"goal",text:"Reach any goal tile"},{id:"t2048",text:"Make a 2048 tile"},{id:"efficient",text:"Reach a goal in fewer moves than 0.6 × the goal"},{id:"rock",text:"Make 512 on 4×4 with rocks on"},{id:"big6",text:"Make 1024 on 6×6"}],play:"Play"},start)}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>

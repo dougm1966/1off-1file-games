@@ -1,6 +1,6 @@
 # Phone Arcade
 
-28 single-file browser games built for phones: arcade classics, puzzles, two-player pass-and-play games, and a few clinical-lab games (trivia, microscope ID, specimen sorting).
+36 single-file browser games built for phones: arcade classics, puzzles, two-player pass-and-play games, and a few clinical-lab games (trivia, microscope ID, specimen sorting).
 
 Every game is one self-contained HTML file with no build step and no dependencies beyond Google Fonts. Open `index.html` to browse them all, or open any game file directly.
 
@@ -40,6 +40,14 @@ With GitHub Pages turned on (Settings → Pages → deploy from the `main` branc
 | [Pop Lab](pop-lab.html) | Puzzle | Bubble shooter, 15 levels |
 | [Mine Field](mine-field.html) | Puzzle | Minesweeper |
 | [Picture Cross](picture-cross.html) | Puzzle | Nonogram picture puzzles |
+| [Putt Party](putt-party.html) | Two players | 18-hole mini golf for 1-4 players |
+| [Lab Letters](lab-letters.html) | Lab | Five-letter word guessing with lab words or partner-set words |
+| [Lab Hunt](lab-hunt.html) | Lab | Lab-themed word search |
+| [Patience](patience.html) | Puzzle | Klondike solitaire |
+| [Nine Squares](nine-squares.html) | Puzzle | Sudoku with generated puzzles |
+| [Slide & Merge](slide-and-merge.html) | Puzzle | 2048-style sliding merge puzzle |
+| [Gem Rush](gem-rush.html) | Puzzle | Match-3 gems with 15 levels |
+| [Tile Temple](tile-temple.html) | Puzzle | Mahjong solitaire |
 
 ## Notes
 

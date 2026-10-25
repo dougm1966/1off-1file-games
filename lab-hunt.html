@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Lab Hunt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#eef3f6;--ink:#16232e;--muted:#5d7180;--accent:#d94c6a;--f-display:"Archivo Black","Arial Black",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#ffffff;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+:root{color-scheme:light}.card{background:#f9fbfc}
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#ffffff}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#ffffff;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Lab Hunt</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Drag across letters in a straight line to circle a word</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=600,FONT="system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const THEMES=[
+ ["Hematology",["NEUTROPHIL","LYMPHOCYTE","MONOCYTE","PLATELET","HEMOGLOBIN","RETICULOCYTE","EOSINOPHIL","BASOPHIL","ERYTHROCYTE","HEMATOCRIT","ANEMIA","SPHEROCYTE"]],
+ ["Lab gear",["CENTRIFUGE","PIPETTE","MICROSCOPE","CUVETTE","INCUBATOR","AUTOCLAVE","BEAKER","SLIDE","VORTEX","BURETTE","FLASK","TUBE"]],
+ ["Chemistry",["GLUCOSE","SODIUM","POTASSIUM","CREATININE","BILIRUBIN","ALBUMIN","TROPONIN","LIPASE","CALCIUM","CHLORIDE","LACTATE","AMYLASE"]],
+ ["Microbiology",["GRAMSTAIN","COCCI","BACILLI","CATALASE","COAGULASE","AGAR","CULTURE","ISOLATE","ANAEROBE","SPORE","FUNGI","PLASMID"]],
+ ["Coagulation",["FIBRIN","THROMBIN","PLASMIN","HEPARIN","WARFARIN","DDIMER","CITRATE","FACTOR","CLOT","PROTHROMBIN","FIBRINOGEN","APTT"]],
+ ["Urinalysis",["CAST","CRYSTAL","NITRITE","KETONE","UROBILINOGEN","PROTEIN","LEUKOCYTE","SEDIMENT","DIPSTICK","OXALATE","GLUCOSE","BLOOD"]],
+ ["Blood bank",["ANTIGEN","ANTIBODY","CROSSMATCH","PLASMA","CRYO","RHESUS","DONOR","TRANSFUSION","COOMBS","AGGLUTINATE","TITER","UNIT"]],
+ ["Lab life",["STAT","SPECIMEN","REQUISITION","BARCODE","CALIBRATE","CONTROL","QUALITY","GLOVES","BIOHAZARD","LABCOAT","NIGHTSHIFT","COFFEE"]],
+];
+const LEVELS=THEMES.map(t=>t[0]);
+let N,grid,words,found,state="menu",lvl=1,drag=null,t0=0,elapsed=0,hintsUsed=0,backFound=false,flash=null;
+const DIRS={easy:[[1,0],[0,1]],med:[[1,0],[0,1],[1,1],[1,-1]],hard:[[1,0],[0,1],[1,1],[1,-1],[-1,0],[0,-1],[-1,-1],[-1,1]]};
+const cs=()=>Math.floor((LW-12)/N),gx=()=>(LW-cs()*N)/2,GY=6;
+function build(){const d=setting("diff","med");N=({easy:10,med:12,hard:14})[d];const pool=THEMES[lvl-1][1].filter(w=>w.length<=N).sort(()=>Math.random()-.5).slice(0,d==="easy"?7:d==="med"?9:11);
+  for(let attempt=0;attempt<60;attempt++){grid=Array.from({length:N},()=>Array(N).fill(""));words=[];let ok=true;
+    for(const w of pool.sort((a,b)=>b.length-a.length)){let placed=false;for(let t=0;t<300&&!placed;t++){const [dx,dy]=pick(DIRS[d]),x=Math.floor(Math.random()*N),y=Math.floor(Math.random()*N),ex=x+dx*(w.length-1),ey=y+dy*(w.length-1);
+        if(ex<0||ey<0||ex>=N||ey>=N)continue;let fits=true;for(let i=0;i<w.length;i++){const c=grid[y+dy*i][x+dx*i];if(c&&c!==w[i]){fits=false;break}}if(!fits)continue;
+        for(let i=0;i<w.length;i++)grid[y+dy*i][x+dx*i]=w[i];words.push({w,x,y,dx,dy,found:false,back:dx<0||dy<0&&dx<=0});placed=true}if(!placed){ok=false;break}}if(ok)break}
+  const A="ABCDEFGHIJKLMNOPRSTUY";for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(!grid[y][x])grid[y][x]=pick([...A])}
+function start(l){lvl=l;build();found=0;hintsUsed=0;backFound=false;t0=performance.now();state="play";hud()}
+function hud(){stats({Theme:THEMES[lvl-1][0],Found:`${found}/${words?words.length:0}`,...(setting("timer","on")==="on"?{Time:fmt(elapsed)}:{})})}
+const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+const cellAt=l=>{const c=Math.floor((l.x-gx())/cs()),r=Math.floor((l.y-GY)/cs());return c>=0&&r>=0&&c<N&&r<N?[c,r]:null};
+function lineCells(a,b){if(!a||!b)return null;let dx=b[0]-a[0],dy=b[1]-a[1];const n=Math.max(Math.abs(dx),Math.abs(dy));if(n===0)return [a];if(dx&&dy&&Math.abs(dx)!==Math.abs(dy)){if(Math.abs(dx)>Math.abs(dy))dy=0;else dx=0}const m=Math.max(Math.abs(dx),Math.abs(dy)),sx=Math.sign(dx),sy=Math.sign(dy);return [...Array(m+1)].map((_,i)=>[a[0]+sx*i,a[1]+sy*i])}
+pointer({down:l=>{if(state!=="play")return;const c=cellAt(l);if(c)drag={a:c,b:c}},move:l=>{if(drag){const c=cellAt(l);if(c)drag.b=c}},up:()=>{if(!drag)return;const cells=lineCells(drag.a,drag.b);drag=null;if(!cells||cells.length<2)return;check(cells)}});
+function check(cells){const s=cells.map(([x,y])=>grid[y][x]).join("");for(const w of words){if(w.found)continue;const fw=[...Array(w.w.length)].map((_,i)=>[w.x+w.dx*i,w.y+w.dy*i]);
+  const same=fw.length===cells.length&&(fw.every((c,i)=>c[0]===cells[i][0]&&c[1]===cells[i][1])||fw.every((c,i)=>c[0]===cells[cells.length-1-i][0]&&c[1]===cells[cells.length-1-i][1]));
+  if(same||s===w.w&&false){w.found=true;w.color=`hsl(${(found*47)%360},70%,60%)`;found++;if(w.dx<0||(w.dx===0&&w.dy<0))award("back");const mid=cells[Math.floor(cells.length/2)];burst(gx()+mid[0]*cs()+cs()/2,GY+mid[1]*cs()+cs()/2,w.color,14,120);hud();
+    if(found===words.length)win();return}}flash={cells,t:.4}}
+function hint(){const w=words.find(x=>!x.found);if(!w)return;hintsUsed++;w.hint=1.5}
+function win(){state="won";unlock(lvl+1);award("theme");if(!hintsUsed)award("nohint");if(elapsed<120)award("fast");if(setting("diff","med")==="hard")award("hard");SAVE.best["t"+lvl]=1;persist();if(THEMES.every((_,i)=>SAVE.best["t"+(i+1)]))award("all");
+  setTimeout(()=>card(`<h1>All found</h1><p>${THEMES[lvl-1][0]} · ${fmt(elapsed)}</p>`,lvl<THEMES.length?"Next theme":"Menu",()=>lvl<THEMES.length?start(lvl+1):openMenu()),600)}
+function draw(dt){ctx.fillStyle="#eef3f6";ctx.fillRect(0,0,LW,LH);if(!grid)return;const S=cs(),X=gx();ctx.fillStyle="#fff";rr(X-4,GY-4,S*N+8,S*N+8,10);ctx.fill();
+  const pill=(cells,col,w=.78)=>{const a=cells[0],b=cells[cells.length-1];ctx.strokeStyle=col;ctx.lineCap="round";ctx.lineWidth=S*w;ctx.beginPath();ctx.moveTo(X+a[0]*S+S/2,GY+a[1]*S+S/2);ctx.lineTo(X+b[0]*S+S/2,GY+b[1]*S+S/2);ctx.stroke();ctx.lineCap="butt"};
+  for(const w of words)if(w.found)pill([[w.x,w.y],[w.x+w.dx*(w.w.length-1),w.y+w.dy*(w.w.length-1)]],w.color.replace("60%)","60%,.45)").replace("hsl","hsla"));
+  for(const w of words)if(w.hint>0){w.hint-=dt;ctx.strokeStyle="rgba(217,76,106,.8)";ctx.lineWidth=3;ctx.strokeRect(X+w.x*S+2,GY+w.y*S+2,S-4,S-4)}
+  if(drag){const c=lineCells(drag.a,drag.b);if(c)pill(c,"rgba(59,110,168,.35)")}if(flash&&(flash.t-=dt)>0)pill(flash.cells,"rgba(217,76,106,.25)");
+  ctx.font=`800 ${S*.55}px system-ui`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle="#16232e";for(let y=0;y<N;y++)for(let x=0;x<N;x++)ctx.fillText(grid[y][x],X+x*S+S/2,GY+y*S+S/2+1);
+  const ly=GY+S*N+18,cols=2;words.forEach((w,i)=>{const cx=12+(i%cols)*((LW-24)/cols),cy=ly+Math.floor(i/cols)*22;ctx.font="700 14px system-ui";ctx.textAlign="left";ctx.fillStyle=w.found?"#9aaab6":"#16232e";ctx.fillText(w.w,cx,cy);if(w.found){ctx.strokeStyle="#9aaab6";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+ctx.measureText(w.w).width,cy);ctx.stroke()}});
+  const hy=ly+Math.ceil(words.length/cols)*22+6;ctx.fillStyle="#d94c6a";rr(LW/2-50,hy,100,30,8);ctx.fill();ctx.fillStyle="#fff";ctx.font="700 14px system-ui";ctx.textAlign="center";ctx.fillText(`Hint (${hintsUsed})`,LW/2,hy+15);hintBtn={x:LW/2-50,y:hy,w:100,h:30};drawParts()}
+let hintBtn=null;stage.addEventListener("pointerup",e=>{if(!hintBtn||state!=="play")return;const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)/SC,y=(e.clientY-r.top)/SC;if(x>hintBtn.x&&x<hintBtn.x+hintBtn.w&&y>hintBtn.y&&y<hintBtn.y+hintBtn.h)hint()});
+loop(dt=>{if(state==="play"){elapsed=(performance.now()-t0)/1000;if(Math.floor(elapsed)!==Math.floor(elapsed-dt))hud()}stepParts(dt);draw(dt)});
+function openMenu(){menu({title:"Lab Hunt",html:`<p class="sub">Find every lab word hidden in the grid. Each theme you finish unlocks the next.</p>`,
+  settings:[{k:"diff",label:"Grid",def:"med",opts:[["easy","10×10 · across & down"],["med","12×12 · + diagonals"],["hard","14×14 · + backwards"]]},{k:"timer",label:"Timer",def:"on",opts:[["on","On"],["off","Off"]]}],
+  levels:LEVELS,challenges:[{id:"theme",text:"Finish a theme"},{id:"nohint",text:"Finish without hints"},{id:"fast",text:"Finish in under 2 minutes"},{id:"back",text:"Find a backwards word"},{id:"hard",text:"Finish a 14×14 grid"},{id:"all",text:"Finish all 8 themes"}],play:"Hunt"},start)}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>
