@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Mine Field</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#16201a;--ink:#eef5ea;--muted:#9db4a0;--accent:#f2c14e;--f-display:"Space Grotesk",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2b1f00;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.tool{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:2}.tool button{height:40px;padding:0 14px;border-radius:10px;border:1px solid #9db4a0;background:#16201a;color:#eef5ea;font:700 14px system-ui,sans-serif;white-space:nowrap}.tool button[aria-pressed=true]{background:#f2c14e;color:#2b1f00;border-color:#f2c14e}
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#2b1f00}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#2b1f00;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Mine Field</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Tap to dig · long-press to flag · tap a number to clear around it</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=580,FONT="'Space Grotesk', sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const SIZES={easy:[9,9,10],med:[12,16,30],hard:[16,24,75]};
+let W,H,N,cells,cs,ox,oy,state="menu",first=true,t0=0,elapsed=0,flags=0,usedFlag=false,chords=0,flagMode=false,boom=null;
+const tool=document.createElement("div");tool.className="tool";tool.innerHTML=`<button id="fm" aria-pressed="false">⚑ Flag mode</button><button id="rs">New board</button>`;stage.appendChild(tool);
+document.getElementById("fm").onclick=()=>{flagMode=!flagMode;document.getElementById("fm").setAttribute("aria-pressed",flagMode)};
+document.getElementById("rs").onclick=()=>{if(state!=="menu")newBoard()};
+function newBoard(){[W,H,N]=SIZES[setting("size","easy")];cells=[];for(let y=0;y<H;y++)for(let x=0;x<W;x++)cells.push({x,y,mine:false,open:false,flag:0,n:0});
+  cs=Math.floor(Math.min((LW-8)/W,(LH-60)/H));ox=(LW-cs*W)/2;oy=Math.max(8,(LH-56-cs*H)/2);first=true;elapsed=0;flags=0;usedFlag=false;chords=0;boom=null;state="play";hud()}
+const at=(x,y)=>x>=0&&y>=0&&x<W&&y<H?cells[y*W+x]:null;
+const around=c=>{const r=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(dx||dy){const q=at(c.x+dx,c.y+dy);if(q)r.push(q)}return r};
+function plant(safe){const safeSet=new Set([safe,...(setting("safe","area")==="area"?around(safe):[])]);let k=0;while(k<N){const c=pick(cells);if(c.mine||safeSet.has(c))continue;c.mine=true;k++}for(const c of cells)c.n=around(c).filter(q=>q.mine).length}
+function hud(){stats({"💣":N-flags,"⏱":Math.floor(elapsed)+"s",Best:SAVE.best[setting("size","easy")]?SAVE.best[setting("size","easy")]+"s":"–"})}
+function open(c){if(c.open||c.flag===1)return;if(first){first=false;plant(c);t0=performance.now()}c.open=true;
+  if(c.mine){lose(c);return}if(c.n===0){const q=[c];while(q.length){const a=q.pop();for(const b of around(a))if(!b.open&&!b.mine&&b.flag!==1){b.open=true;if(b.n===0)q.push(b)}}}}
+function chord(c){const f=around(c).filter(q=>q.flag===1).length;if(f!==c.n)return;let did=false;for(const q of around(c))if(!q.open&&q.flag!==1){open(q);did=true}if(did){chords++;if(chords>=10)award("chord")}}
+function toggleFlag(c){if(c.open)return;const qm=setting("qmark","off")==="on";c.flag=c.flag===1?(qm?2:0):c.flag===2?0:1;flags=cells.filter(q=>q.flag===1).length;usedFlag=true;if(navigator.vibrate)try{navigator.vibrate(20)}catch(e){}hud()}
+function checkWin(){if(state!=="play")return;if(cells.every(c=>c.mine||c.open)){state="won";const s=setting("size","easy"),t=Math.floor(elapsed);for(const c of cells)if(c.mine)c.flag=1;
+  if(!SAVE.best[s]||t<SAVE.best[s])SAVE.best[s]=t;persist();award("win_"+s);if(s==="easy"&&t<60)award("fast");if(!usedFlag)award("noflag");
+  setTimeout(()=>card(`<h1>Cleared</h1><p>${({easy:"Easy",med:"Medium",hard:"Hard"})[s]} in ${t}s</p><p class="sub">Best ${SAVE.best[s]}s</p>`,"New board",newBoard),500)}}
+function lose(c){state="lost";boom=c;for(const q of cells)if(q.mine)q.open=true;burst(ox+c.x*cs+cs/2,oy+c.y*cs+cs/2,"#ff6b4a",40,200,1);
+  setTimeout(()=>card(`<h1>Boom</h1><p>${Math.round(cells.filter(q=>q.open&&!q.mine).length/(W*H-N)*100)}% of the field cleared</p>`,"Try again",newBoard),900)}
+let press=null;
+function cellFrom(l){const x=Math.floor((l.x-ox)/cs),y=Math.floor((l.y-oy)/cs);return at(x,y)}
+pointer({down:(l)=>{if(state!=="play")return;const c=cellFrom(l);if(!c)return;press={c,t:setTimeout(()=>{toggleFlag(c);press.done=true},380)}},
+  move:(l,dx,dy,p)=>{if(press&&Math.hypot(l.x-p.x0,l.y-p.y0)>cs*.6){clearTimeout(press.t);press=null}},
+  up:()=>{if(!press)return;clearTimeout(press.t);if(press.done){press=null;return}const c=press.c;press=null;if(state!=="play")return;
+    if(c.open){if(c.n)chord(c)}else if(flagMode)toggleFlag(c);else open(c);checkWin();hud()}});
+const NUMC=["","#4aa3ff","#5fd068","#ff6b6b","#b388ff","#ff9f43","#3dd6d0","#eef5ea","#9db4a0"];
+function draw(){ctx.fillStyle="#16201a";ctx.fillRect(0,0,LW,LH);if(!cells)return;
+  for(const c of cells){const x=ox+c.x*cs,y=oy+c.y*cs;
+    if(c.open){ctx.fillStyle=c===boom?"#7a2a1e":(c.x+c.y)%2?"#c9b48a":"#d4c096";ctx.fillRect(x,y,cs,cs);
+      if(c.mine){ctx.fillStyle="#1d1d1d";ctx.beginPath();ctx.arc(x+cs/2,y+cs/2,cs*.26,0,TAU);ctx.fill();ctx.strokeStyle="#1d1d1d";ctx.lineWidth=2;for(let k=0;k<4;k++){const a=k*Math.PI/4;ctx.beginPath();ctx.moveTo(x+cs/2-Math.cos(a)*cs*.38,y+cs/2-Math.sin(a)*cs*.38);ctx.lineTo(x+cs/2+Math.cos(a)*cs*.38,y+cs/2+Math.sin(a)*cs*.38);ctx.stroke()}
+        if(c.flag===1&&state==="lost"){}}
+      else if(c.n){ctx.font=`800 ${cs*.6}px system-ui,sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle=["","#1f5fbf","#2e7d32","#c62828","#5e35b1","#bf6a00","#00838f","#222","#555"][c.n];ctx.fillText(c.n,x+cs/2,y+cs/2+1)}}
+    else{ctx.fillStyle=(c.x+c.y)%2?"#6fae4f":"#7cbc5a";ctx.fillRect(x,y,cs,cs);ctx.fillStyle="rgba(255,255,255,.12)";ctx.fillRect(x,y,cs,2);ctx.fillStyle="rgba(0,0,0,.12)";ctx.fillRect(x,y+cs-2,cs,2);
+      if(c.flag===1){ctx.fillStyle="#e8452c";ctx.beginPath();ctx.moveTo(x+cs*.38,y+cs*.2);ctx.lineTo(x+cs*.78,y+cs*.36);ctx.lineTo(x+cs*.38,y+cs*.52);ctx.fill();ctx.fillStyle="#333";ctx.fillRect(x+cs*.34,y+cs*.2,2.5,cs*.6)}
+      if(c.flag===2){ctx.font=`800 ${cs*.55}px system-ui`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle="#fff";ctx.fillText("?",x+cs/2,y+cs/2)}}}
+  if(press&&!press.done){const x=ox+press.c.x*cs,y=oy+press.c.y*cs;ctx.strokeStyle="#f2c14e";ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,cs-2,cs-2)}
+  drawParts()}
+loop(dt=>{if(state==="play"&&!first){elapsed=(performance.now()-t0)/1000;hud()}stepParts(dt);draw()});
+function openMenu(){menu({title:"Mine Field",html:`<p class="sub">Clear every square that isn't a mine. Each number tells you how many mines touch that square.</p>`,
+  settings:[{k:"size",label:"Field",def:"easy",opts:[["easy","Easy 9×9"],["med","Medium 12×16"],["hard","Hard 16×24"]]},{k:"safe",label:"First tap",def:"area",opts:[["area","Opens an area"],["cell","Safe square only"]]},{k:"qmark",label:"Question marks",def:"off",opts:[["off","Off"],["on","On"]]}],
+  challenges:[{id:"win_easy",text:"Clear an Easy field"},{id:"fast",text:"Clear Easy in under 60 seconds"},{id:"win_med",text:"Clear a Medium field"},{id:"win_hard",text:"Clear a Hard field"},{id:"noflag",text:"Win without placing a single flag"},{id:"chord",text:"Use 10 number-taps (chords) in one game"}],play:"Start"},()=>newBoard())}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>

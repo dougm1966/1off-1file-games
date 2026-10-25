@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Star Siege</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#070b18;--ink:#e6f0ff;--muted:#7f93b8;--accent:#5cf2c4;--f-display:"Orbitron","Arial Black",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#111;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Star Siege</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Slide anywhere to move · your cannon fires on its own</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=600,FONT="'Orbitron', sans-serif";
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+
+
+const ACOLS=9,AROWS=5,AW=26,AH=20,GAPX=10,GAPY=12;
+const TYPES=[{c:"#ff6b9a",pts:30},{c:"#ffb547",pts:20},{c:"#ffb547",pts:20},{c:"#6fc3ff",pts:10},{c:"#6fc3ff",pts:10}];
+let ship,aliens,ashots,shots,bunkers,ufo,score,lives,wave,state="menu",best=getBest("ss-best"),dirX=1,stepT=0,fireT=0,frame=0,hitT=0;
+const stars=Array.from({length:70},()=>({x:rnd(0,LW),y:rnd(0,LH),s:rnd(.4,1.4)}));
+function makeWave(){aliens=[];for(let r=0;r<AROWS;r++)for(let c=0;c<ACOLS;c++)aliens.push({x:24+c*(AW+GAPX)-4,y:70+r*(AH+GAPY)+Math.min(wave-1,5)*12,t:r,alive:true});
+  ashots=[];shots=[];dirX=1;ufo=null;
+  bunkers=[];for(let b=0;b<4;b++){const bx=26+b*86;for(let y=0;y<10;y++)for(let x=0;x<16;x++){if(y<2&&(x<2||x>13))continue;if(y>6&&x>4&&x<11)continue;bunkers.push({x:bx+x*3,y:480+y*3})}}}
+function newGame(){score=0;lives=3;wave=1;ship={x:LW/2,y:560};makeWave();state="play";hud()}
+function hud(){stats({Score:score,Best:Math.max(best,score),Wave:wave||1,"♥":lives??3})}
+pointer({move:(l,dx)=>{if(state==="play")ship.x=clamp(ship.x+dx*1.2,16,LW-16)}});
+function alive(){return aliens.filter(a=>a.alive)}
+function update(dt){
+  for(const s of stars){s.y+=s.s*12*dt;if(s.y>LH)s.y=0}
+  if(state!=="play")return;frame+=dt;
+  const kx=(keys.ArrowLeft?-1:0)+(keys.ArrowRight?1:0);if(kx)ship.x=clamp(ship.x+kx*260*dt,16,LW-16);
+  fireT-=dt;if(fireT<=0&&shots.length<2){shots.push({x:ship.x,y:ship.y-14});fireT=.42}
+  for(const s of shots)s.y-=420*dt;shots=shots.filter(s=>s.y>30);
+  const A=alive(),n=A.length;const speed=(0.55-0.45*(1-n/(ACOLS*AROWS)))/(1+(wave-1)*.12);
+  stepT+=dt;if(stepT>=speed){stepT=0;const minX=Math.min(...A.map(a=>a.x)),maxX=Math.max(...A.map(a=>a.x+AW));
+    if((dirX>0&&maxX+8>LW-6)||(dirX<0&&minX-8<6)){dirX*=-1;for(const a of A)a.y+=14}else for(const a of A)a.x+=8*dirX}
+  if(Math.random()<dt*(0.9+wave*.25)&&n){const cols={};for(const a of A){const k=Math.round(a.x);if(!cols[k]||a.y>cols[k].y)cols[k]=a}const sh=pick(Object.values(cols));ashots.push({x:sh.x+AW/2,y:sh.y+AH,w:rnd(0,7)})}
+  for(const s of ashots){s.y+=(170+wave*12)*dt;s.w+=dt*14}
+  if(!ufo&&Math.random()<dt*.07)ufo={x:-30,dir:1};if(ufo){ufo.x+=90*dt;if(ufo.x>LW+30)ufo=null}
+  // collisions
+  for(const s of shots){for(const a of A)if(a.alive&&s.x>a.x&&s.x<a.x+AW&&s.y>a.y&&s.y<a.y+AH){a.alive=false;s.y=-99;score+=TYPES[a.t].pts;burst(a.x+AW/2,a.y+AH/2,TYPES[a.t].c,16,150);hud();break}
+    if(ufo&&Math.abs(s.x-ufo.x)<18&&Math.abs(s.y-48)<10){const p=pick([50,100,150,300]);score+=p;burst(ufo.x,48,"#ff4d6d",24,180);floating.push({x:ufo.x,y:48,t:1,s:p});ufo=null;s.y=-99;hud()}}
+  for(const list of [shots,ashots])for(const s of list){for(let i=bunkers.length-1;i>=0;i--){const b=bunkers[i];if(s.x>b.x-1&&s.x<b.x+4&&s.y>b.y-2&&s.y<b.y+5){bunkers.splice(i,1);for(let k=bunkers.length-1;k>=0;k--){const o=bunkers[k];if(Math.hypot(o.x-b.x,o.y-b.y)<6&&Math.random()<.5)bunkers.splice(k,1)}s.y=list===shots?-99:999;break}}}
+  for(const a of A)for(let i=bunkers.length-1;i>=0;i--){const b=bunkers[i];if(b.x>a.x&&b.x<a.x+AW&&b.y>a.y&&b.y<a.y+AH)bunkers.splice(i,1)}
+  for(const s of ashots)if(Math.abs(s.x-ship.x)<14&&s.y>ship.y-10&&s.y<ship.y+10){s.y=999;hit()}
+  ashots=ashots.filter(s=>s.y<LH);shots=shots.filter(s=>s.y>0);
+  if(A.some(a=>a.alive&&a.y+AH>ship.y-12)){lives=1;hit()}
+  if(state==="play"&&!alive().length){wave++;score+=200;hud();makeWave()}
+}
+const floating=[];
+function hit(){burst(ship.x,ship.y,"#5cf2c4",30,200,.9);lives--;hitT=1;hud();ashots=[];
+  if(lives<=0){state="over";if(score>best){best=score;setBest("ss-best",best)}setTimeout(()=>card(`<h1>Overrun</h1><p>Score ${score} · wave ${wave}</p><p class="sub">Best ${best}</p>`,"Defend again",newGame),800)}}
+function alien(x,y,t,ph){const c=TYPES[t].c;ctx.fillStyle=c;
+  if(t===0){ctx.beginPath();ctx.ellipse(x+13,y+9,11,9,0,0,7);ctx.fill();for(let i=0;i<4;i++){ctx.fillRect(x+4+i*6,y+15,3,4+(ph&&i%2?2:0))}ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(x+13,y+8,4,0,7);ctx.fill();ctx.fillStyle="#2a0a18";ctx.beginPath();ctx.arc(x+13+(ph?1:-1),y+8,2,0,7);ctx.fill()}
+  else if(t<3){rr(x+2,y+3,22,13,6);ctx.fill();ctx.fillRect(x+(ph?0:2),y+13,4,6);ctx.fillRect(x+(ph?22:20),y+13,4,6);ctx.fillRect(x+6,y,2,4);ctx.fillRect(x+18,y,2,4);ctx.fillStyle="#1d1200";ctx.fillRect(x+7,y+7,4,4);ctx.fillRect(x+15,y+7,4,4)}
+  else{ctx.beginPath();ctx.moveTo(x+13,y+1);ctx.lineTo(x+25,y+12);ctx.lineTo(x+20,y+19);ctx.lineTo(x+13,y+14);ctx.lineTo(x+6,y+19);ctx.lineTo(x+1,y+12);ctx.closePath();ctx.fill();ctx.fillStyle="#04203a";ctx.fillRect(x+9,y+8,3,3);ctx.fillRect(x+14,y+8,3,3);if(ph){ctx.fillStyle=c;ctx.fillRect(x+12,y+17,2,4)}}}
+function draw(){ctx.fillStyle="#070b18";ctx.fillRect(0,0,LW,LH);for(const s of stars){ctx.fillStyle=`rgba(200,220,255,${s.s/1.6})`;ctx.fillRect(s.x,s.y,s.s,s.s)}
+  ctx.fillStyle="#1c2a4a";ctx.fillRect(0,LH-22,LW,2);
+  if(aliens){const ph=Math.floor(frame*3)%2;for(const a of aliens)if(a.alive)alien(a.x,a.y,a.t,ph)}
+  if(bunkers){ctx.fillStyle="#5cf2c4";for(const b of bunkers)ctx.fillRect(b.x,b.y,3,3)}
+  if(ufo){ctx.fillStyle="#ff4d6d";ctx.beginPath();ctx.ellipse(ufo.x,50,18,6,0,0,7);ctx.fill();ctx.fillStyle="#ffd1db";ctx.beginPath();ctx.ellipse(ufo.x,45,8,6,0,Math.PI,0);ctx.fill()}
+  if(shots){ctx.fillStyle="#e6f0ff";for(const s of shots)ctx.fillRect(s.x-1.5,s.y-8,3,10);ctx.strokeStyle="#ffd25c";ctx.lineWidth=2;for(const s of ashots){ctx.beginPath();for(let k=0;k<4;k++)ctx.lineTo(s.x+Math.sin(s.w+k)*3,s.y-10+k*4);ctx.stroke()}}
+  if(ship&&state!=="menu"&&!(hitT>0&&Math.floor(hitT*12)%2)){const x=ship.x,y=ship.y;ctx.fillStyle="#5cf2c4";ctx.beginPath();ctx.moveTo(x,y-14);ctx.lineTo(x+6,y-4);ctx.lineTo(x+16,y+2);ctx.lineTo(x+16,y+8);ctx.lineTo(x-16,y+8);ctx.lineTo(x-16,y+2);ctx.lineTo(x-6,y-4);ctx.closePath();ctx.fill();ctx.fillStyle="#0b4a3a";ctx.fillRect(x-2,y-6,4,6)}
+  for(let i=floating.length-1;i>=0;i--){const f=floating[i];f.t-=1/60;text(String(f.s),f.x,f.y-(1-f.t)*20,14,"#ff4d6d");if(f.t<=0)floating.splice(i,1)}
+  drawParts()}
+loop(dt=>{update(dt);stepParts(dt);hitT=Math.max(0,hitT-dt);draw()});
+fit();wave=1;makeWave();hud();
+card(`<h1>Star Siege</h1><p>Hold the line against the descending fleet. Shields soak shots but crumble. Hit the red saucer for a bonus.</p><p class="sub">Slide anywhere to move. Firing is automatic.</p>`,"Launch",newGame);
+
+})();
+</script>
+
+</body></html>

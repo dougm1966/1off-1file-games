@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Picture Cross</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#f3efe6;--ink:#2a2620;--muted:#857d6e;--accent:#2f6f8f;--f-display:"DM Serif Display",Georgia,serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#ffffff;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+:root{color-scheme:light}.card{background:#fbf8f2}.tool{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:2}.tool button{height:40px;min-width:56px;padding:0 12px;border-radius:10px;border:1.5px solid #857d6e;background:#fbf8f2;color:#2a2620;font:700 15px system-ui,sans-serif;white-space:nowrap}.tool button[aria-pressed=true]{background:#2f6f8f;color:#fff;border-color:#2f6f8f}
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#ffffff}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#ffffff;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Picture Cross</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Tap or drag to fill · switch to ✕ to mark empty squares</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=540,FONT="system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const art=(rows)=>rows.map(r=>[...r].map(c=>c==="#"?1:0));
+const gen=(n,f)=>Array.from({length:n},(_,y)=>Array.from({length:n},(_,x)=>f(x,y)?1:0));
+const PUZ=[
+ {name:"Heart",col:"#d9485f",g:art([".#.#.","#####","#####",".###.","..#.."])},
+ {name:"Flask",col:"#2f8f6f",g:art(["..#..","..#..",".###.","#####","#####"])},
+ {name:"First aid",col:"#d9485f",g:art(["..#..","..#..","#####","..#..","..#.."])},
+ {name:"Drop",col:"#3a7bd5",g:art(["..#..",".###.","##.##","#####",".###."])},
+ {name:"Smile",col:"#e0a500",g:art([".#.#.",".#.#.",".....","#...#",".###."])},
+ {name:"Cell",col:"#a35bd6",g:gen(10,(x,y)=>{const d=Math.hypot(x-4.5,y-4.5),n=Math.hypot(x-5,y-4);return d<4.9&&n>1.6||(x===2&&y===6)||(x===7&&y===7)})},
+ {name:"Petri dish",col:"#2f8f6f",g:gen(10,(x,y)=>{const d=Math.hypot(x-4.5,y-4.5);return (d>3.4&&d<4.9)||((x===3&&y===3)||(x===4&&y===3)||(x===6&&y===5)||(x===5&&y===6)||(x===6&&y===6))})},
+ {name:"DNA",col:"#3a7bd5",g:gen(10,(x,y)=>{const a=Math.round(4.5+3.5*Math.sin(y*.75)),b=Math.round(4.5-3.5*Math.sin(y*.75));return x===a||x===b||(y%2===0&&x>Math.min(a,b)&&x<Math.max(a,b))})},
+ {name:"Test tube",col:"#d9485f",g:art(["...######.","....##.#..","....##.#..","....##.#..","....##.#..","....####..","....####..","....####..",".....##...","......#..."].map(r=>r.slice(0,10)))},
+ {name:"Pill",col:"#e07a2f",g:gen(10,(x,y)=>{const t=(x+y)/2,u=(x-y);return Math.abs(u)<=2.4&&t>1&&t<8.2&&!(Math.abs(u)<=2.4&&Math.abs(t-4.6)<.3&&Math.abs(u)>1.6)})},
+ {name:"Erlenmeyer",col:"#2f6f8f",g:gen(15,(x,y)=>{if(y<5)return x>=6&&x<=8;if(y===14)return x>=1&&x<=13;const half=1.5+(y-5)*0.66;const inside=Math.abs(x-7)<=half;const bubble=(x===6&&y===10)||(x===9&&y===11)||(x===5&&y===12)||(x===8&&y===8);return inside&&!bubble})},
+ {name:"Microscope",col:"#4a4a4a",g:art(["......##.......","......##.......",".....###.......",".....###.......","......##.......",".....###...##..",".....###..###..","......##.###...","......#####....","..#########....","..........##...","....####..##...","...######.##...","..############.","..############."])},
+ {name:"Phage",col:"#a35bd6",g:art([".....#####.....","....#######....","...#########...","...#########...","....#######....",".....#####.....","......###......","......###......","......###......","......###......",".....#####.....","....#.#.#.#....","...#..#.#..#...","..#...#.#...#..",".#....#.#....#."])},
+ {name:"Pipette",col:"#3a7bd5",g:art(["......###......",".....#####.....",".....#####.....",".....#####.....","......###......",".......#.......","......###......","......#.#......","......#.#......","......###......","......#.#......","......#.#......","......###......",".......#.......",".......#......."])},
+ {name:"Lab coat",col:"#2f6f8f",g:art(["....##...##....","...###...###...","..####...####..",".#####.#.#####.",".#####.#.#####.","######.#.######","######.#.######","##.###.#.###.##","##.###.#.###.##","##.###.#.###.##","...###.#.###...","...###.#.###...","...###.#.###...","...###.#.###...","...#########..."])},
+];
+const LEVELS=PUZ.map((p,i)=>`${p.g.length}×${p.g.length} · ${i<5?"Easy":i<10?"Medium":"Hard"}`);
+let P,sol,n,user,cs,lw,th,rowC,colC,state="menu",lvl=1,mode=1,mistakes=0,hints=3,usedHint=false,t0=0,painting=null;
+const tool=document.createElement("div");tool.className="tool";tool.innerHTML=`<button id="bf" aria-pressed="true">■ Fill</button><button id="bx" aria-pressed="false">✕ Mark</button><button id="bh">Hint</button>`;stage.appendChild(tool);
+const $=id=>document.getElementById(id);
+$("bf").onclick=()=>{mode=1;$("bf").setAttribute("aria-pressed","true");$("bx").setAttribute("aria-pressed","false")};$("bx").onclick=()=>{mode=2;$("bx").setAttribute("aria-pressed","true");$("bf").setAttribute("aria-pressed","false")};
+$("bh").onclick=()=>{if(state!=="play"||hints<=0||setting("hints","3")==="0")return;const cand=[];for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(sol[y][x]&&user[y][x]!==1)cand.push([x,y]);if(!cand.length)return;const [x,y]=pick(cand);user[y][x]=1;hints--;usedHint=true;autoX();hud();check()};
+const clue=l=>{const r=[];let k=0;for(const v of l){if(v===1)k++;else if(k){r.push(k);k=0}}if(k)r.push(k);return r.length?r:[0]};
+function load(i){lvl=i;P=PUZ[i-1];sol=P.g;n=sol.length;user=sol.map(r=>r.map(()=>0));rowC=sol.map(clue);colC=sol[0].map((_,x)=>clue(sol.map(r=>r[x])));
+  const mr=Math.max(...rowC.map(c=>c.length)),mc=Math.max(...colC.map(c=>c.length));cs=Math.floor(Math.min(46,(LW-8)/(n+mr*.62),(LH-58)/(n+mc*.62)));lw=Math.ceil(mr*cs*.62)+4;th=Math.ceil(mc*cs*.62)+4;
+  mistakes=0;hints=+setting("hints","3");usedHint=false;t0=performance.now();state="play";hud()}
+function hud(){stats({Puzzle:lvl+"/"+PUZ.length,...(setting("check","on")==="on"?{"✗":mistakes+"/3"}:{}),Hints:setting("hints","3")==="0"?"off":hints})}
+const ox=()=>Math.floor((LW-(lw+n*cs))/2)+lw,oy=()=>Math.max(th+2,Math.floor((LH-56-(th+n*cs))/2)+th);
+function cellAt(l){const x=Math.floor((l.x-ox())/cs),y=Math.floor((l.y-oy())/cs);return x>=0&&y>=0&&x<n&&y<n?[x,y]:null}
+function apply(x,y){if(!painting)return;const want=painting.to;if(user[y][x]===want)return;if(painting.from!==user[y][x])return;
+  if(want===1&&setting("check","on")==="on"&&!sol[y][x]){user[y][x]=2;mistakes++;burst(ox()+x*cs+cs/2,oy()+y*cs+cs/2,"#d9485f",8,80);hud();if(navigator.vibrate)try{navigator.vibrate(40)}catch(e){}
+    if(mistakes>=3){state="lost";setTimeout(()=>card(`<h1>Three strikes</h1><p>That square wasn't part of the picture.</p>`,"Try again",()=>load(lvl)),300)}return}
+  user[y][x]=want;autoX();check()}
+function autoX(){if(setting("autox","on")!=="on")return;for(let y=0;y<n;y++)if(clue(user[y].map(v=>v===1?1:0)).join()===rowC[y].join())for(let x=0;x<n;x++)if(!user[y][x])user[y][x]=2;
+  for(let x=0;x<n;x++)if(clue(user.map(r=>r[x]===1?1:0)).join()===colC[x].join())for(let y=0;y<n;y++)if(!user[y][x])user[y][x]=2}
+function check(){if(state!=="play")return;for(let y=0;y<n;y++)if(clue(user[y].map(v=>v===1?1:0)).join()!==rowC[y].join())return;for(let x=0;x<n;x++)if(clue(user.map(r=>r[x]===1?1:0)).join()!==colC[x].join())return;
+  state="won";const t=Math.round((performance.now()-t0)/1000);unlock(lvl+1);if(!mistakes&&setting("check","on")==="on")award("clean");if(!usedHint)award("nohint");if(n===15)award("big");if(lvl===5)award("easy");if(lvl===PUZ.length)award("all");if(n===10&&t<120)award("fast");persist();
+  for(let i=0;i<30;i++)burst(rnd(0,LW),rnd(0,LH*.6),P.col,3,80,.9);
+  setTimeout(()=>card(`<h1>${P.name}</h1><p>Solved in ${t}s${mistakes?` with ${mistakes} mistake${mistakes>1?"s":""}`:""}</p>`,lvl<PUZ.length?"Next puzzle":"Menu",()=>lvl<PUZ.length?load(lvl+1):openMenu()),700)}
+pointer({down:l=>{if(state!=="play")return;const c=cellAt(l);if(!c)return;const [x,y]=c,v=user[y][x];painting={from:v,to:v===mode?0:mode,axis:null,x0:x,y0:y};apply(x,y)},
+  move:l=>{if(!painting)return;const c=cellAt(l);if(!c)return;let [x,y]=c;if(painting.axis===null&&(x!==painting.x0||y!==painting.y0))painting.axis=Math.abs(x-painting.x0)>=Math.abs(y-painting.y0)?"h":"v";if(painting.axis==="h")y=painting.y0;if(painting.axis==="v")x=painting.x0;apply(x,y)},
+  up:()=>{painting=null}});
+function draw(){ctx.fillStyle="#f3efe6";ctx.fillRect(0,0,LW,LH);if(!P)return;const X=ox(),Y=oy();
+  const done=(arr,i,isRow)=>clue((isRow?user[i]:user.map(r=>r[i])).map(v=>v===1?1:0)).join()===arr.join();
+  ctx.font=`700 ${Math.max(9,cs*.48)}px system-ui,sans-serif`;ctx.textBaseline="middle";
+  rowC.forEach((c,y)=>{ctx.fillStyle=y%2?"#ebe5d8":"#e4ddce";ctx.fillRect(X-lw,Y+y*cs,lw-2,cs);ctx.fillStyle=done(c,y,true)?"#b3aa99":"#2a2620";ctx.textAlign="right";c.forEach((v,i)=>ctx.fillText(v,X-6-(c.length-1-i)*cs*.62,Y+y*cs+cs/2+1))});
+  colC.forEach((c,x)=>{ctx.fillStyle=x%2?"#ebe5d8":"#e4ddce";ctx.fillRect(X+x*cs,Y-th,cs,th-2);ctx.fillStyle=done(c,x,false)?"#b3aa99":"#2a2620";ctx.textAlign="center";c.forEach((v,i)=>ctx.fillText(v,X+x*cs+cs/2,Y-4-cs*.3-(c.length-1-i)*cs*.62))});
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const v=user[y][x],px=X+x*cs,py=Y+y*cs;ctx.fillStyle=v===1?(state==="won"?P.col:"#2a2620"):"#fbf8f2";ctx.fillRect(px,py,cs,cs);
+    if(v===2){ctx.strokeStyle="#b06a5a";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(px+cs*.3,py+cs*.3);ctx.lineTo(px+cs*.7,py+cs*.7);ctx.moveTo(px+cs*.7,py+cs*.3);ctx.lineTo(px+cs*.3,py+cs*.7);ctx.stroke()}}
+  ctx.strokeStyle="#cfc6b4";ctx.lineWidth=1;for(let i=0;i<=n;i++){ctx.lineWidth=i%5===0?2:1;ctx.strokeStyle=i%5===0?"#857d6e":"#cfc6b4";ctx.beginPath();ctx.moveTo(X+i*cs,Y);ctx.lineTo(X+i*cs,Y+n*cs);ctx.stroke();ctx.beginPath();ctx.moveTo(X,Y+i*cs);ctx.lineTo(X+n*cs,Y+i*cs);ctx.stroke()}
+  drawParts()}
+loop(dt=>{stepParts(dt);draw()});
+function openMenu(){menu({title:"Picture Cross",html:`<p class="sub">The numbers give the runs of filled squares in each row and column, in order. Fill the grid to reveal the picture.</p>`,
+  settings:[{k:"check",label:"Mistakes",def:"on",opts:[["on","Checked · 3 strikes"],["off","Unchecked"]]},{k:"autox",label:"Auto-mark finished lines",def:"on",opts:[["on","On"],["off","Off"]]},{k:"hints",label:"Hints per puzzle",def:"3",opts:[["0","None"],["1","1"],["3","3"]]}],
+  levels:LEVELS,challenges:[{id:"easy",text:"Finish all five 5×5 puzzles"},{id:"clean",text:"Solve a puzzle with zero mistakes (checked mode)"},{id:"nohint",text:"Solve without hints"},{id:"fast",text:"Solve a 10×10 in under 2 minutes"},{id:"big",text:"Solve a 15×15"},{id:"all",text:"Solve all 15 puzzles"}],play:"Solve"},lv=>load(lv))}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>

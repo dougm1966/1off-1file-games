@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Swarm Wing</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@800;900&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#06040f;--ink:#f1ecff;--muted:#9a8fc4;--accent:#ffd23f;--f-display:"Exo 2","Arial Black",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#111;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Swarm Wing</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Slide anywhere to move · twin cannons fire on their own</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=620,FONT="'Exo 2', sans-serif";
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+
+
+const KIND=[{c1:"#ff4f8b",c2:"#ffd23f",hp:2,pts:150,dive:400},{c1:"#9b6bff",c2:"#5ef2ff",hp:1,pts:80,dive:160},{c1:"#3fd0ff",c2:"#ffe08a",hp:1,pts:50,dive:100}];
+let ship,foes,shots,eshots,score,lives,wave,state="menu",best=getBest("sw-best"),fireT=0,sway=0,diveT=0,inv=0,banner="",bannerT=0;
+const stars=Array.from({length:90},()=>({x:rnd(0,LW),y:rnd(0,LH),s:rnd(20,90)}));
+const slot=f=>({x:LW/2+(f.c-3.5)*36+Math.sin(sway)*14,y:70+f.r*34});
+function bez(p0,p1,p2,p3,t){const u=1-t;return u*u*u*p0+3*u*u*t*p1+3*u*t*t*p2+t*t*t*p3}
+function makeWave(){foes=[];const rows=[[0,[2,3,4,5]],[1,[0,1,2,3,4,5,6,7]],[1,[0,1,2,3,4,5,6,7]],[2,[0,1,2,3,4,5,6,7]],[2,[0,1,2,3,4,5,6,7]]];
+  let i=0;rows.forEach(([k,cols],r)=>cols.forEach(c=>{const side=(i%2)?1:-1;foes.push({k,r,c,hp:KIND[k].hp,st:"enter",t:-(Math.floor(i/2))*0.12-(r*0.35),side,x:-50,y:-50});i++}));
+  shots=[];eshots=[];banner=`Wave ${wave}`;bannerT=1.6}
+function newGame(){score=0;lives=3;wave=1;ship={x:LW/2,y:575};makeWave();state="play";inv=1;hud()}
+function hud(){stats({Score:score,Best:Math.max(best,score),Wave:wave||1,"♥":lives??3})}
+pointer({move:(l,dx)=>{if(state==="play")ship.x=clamp(ship.x+dx*1.2,16,LW-16)}});
+function update(dt){
+  for(const s of stars){s.y+=s.s*dt;if(s.y>LH){s.y=0;s.x=rnd(0,LW)}}
+  if(state!=="play")return;sway+=dt*1.3;
+  const kx=(keys.ArrowLeft?-1:0)+(keys.ArrowRight?1:0);if(kx)ship.x=clamp(ship.x+kx*280*dt,16,LW-16);
+  fireT-=dt;if(fireT<=0&&shots.length<4){shots.push({x:ship.x-7,y:ship.y-10},{x:ship.x+7,y:ship.y-10});fireT=.32}
+  for(const s of shots)s.y-=520*dt;shots=shots.filter(s=>s.y>-10);
+  for(const f of foes){const sl=slot(f);
+    if(f.st==="enter"){f.t+=dt*0.55;if(f.t<0)continue;const t=Math.min(1,f.t);const sx=f.side<0?-30:LW+30;
+      f.x=bez(sx,LW/2-f.side*-140,LW/2+f.side*120,sl.x,t);f.y=bez(-30,420,260,sl.y,t);if(t>=1)f.st="form"}
+    else if(f.st==="form"){f.x=sl.x;f.y=sl.y}
+    else if(f.st==="dive"){f.t+=dt;f.vx+=clamp((ship.x-f.x)*2.2,-260,260)*dt;f.vx*=.985;f.x+=f.vx*dt+Math.sin(f.t*4+f.c)*90*dt;f.y+=(170+wave*10)*dt;
+      if(!f.shot&&f.y>200&&f.y<420&&Math.random()<dt*1.6){eshots.push({x:f.x,y:f.y+10,vx:(ship.x-f.x)*.25});f.shot=Math.random()<.5}
+      if(f.y>LH+30){f.st="return";f.y=-30}}
+    else if(f.st==="return"){const dx=sl.x-f.x,dy=sl.y-f.y,d=Math.hypot(dx,dy);if(d<4)f.st="form";else{f.x+=dx/d*Math.min(d,220*dt);f.y+=dy/d*Math.min(d,220*dt)}}
+  }
+  diveT-=dt;const formed=foes.filter(f=>f.st==="form");
+  if(diveT<=0&&formed.length&&!foes.some(f=>f.st==="enter"&&f.t<1)){const n=Math.min(formed.length,1+Math.floor(Math.random()*Math.min(3,1+wave/2)));
+    for(let i=0;i<n;i++){const f=pick(formed.filter(x=>x.st==="form"));if(!f)break;f.st="dive";f.t=0;f.vx=f.x<LW/2?60:-60;f.shot=false}diveT=rnd(1.4,2.8)/(1+wave*.1)}
+  for(const s of eshots){s.y+=230*dt;s.x+=s.vx*dt}eshots=eshots.filter(s=>s.y<LH+10);
+  for(const s of shots)for(const f of foes){if(f.dead||f.st==="enter"&&f.t<=0)continue;if(Math.abs(s.x-f.x)<13&&Math.abs(s.y-f.y)<12){s.y=-99;f.hp--;
+    if(f.hp<=0){f.dead=true;const p=KIND[f.k].pts*(f.st==="dive"?2:1);score+=p;burst(f.x,f.y,KIND[f.k].c1,18,170);burst(f.x,f.y,KIND[f.k].c2,8,120);hud()}else burst(f.x,f.y,"#fff",6,80);break}}
+  foes=foes.filter(f=>!f.dead);
+  inv=Math.max(0,inv-dt);
+  if(!inv){let hit=eshots.find(s=>Math.abs(s.x-ship.x)<11&&Math.abs(s.y-ship.y)<12)||foes.find(f=>Math.abs(f.x-ship.x)<20&&Math.abs(f.y-ship.y)<18);
+    if(hit){if(hit.k!==undefined){hit.dead=true;foes=foes.filter(f=>!f.dead)}burst(ship.x,ship.y,"#ffd23f",36,220,1);lives--;inv=2.2;eshots=[];hud();
+      if(lives<=0){state="over";if(score>best){best=score;setBest("sw-best",best)}setTimeout(()=>card(`<h1>Shot down</h1><p>Score ${score} · wave ${wave}</p><p class="sub">Best ${best}</p>`,"Fly again",newGame),900)}}}
+  if(!foes.length){wave++;score+=300;hud();makeWave()}
+}
+function foe(f){const K=KIND[f.k],flap=Math.sin(performance.now()/90+f.c)*.35;ctx.save();ctx.translate(f.x,f.y);if(f.st==="dive")ctx.rotate(Math.PI-clamp((f.vx||0)/400,-.7,.7));
+  ctx.fillStyle=K.c2;for(const s of [-1,1]){ctx.save();ctx.scale(s,1);ctx.rotate(flap);ctx.beginPath();ctx.moveTo(2,-2);ctx.quadraticCurveTo(16,-14,17,2);ctx.quadraticCurveTo(10,6,2,4);ctx.fill();ctx.restore()}
+  ctx.fillStyle=K.c1;ctx.beginPath();ctx.ellipse(0,0,6,10,0,0,7);ctx.fill();if(f.hp>1){ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke()}
+  ctx.fillStyle="#fff";ctx.fillRect(-4,-5,3,3);ctx.fillRect(1,-5,3,3);ctx.strokeStyle=K.c1;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(-2,-9);ctx.lineTo(-5,-14);ctx.moveTo(2,-9);ctx.lineTo(5,-14);ctx.stroke();ctx.restore()}
+function draw(){ctx.fillStyle="#06040f";ctx.fillRect(0,0,LW,LH);for(const s of stars){ctx.fillStyle=`rgba(220,210,255,${s.s/110})`;ctx.fillRect(s.x,s.y,1.2,s.s/40)}
+  if(foes)for(const f of foes)if(!(f.st==="enter"&&f.t<=0))foe(f);
+  if(shots){ctx.fillStyle="#ffe7a0";for(const s of shots)ctx.fillRect(s.x-1,s.y-7,2,9);ctx.fillStyle="#ff4f8b";for(const s of eshots){ctx.beginPath();ctx.arc(s.x,s.y,3,0,7);ctx.fill()}}
+  if(ship&&state==="play"&&!(inv>0&&Math.floor(inv*10)%2)){const x=ship.x,y=ship.y;ctx.fillStyle="#e9e6ff";ctx.beginPath();ctx.moveTo(x,y-16);ctx.lineTo(x+5,y-4);ctx.lineTo(x+16,y+6);ctx.lineTo(x+16,y+11);ctx.lineTo(x+4,y+7);ctx.lineTo(x,y+12);ctx.lineTo(x-4,y+7);ctx.lineTo(x-16,y+11);ctx.lineTo(x-16,y+6);ctx.lineTo(x-5,y-4);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#ff4f8b";ctx.fillRect(x-1.5,y-8,3,6);ctx.fillStyle="#5ef2ff";ctx.fillRect(x-14,y+5,3,4);ctx.fillRect(x+11,y+5,3,4)}
+  drawParts();if(bannerT>0)text(banner,LW/2,LH/2,30,"#ffd23f")}
+loop(dt=>{update(dt);stepParts(dt);bannerT=Math.max(0,bannerT-dt);draw()});
+fit();hud();
+card(`<h1>Swarm Wing</h1><p>The swarm loops in, forms up, then peels off to dive at you. Hits during a dive score double.</p><p class="sub">Slide anywhere to move. Twin cannons fire on their own. Pink leaders take two hits.</p>`,"Launch",newGame);
+
+})();
+</script>
+
+</body></html>

@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Night Flipper</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Monoton&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#0b0618;--ink:#fbefff;--muted:#a894c8;--accent:#ff4fd8;--f-display:"Monoton","Arial Black",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#111;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#111}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#111;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Night Flipper</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Hold left / right half for flippers · hold then release to launch</div>
+</div>
+<script>
+(()=>{
+const LW=340,LH=640,FONT="system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const BR=8,PL=290,PR=318,EPS=1e-6;
+const segs=[];const seg=(x1,y1,x2,y2,o={})=>segs.push({x1,y1,x2,y2,e:.45,...o});
+// outer shell: left wall, top arc, right wall (outside lane)
+seg(18,620,18,150);for(let i=0;i<20;i++){const a1=Math.PI+i/20*Math.PI,a2=Math.PI+(i+1)/20*Math.PI;seg(168+Math.cos(a1)*150,150+Math.sin(a1)*150,168+Math.cos(a2)*150,150+Math.sin(a2)*150)}
+seg(PR,150,PR,640);seg(PL,250,PL,640);
+// guides into flippers and slingshots
+seg(44,486,102,560);seg(PL-26,486,206,560); // inlane guides; outlanes beside them drain like a real table
+seg(44,420,44,480);seg(44,480,84,510);seg(44,420,84,510,{kick:420,score:50,id:"slL"});
+seg(PL-26,420,PL-26,480);seg(PL-26,480,PL-66,510);seg(PL-66,510,PL-26,420,{kick:420,score:50,id:"slR"});
+seg(18,178,60,224,{e:.6});seg(PL,196,PL-42,244,{e:.6}); // deflector: balls riding the left wall get kicked into play
+// lane separators at top
+for(const x of [118,154,190,226])seg(x,58,x,92,{e:.3});
+const bumpers=[{x:120,y:205,r:17},{x:200,y:205,r:17},{x:160,y:265,r:17}];
+const lanes=[{x:136},{x:172},{x:208}];
+const targets=[0,1,2,3].map(i=>({x:30,y:250+i*30,h:20,down:false}));
+const flips=[{px:102,py:566,len:48,rest:.48,up:-.42,dir:1,a:.48,w:0,on:false},{px:206,py:566,len:48,rest:Math.PI-.48,up:Math.PI+.42,dir:-1,a:Math.PI-.48,w:0,on:false}];
+let balls=[],score=0,ballsLeft=3,mult=1,mission=0,mprog=0,saveT=0,charge=0,charging=false,state="menu",flash=0,laneLit=[0,0,0],bumpHits=0,missionsDone=0,ballScore=0;
+const MISSIONS=[{t:"Drop all 4 targets",n:1},{t:"Light all 3 top lanes",n:1},{t:"Hit bumpers 25 times",n:25},{t:"Score 15,000 on this ball",n:1},{t:"Hit both slingshots 10 times",n:10}];
+function G(){return {gentle:420,std:560,steep:720}[setting("slope","std")]}
+function newGame(){score=0;ballsLeft=setting("balls",3);mult=1;mission=0;mprog=0;missionsDone=0;laneLit=[0,0,0];targets.forEach(t=>t.down=false);serve();state="play";hud()}
+function serve(){balls=[{x:304,y:600,vx:0,vy:0,lane:true}];ballScore=0;saveT=0}
+function hud(){stats({Score:score.toLocaleString(),"×":mult,Ball:Math.max(0,setting("balls",3)-ballsLeft+1)+"/"+setting("balls",3)})}
+function add(p){const v=p*mult;score+=v;ballScore+=v;hud();if(score>=50000)award("s50");if(score>=150000)award("s150")}
+function progress(kind,n=1){const m=MISSIONS[mission%MISSIONS.length];const map=["targets","lanes","bump","ballscore","sling"];if(map[mission%MISSIONS.length]!==kind)return;mprog+=n;
+  if(mprog>=m.n){mprog=0;missionsDone++;add(5000*missionsDone);mult=Math.min(6,mult+1);toast(`Mission done: ${m.t} · ×${mult}`);flash=1;mission++;if(missionsDone>=3)award("m3");if(missionsDone>=5)award("m5");
+    if(missionsDone%2===0&&balls.length<2&&setting("multi","on")==="on"){balls.push({x:304,y:600,vx:0,vy:-1300,lane:true});saveT=Math.max(saveT,6);toast("Multiball!");award("multi")}}}
+// --- input: multitouch flippers, plunger charge ---
+const active=new Map();
+function upd(){flips[0].on=keys.ArrowLeft||keys.z||[...active.values()].some(x=>x<.5);flips[1].on=keys.ArrowRight||keys.m||[...active.values()].some(x=>x>=.5)}
+stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button")||state!=="play")return;e.preventDefault();const r=cv.getBoundingClientRect();const fx=(e.clientX-r.left)/r.width;
+  if(balls.some(b=>b.lane&&b.vy===0)){charging=true;charge=0;active.set(e.pointerId,-1);return}active.set(e.pointerId,fx);upd()});
+const rel=e=>{const v=active.get(e.pointerId);active.delete(e.pointerId);if(v===-1&&charging){launch()}upd()};stage.addEventListener("pointerup",rel);stage.addEventListener("pointercancel",rel);
+addEventListener("keydown",e=>{upd();if(e.key===" "&&!charging&&balls.some(b=>b.lane&&b.vy===0)){charging=true;charge=0}});addEventListener("keyup",e=>{upd();if(e.key===" "&&charging)launch()});
+function launch(){charging=false;for(const b of balls)if(b.lane&&b.vy===0){b.vy=-(900+charge*700);if(charge>.92&&charge<1){add(2000);toast("Skill shot! +2,000");award("skill")}}saveT={long:12,short:6,off:0}[setting("save","short")]}
+// --- physics ---
+function collideSeg(b,s,vx0=0,vy0=0,ws=null){const dx=s.x2-s.x1,dy=s.y2-s.y1,L2=dx*dx+dy*dy;let t=((b.x-s.x1)*dx+(b.y-s.y1)*dy)/L2;t=clamp(t,0,1);const cx=s.x1+dx*t,cy=s.y1+dy*t;let nx=b.x-cx,ny=b.y-cy;const d=Math.hypot(nx,ny);
+  if(d>=BR||d<EPS)return false;nx/=d;ny/=d;b.x=cx+nx*BR;b.y=cy+ny*BR;let svx=vx0,svy=vy0;if(ws){svx=-ws.w*(cy-ws.py);svy=ws.w*(cx-ws.px)}
+  const rvx=b.vx-svx,rvy=b.vy-svy,vn=rvx*nx+rvy*ny;if(vn<0){const e=s.e??.45;b.vx-=(1+e)*vn*nx;b.vy-=(1+e)*vn*ny;if(s.kick){b.vx+=nx*s.kick;b.vy+=ny*s.kick;add(s.score);burst(cx,cy,"#ff4fd8",8,120);progress("sling")}}return true}
+function flipSeg(f){return {x1:f.px,y1:f.py,x2:f.px+Math.cos(f.a)*f.len,y2:f.py+Math.sin(f.a)*f.len,e:.25}}
+function step(dt){
+  for(const f of flips){const target=f.on?f.up:f.rest,prev=f.a;const sp=f.on?20:12;if(f.dir>0)f.a=f.on?Math.max(target,f.a-sp*dt):Math.min(target,f.a+sp*dt);else f.a=f.on?Math.min(target,f.a+sp*dt):Math.max(target,f.a-sp*dt);f.w=(f.a-prev)/dt}
+  for(const b of balls){if(b.lane&&b.vy===0)continue;b.vy+=G()*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;const sp=Math.hypot(b.vx,b.vy);if(sp>1500){b.vx*=1500/sp;b.vy*=1500/sp}
+    if(b.lane&&b.y<150)b.lane=false;
+    for(const s of segs){if(b.lane&&s.x1===PL&&s.x2===PL)continue;if(!b.lane&&s.x1===PL&&s.x2===PL&&b.x>PL)continue;collideSeg(b,s)}
+    if(b.lane){if(b.x<PL+BR)b.x=PL+BR;if(b.x>PR-BR)b.x=PR-BR}
+    if(!b.lane&&b.x>PL-BR&&b.y>150){b.x=PL-BR;b.vx=-Math.abs(b.vx)*.5-60} // one-way gate over the launch lane
+    for(const f of flips)collideSeg(b,flipSeg(f),0,0,f);
+    for(const p of bumpers){const dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy);if(d<p.r+BR&&d>EPS){const nx=dx/d,ny=dy/d;b.x=p.x+nx*(p.r+BR);b.y=p.y+ny*(p.r+BR);const vn=b.vx*nx+b.vy*ny;b.vx+=-vn*nx*1.6+nx*380;b.vy+=-vn*ny*1.6+ny*380;p.lit=.15;add(100);bumpHits++;progress("bump");if(bumpHits>=100)award("b100")}}
+    for(const t of targets)if(!t.down&&b.x-BR<t.x+5&&b.y>t.y&&b.y<t.y+t.h&&b.vx<0){t.down=true;b.vx=Math.abs(b.vx)*.6+60;add(250);burst(t.x,t.y+10,"#4fe3ff",10,100);if(targets.every(q=>q.down)){add(2500);progress("targets");setTimeout(()=>targets.forEach(q=>q.down=false),900)}}
+    lanes.forEach((l,i)=>{if(Math.abs(b.x-l.x)<12&&b.y>60&&b.y<90&&b.vy>0&&!b._lane){b._lane=1;if(!laneLit[i]){laneLit[i]=1;add(500);if(laneLit.every(x=>x)){add(3000);award("lanes");progress("lanes");setTimeout(()=>laneLit=[0,0,0],800)}}}});if(b.y>100)b._lane=0;
+  }
+  if(ballScore>=15000)progress("ballscore",1);
+  for(let i=balls.length-1;i>=0;i--){if(balls[i].y>LH+20){if(saveT>0&&balls.length===1){balls[i]={x:304,y:600,vx:0,vy:-1250,lane:true};toast("Ball saved");continue}balls.splice(i,1)}}
+  if(!balls.length&&state==="play"){ballsLeft--;hud();if(ballsLeft<=0){state="over";SAVE.best.score=Math.max(SAVE.best.score||0,score);persist();
+      setTimeout(()=>card(`<h1>Game over</h1><p>${score.toLocaleString()} points · ${missionsDone} missions</p><p class="sub">Best ${(SAVE.best.score||0).toLocaleString()}</p>`,"Menu",openMenu),600)}else{mult=Math.max(1,mult-1);serve();toast(`Ball ${setting("balls",3)-ballsLeft+1}`)}}
+}
+function update(dt){if(state!=="play")return;if(charging)charge=Math.min(1.05,charge+dt*.9);saveT=Math.max(0,saveT-dt);flash=Math.max(0,flash-dt);const n=10;for(let i=0;i<n;i++)step(dt/n);for(const p of bumpers)p.lit=Math.max(0,(p.lit||0)-dt)}
+function draw(){const g=ctx.createLinearGradient(0,0,0,LH);g.addColorStop(0,"#1c0b3a");g.addColorStop(1,"#0a0418");ctx.fillStyle=g;ctx.fillRect(0,0,LW,LH);
+  ctx.strokeStyle="rgba(255,79,216,.08)";for(let y=0;y<LH;y+=24){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(LW,y);ctx.stroke()}
+  ctx.fillStyle="rgba(79,227,255,.07)";ctx.beginPath();ctx.moveTo(44,486);ctx.lineTo(102,560);ctx.lineTo(206,560);ctx.lineTo(PL-26,486);ctx.lineTo(PL,640);ctx.lineTo(18,640);ctx.fill();
+  const m=MISSIONS[mission%MISSIONS.length];text(m.t,168,330,12,"#a894c8");if(m.n>1)text(`${mprog}/${m.n}`,168,348,12,"#ff4fd8");
+  ctx.lineCap="round";for(const s of segs){ctx.strokeStyle=s.kick?"#ff4fd8":"#7a5cff";ctx.lineWidth=s.kick?4:3;ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=8;ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.stroke()}ctx.shadowBlur=0;
+  lanes.forEach((l,i)=>{ctx.fillStyle=laneLit[i]?"#ffe14f":"#3a2a5a";ctx.beginPath();ctx.arc(l.x,75,5,0,TAU);ctx.fill()});
+  for(const p of bumpers){const gr=ctx.createRadialGradient(p.x,p.y,2,p.x,p.y,p.r);gr.addColorStop(0,p.lit?"#fff":"#ffd1f4");gr.addColorStop(1,p.lit?"#ff4fd8":"#8a2a9a");ctx.fillStyle=gr;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,TAU);ctx.fill();ctx.strokeStyle="#ffe14f";ctx.lineWidth=2;ctx.stroke()}
+  for(const t of targets){ctx.fillStyle=t.down?"#2a1f45":"#4fe3ff";ctx.fillRect(t.x-3,t.y,7,t.h)}
+  for(const f of flips){const s=flipSeg(f);ctx.strokeStyle="#ffe14f";ctx.lineWidth=11;ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.stroke();ctx.strokeStyle="#ff9f1c";ctx.lineWidth=5;ctx.stroke();ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(f.px,f.py,3,0,TAU);ctx.fill()}
+  ctx.lineCap="butt";ctx.fillStyle="#2a1f45";ctx.fillRect(PL+2,612,PR-PL-4,20);if(charging){ctx.fillStyle="#ff4fd8";ctx.fillRect(PL+2,612,(PR-PL-4),20*Math.min(1,charge));text(charge>.92&&charge<1?"NOW":"",304,560,12,"#ffe14f")}
+  for(const b of balls){const gr=ctx.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,BR);gr.addColorStop(0,"#fff");gr.addColorStop(1,"#9aa3b8");ctx.fillStyle=gr;ctx.beginPath();ctx.arc(b.x,b.y,BR,0,TAU);ctx.fill()}
+  if(saveT>0){ctx.fillStyle=Math.floor(saveT*4)%2?"#4fe3ff":"#1b4a5a";ctx.beginPath();ctx.arc(154,618,5,0,TAU);ctx.fill()}
+  if(flash>0){ctx.fillStyle=`rgba(255,79,216,${flash*.25})`;ctx.fillRect(0,0,LW,LH)}
+  if(state==="play"&&balls.some(b=>b.lane&&b.vy===0)&&!charging)text("Hold, then release to launch",168,420,13,"#fbefff");
+  drawParts()}
+loop(dt=>{update(dt);stepParts(dt);draw()});
+function openMenu(){menu({title:"Night Flipper",html:`<p class="sub">Keep the ball alive and work through the missions shown mid-table. Each one raises your multiplier. Every second mission lights multiball.</p>`,
+  settings:[{k:"slope",label:"Table slope",def:"std",opts:[["gentle","Gentle"],["std","Standard"],["steep","Steep"]]},{k:"balls",label:"Balls",def:3,opts:[[3,"3"],[5,"5"]]},{k:"save",label:"Ball save",def:"short",opts:[["long","Long"],["short","Short"],["off","Off"]]},{k:"multi",label:"Multiball",def:"on",opts:[["on","On"],["off","Off"]]}],
+  challenges:[{id:"skill",text:"Hit the skill shot (release at NOW)"},{id:"lanes",text:"Light all 3 top lanes"},{id:"m3",text:"Complete 3 missions in one game"},{id:"m5",text:"Complete 5 missions in one game"},{id:"multi",text:"Start multiball"},{id:"b100",text:"100 bumper hits in one game"},{id:"s50",text:"Score 50,000"},{id:"s150",text:"Score 150,000"}],play:"Play"},()=>{bumpHits=0;newGame()})}
+fit();serve();openMenu();
+
+})();
+</script>
+
+</body></html>

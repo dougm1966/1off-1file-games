@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Sky Rescue</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#04030c;--ink:#f0ecff;--muted:#9890c0;--accent:#3dffb0;--f-display:"Audiowide",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#002a1a;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.bomb{position:absolute;right:max(8px,env(safe-area-inset-right,0px));bottom:10px;width:70px;height:70px;border-radius:50%;border:2px solid #ff5f8f;background:rgba(255,95,143,.18);color:#ff5f8f;font:800 14px system-ui;z-index:2}
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#002a1a}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#002a1a;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Sky Rescue</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Slide to fly and turn · BOMB clears the screen</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=600,FONT="system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const WW=1440,GROUND=560,TOPZ=70;
+const LEVELS=["Wave 1","Wave 2","Wave 3","Wave 4","Wave 5","Wave 6","Wave 7","Wave 8","Wave 9","Wave 10"];
+let ship,cam=0,enemies,humans,shots,beams,score,lives,bombs,wave,state="menu",fireT=0,touching=false,inv=0,lostHuman=false,diedThisWave=false,terrain=[];
+for(let x=0;x<=WW;x+=24)terrain.push(GROUND+8+Math.abs(Math.sin(x*.011)*18+Math.sin(x*.031)*10));
+const bombBtn=document.createElement("button");bombBtn.className="bomb";bombBtn.textContent="BOMB";stage.appendChild(bombBtn);
+const wrapD=d=>{d=((d%WW)+WW)%WW;return d>WW/2?d-WW:d};const sx=x=>wrapD(x-cam)+0;
+function diff(){return ({easy:.75,std:1,hard:1.3})[setting("diff","std")]}
+function newWave(){const n=5+wave*2;enemies=[];for(let i=0;i<n;i++)enemies.push(lander(rnd(0,WW),rnd(-200,-20)));if(!humans||!humans.some(h=>!h.dead)||wave%5===1){humans=[];for(let i=0;i<8;i++)humans.push({x:rnd(0,WW),y:GROUND+4,dir:pick([-1,1]),state:"walk",dead:false})}
+  bombs=3;lostHuman=false;diedThisWave=false;toast(`Wave ${wave}`);hud()}
+function lander(x,y){return {type:"lander",x,y,vx:rnd(-40,40),vy:30,target:null,carry:null,fireT:rnd(1,3),hp:1}}
+function start(lv){wave=lv;score=0;lives=3;ship={x:WW/2,y:300,vx:0,face:1};cam=ship.x-LW/2;shots=[];beams=[];humans=null;newWave();state="play";inv=1.5}
+function hud(){stats({Score:score,Wave:wave||1,"♥":lives??3,"💣":bombs??3})}
+pointer({down:()=>{touching=true},move:(l,dx,dy)=>{if(state!=="play")return;ship.y=clamp(ship.y+dy*1.3,TOPZ+10,GROUND-10);ship.vx=clamp(ship.vx+dx*9,-340,340);if(Math.abs(dx)>.6)ship.face=Math.sign(dx)},up:()=>{touching=false}});
+bombBtn.addEventListener("pointerdown",e=>{e.preventDefault();smart()});addEventListener("keydown",e=>{if(e.key==="b")smart()});
+function smart(){if(state!=="play"||bombs<=0)return;bombs--;let k=0;for(const e of enemies)if(!e.dead&&Math.abs(sx(e.x)-LW/2)<LW/2+10){kill(e);k++}if(k>=5)award("bomb5");flashT=.3;hud()}
+let flashT=0;
+function kill(e){e.dead=true;score+=e.type==="lander"?150:200;burst(sx(e.x),e.y,e.type==="lander"?"#3dffb0":"#ff5f8f",18,170);if(e.carry){e.carry.state="fall";e.carry.vy=0;e.carry.fallFrom=e.carry.y;e.carry=null}hud()}
+function update(dt){if(state!=="play")return;const D=diff();
+  if(keys.ArrowUp)ship.y=clamp(ship.y-240*dt,TOPZ+10,GROUND-10);if(keys.ArrowDown)ship.y=clamp(ship.y+240*dt,TOPZ+10,GROUND-10);if(keys.ArrowLeft){ship.vx-=600*dt;ship.face=-1}if(keys.ArrowRight){ship.vx+=600*dt;ship.face=1}
+  ship.vx*=Math.pow(.6,dt);if(Math.abs(ship.vx)<120&&(touching||keys.ArrowLeft||keys.ArrowRight))ship.vx+=ship.face*80*dt;ship.x=((ship.x+ship.vx*dt)%WW+WW)%WW;
+  const want=ship.x-LW/2+ship.face*90;cam+=wrapD(want-cam)*Math.min(1,dt*3);cam=((cam%WW)+WW)%WW;
+  fireT-=dt;const auto=setting("fire","touch")==="always"||touching||keys[" "];if(auto&&fireT<=0){beams.push({x:ship.x+ship.face*16,y:ship.y+2,dir:ship.face,len:0,t:.35});fireT=.22}
+  for(const b of beams){b.len=Math.min(260,b.len+1400*dt);b.t-=dt;for(const e of enemies){if(e.dead)continue;const d=wrapD(e.x-b.x)*b.dir;if(d>0&&d<b.len&&Math.abs(e.y-b.y)<12){kill(e);b.t=0;break}}}beams=beams.filter(b=>b.t>0);
+  for(const e of enemies){if(e.dead)continue;e.fireT-=dt;
+    if(e.type==="lander"){if(!e.carry){if(!e.target||e.target.dead||e.target.state!=="walk"){const c=humans.filter(h=>h.state==="walk"&&!h.dead);e.target=c.length?pick(c):null}
+        if(e.target){const dx=wrapD(e.target.x-e.x);e.vx+=clamp(dx,-1,1)*60*dt*D;e.vx=clamp(e.vx,-70*D,70*D);e.vy=Math.abs(dx)<30?55*D:Math.sin(performance.now()/700+e.x)*25;
+          if(Math.abs(dx)<8&&Math.abs(e.y-(GROUND-10))<10){e.carry=e.target;e.target.state="taken";e.vy=-28*D}}else{e.vy=Math.sin(performance.now()/600+e.x)*30}
+        e.y=clamp(e.y+e.vy*dt,-200,GROUND-10)}
+      else{e.vy=-28*D;e.y+=e.vy*dt;e.carry.x=e.x;e.carry.y=e.y+14;if(e.y<TOPZ){e.carry.dead=true;e.carry=null;e.type="mutant";e.hp=1;lostHuman=true;toast("A person was taken!")}}
+      e.x=((e.x+e.vx*dt)%WW+WW)%WW}
+    else{const dx=wrapD(ship.x-e.x),dy=ship.y-e.y;e.x=((e.x+clamp(dx,-1,1)*130*D*dt+rnd(-40,40)*dt)%WW+WW)%WW;e.y+=clamp(dy,-1,1)*90*D*dt+Math.sin(performance.now()/90)*.8}
+    if(e.fireT<=0&&Math.abs(sx(e.x)-LW/2)<LW/2){e.fireT=rnd(1.6,3.2)/D;const dx=wrapD(ship.x-e.x),dy=ship.y-e.y,d=Math.hypot(dx,dy)||1;shots.push({x:e.x,y:e.y,vx:dx/d*150*D,vy:dy/d*150*D,t:3})}}
+  for(const s of shots){s.x=((s.x+s.vx*dt)%WW+WW)%WW;s.y+=s.vy*dt;s.t-=dt}shots=shots.filter(s=>s.t>0);
+  for(const h of humans){if(h.dead)continue;if(h.state==="walk"){h.x=((h.x+h.dir*10*dt)%WW+WW)%WW;if(Math.random()<dt*.3)h.dir*=-1}
+    if(h.state==="fall"){h.vy+=120*dt;h.y+=h.vy*dt;if(Math.abs(wrapD(h.x-ship.x))<16&&Math.abs(h.y-ship.y)<16){h.state="held";score+=500;award("catch");toast("Caught! Fly low to set them down");hud()}
+      if(h.y>=GROUND+4){h.y=GROUND+4;if(h.y-h.fallFrom>220){h.dead=true;lostHuman=true;burst(sx(h.x),h.y,"#ffd36b",10,80)}else{h.state="walk";score+=250;hud()}}}
+    if(h.state==="held"){h.x=ship.x;h.y=ship.y+14;if(ship.y>GROUND-40){h.state="walk";h.y=GROUND+4;score+=500;hud()}}}
+  if(!humans.some(h=>!h.dead)){for(const e of enemies)if(e.type==="lander"){e.type="mutant";if(e.carry)e.carry=null}}
+  enemies=enemies.filter(e=>!e.dead);
+  inv=Math.max(0,inv-dt);
+  if(!inv){const hitE=enemies.find(e=>Math.abs(wrapD(e.x-ship.x))<16&&Math.abs(e.y-ship.y)<14),hitS=shots.find(s=>Math.abs(wrapD(s.x-ship.x))<10&&Math.abs(s.y-ship.y)<8);
+    if(hitE||hitS){burst(sx(ship.x),ship.y,"#3dffb0",40,220,1);lives--;inv=2.5;shots=[];diedThisWave=true;hud();for(const h of humans)if(h.state==="held"){h.state="fall";h.vy=0;h.fallFrom=h.y}
+      if(lives<=0){state="over";SAVE.best.score=Math.max(SAVE.best.score||0,score);persist();setTimeout(()=>card(`<h1>Shot down</h1><p>Score ${score} · wave ${wave}</p><p class="sub">Best ${SAVE.best.score}</p>`,"Menu",openMenu),900);return}}}
+  if(!enemies.length){score+=humans.filter(h=>!h.dead).length*100*wave;if(!lostHuman)award("allsafe");if(!diedThisWave)award("clean");wave++;unlock(wave);if(wave>=5)award("w5");if(score>=20000)award("s20");persist();newWave()}
+  flashT=Math.max(0,flashT-dt)}
+function draw(){const g=ctx.createLinearGradient(0,0,0,LH);g.addColorStop(0,"#04030c");g.addColorStop(1,"#130a2a");ctx.fillStyle=g;ctx.fillRect(0,0,LW,LH);
+  for(let i=0;i<70;i++){const wx=(i*211)%WW,x=sx(wx)*.5+LW/4,y=(i*97)%(GROUND-80)+60;if(x>-2&&x<LW+2){ctx.fillStyle="rgba(220,220,255,.5)";ctx.fillRect(x,y,1.2,1.2)}}
+  ctx.strokeStyle="#c85cff";ctx.lineWidth=2;ctx.beginPath();for(let x=0;x<=LW;x+=6){const wx=((cam+x)%WW+WW)%WW,i=Math.floor(wx/24),t=(wx%24)/24,y=terrain[i]*(1-t)+terrain[(i+1)%terrain.length]*t;x?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke();
+  ctx.fillStyle="rgba(200,92,255,.08)";ctx.fillRect(0,GROUND+20,LW,LH);
+  if(humans)for(const h of humans){if(h.dead)continue;const x=sx(h.x);if(x<-10||x>LW+10)continue;ctx.fillStyle="#ffd36b";ctx.fillRect(x-2,h.y-10,4,8);ctx.beginPath();ctx.arc(x,h.y-13,3,0,TAU);ctx.fill();ctx.fillRect(x-3,h.y-2,2,4);ctx.fillRect(x+1,h.y-2,2,4)}
+  if(enemies)for(const e of enemies){const x=sx(e.x);if(x<-20||x>LW+20)continue;if(e.type==="lander"){ctx.fillStyle="#3dffb0";ctx.beginPath();ctx.arc(x,e.y-2,8,Math.PI,0);ctx.fill();ctx.fillStyle="#1e8a5c";ctx.fillRect(x-9,e.y-2,18,5);ctx.strokeStyle="#3dffb0";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x-6,e.y+3);ctx.lineTo(x-9,e.y+9);ctx.moveTo(x+6,e.y+3);ctx.lineTo(x+9,e.y+9);ctx.stroke();ctx.fillStyle="#ff5f8f";ctx.fillRect(x-1,e.y-6,2,2)}
+    else{ctx.fillStyle=Math.floor(performance.now()/80)%2?"#ff5f8f":"#ffd36b";ctx.beginPath();for(let k=0;k<8;k++){const a=k/8*TAU,r=k%2?5:10;ctx.lineTo(x+Math.cos(a)*r,e.y+Math.sin(a)*r)}ctx.fill()}}
+  ctx.fillStyle="#ff9fbf";if(shots)for(const s of shots){const x=sx(s.x);ctx.beginPath();ctx.arc(x,s.y,2.5,0,TAU);ctx.fill()}
+  if(beams)for(const b of beams){const x=sx(b.x);ctx.strokeStyle=`rgba(255,255,255,${b.t/.35})`;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,b.y);ctx.lineTo(x+b.dir*b.len,b.y);ctx.stroke();ctx.strokeStyle=`rgba(61,255,176,${b.t/.35*.6})`;ctx.lineWidth=4;ctx.stroke()}
+  if(ship&&state==="play"&&!(inv>0&&Math.floor(inv*10)%2)){const x=sx(ship.x),y=ship.y,f=ship.face;ctx.save();ctx.translate(x,y);ctx.scale(f,1);ctx.fillStyle="#e9e6ff";ctx.beginPath();ctx.moveTo(16,2);ctx.lineTo(-10,-6);ctx.lineTo(-14,-10);ctx.lineTo(-14,6);ctx.lineTo(-8,6);ctx.closePath();ctx.fill();ctx.fillStyle="#3dffb0";ctx.fillRect(-2,-4,8,3);
+    if(Math.abs(ship.vx)>40){ctx.fillStyle=pick(["#ff9f43","#ffd36b"]);ctx.beginPath();ctx.moveTo(-14,-4);ctx.lineTo(-24-rnd(0,8),0);ctx.lineTo(-14,4);ctx.fill()}ctx.restore()}
+  if(!ship){drawParts();return}
+  // radar
+  ctx.fillStyle="rgba(10,6,30,.85)";ctx.fillRect(40,6,LW-80,38);ctx.strokeStyle="#c85cff";ctx.lineWidth=1;ctx.strokeRect(40,6,LW-80,38);const rx=w=>40+((wrapD(w-ship.x)+WW/2)/WW)*(LW-80),ry=y=>6+clamp(y,0,GROUND+10)/(GROUND+10)*38;
+  ctx.strokeStyle="rgba(255,255,255,.35)";ctx.strokeRect(rx(cam+LW/2)-((LW/WW)*(LW-80))/2,7,(LW/WW)*(LW-80),36);
+  if(humans){ctx.fillStyle="#ffd36b";for(const h of humans)if(!h.dead)ctx.fillRect(rx(h.x)-1,ry(h.y)-1,2,2)}if(enemies)for(const e of enemies){ctx.fillStyle=e.type==="lander"?"#3dffb0":"#ff5f8f";ctx.fillRect(rx(e.x)-1.5,ry(e.y)-1.5,3,3)}
+  if(ship){ctx.fillStyle="#fff";ctx.fillRect(rx(ship.x)-2,ry(ship.y)-1,4,2)}
+  if(flashT>0){ctx.fillStyle=`rgba(255,255,255,${flashT*2})`;ctx.fillRect(0,0,LW,LH)}
+  drawParts()}
+loop(dt=>{update(dt);stepParts(dt);draw()});
+function openMenu(){menu({title:"Sky Rescue",html:`<p class="sub">Green landers are abducting people. Shoot a lander that's carrying someone, then catch them as they fall and fly low to set them down. If a lander reaches the top, it becomes a fast mutant.</p>`,
+  settings:[{k:"diff",label:"Difficulty",def:"std",opts:[["easy","Easy"],["std","Standard"],["hard","Hard"]]},{k:"fire",label:"Laser",def:"touch",opts:[["touch","While touching"],["always","Always on"]]}],
+  levels:LEVELS,challenges:[{id:"catch",text:"Catch a falling person"},{id:"allsafe",text:"Finish a wave without losing anyone"},{id:"clean",text:"Finish a wave without getting hit"},{id:"bomb5",text:"Take out 5+ enemies with one bomb"},{id:"w5",text:"Reach wave 5"},{id:"s20",text:"Score 20,000"}],play:"Launch"},start)}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>

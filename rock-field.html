@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Rock Field</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#05060a;--ink:#f2f4ff;--muted:#8890b0;--accent:#7df9ff;--f-display:"Audiowide",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#111;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Rock Field</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Touch and hold to steer, thrust and fire</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=640,FONT="'Audiowide', sans-serif";
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+
+
+let ship,rocks,bullets,score,lives,level,state="menu",best=getBest("rf-best"),fireT=0,inv=0,touch=null;
+const wrap=o=>{if(o.x<-20)o.x+=LW+40;if(o.x>LW+20)o.x-=LW+40;if(o.y<-20)o.y+=LH+40;if(o.y>LH+20)o.y-=LH+40};
+function rock(x,y,s){const n=10,shape=Array.from({length:n},()=>rnd(.72,1.15));const a=rnd(0,7),sp=rnd(30,70)*(4-s)/2+level*4;
+  return {x,y,s,r:[0,12,24,42][s],vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,rot:rnd(0,7),vr:rnd(-1,1),shape}}
+function makeLevel(){rocks=[];for(let i=0;i<3+level;i++){let x,y;do{x=rnd(0,LW);y=rnd(0,LH)}while(Math.hypot(x-LW/2,y-LH/2)<140);rocks.push(rock(x,y,3))}}
+function newGame(){score=0;lives=3;level=1;ship={x:LW/2,y:LH/2,vx:0,vy:0,a:-Math.PI/2,thr:false};bullets=[];makeLevel();inv=2;state="play";hud()}
+function hud(){stats({Score:score,Best:Math.max(best,score),Lvl:level||1,"♥":lives??3})}
+pointer({down:l=>{touch=l},move:l=>{touch=l},up:()=>{touch=null}});
+function update(dt){
+  if(rocks)for(const r of rocks){r.x+=r.vx*dt;r.y+=r.vy*dt;r.rot+=r.vr*dt;wrap(r)}
+  if(state!=="play")return;
+  let turn=0,thr=false,fire=false;
+  if(touch){const ta=Math.atan2(touch.y-ship.y,touch.x-ship.x);let d=ta-ship.a;d=Math.atan2(Math.sin(d),Math.cos(d));turn=clamp(d*6,-1,1);
+    thr=Math.hypot(touch.x-ship.x,touch.y-ship.y)>70&&Math.abs(d)<1.2;fire=Math.abs(d)<.5}
+  if(keys.ArrowLeft)turn=-1;if(keys.ArrowRight)turn=1;if(keys.ArrowUp)thr=true;if(keys[" "])fire=true;
+  ship.a+=turn*4.6*dt;ship.thr=thr;
+  if(thr){ship.vx+=Math.cos(ship.a)*240*dt;ship.vy+=Math.sin(ship.a)*240*dt;if(Math.random()<.6)parts.push({x:ship.x-Math.cos(ship.a)*10,y:ship.y-Math.sin(ship.a)*10,vx:-Math.cos(ship.a)*80+rnd(-30,30),vy:-Math.sin(ship.a)*80+rnd(-30,30),l:.3,m:.3,col:"#ffb347"})}
+  ship.vx*=Math.pow(.55,dt);ship.vy*=Math.pow(.55,dt);const sp=Math.hypot(ship.vx,ship.vy);if(sp>260){ship.vx*=260/sp;ship.vy*=260/sp}
+  ship.x+=ship.vx*dt;ship.y+=ship.vy*dt;wrap(ship);
+  fireT-=dt;if(fire&&fireT<=0){bullets.push({x:ship.x+Math.cos(ship.a)*12,y:ship.y+Math.sin(ship.a)*12,vx:Math.cos(ship.a)*460+ship.vx,vy:Math.sin(ship.a)*460+ship.vy,t:.9});fireT=.18}
+  for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.t-=dt;wrap(b)}bullets=bullets.filter(b=>b.t>0);
+  for(const b of bullets)for(let i=rocks.length-1;i>=0;i--){const r=rocks[i];if(Math.hypot(b.x-r.x,b.y-r.y)<r.r){b.t=0;rocks.splice(i,1);score+=[0,100,50,20][r.s];burst(r.x,r.y,"#c9d2ff",10+r.s*5,140);
+    if(r.s>1)for(let k=0;k<2;k++)rocks.push(rock(r.x,r.y,r.s-1));hud();break}}
+  inv=Math.max(0,inv-dt);
+  if(!inv)for(const r of rocks)if(Math.hypot(ship.x-r.x,ship.y-r.y)<r.r+8){burst(ship.x,ship.y,"#7df9ff",36,220,1);lives--;hud();
+    if(lives<=0){state="over";if(score>best){best=score;setBest("rf-best",best)}setTimeout(()=>card(`<h1>Shattered</h1><p>Score ${score} · level ${level}</p><p class="sub">Best ${best}</p>`,"Fly again",newGame),900);return}
+    ship={x:LW/2,y:LH/2,vx:0,vy:0,a:-Math.PI/2};inv=2.5;break}
+  if(!rocks.length){level++;score+=500;hud();makeLevel();inv=2}
+}
+function draw(){ctx.fillStyle="#05060a";ctx.fillRect(0,0,LW,LH);
+  ctx.fillStyle="rgba(255,255,255,.35)";for(let i=0;i<60;i++){const x=(i*97)%LW,y=(i*173)%LH;ctx.fillRect(x,y,1,1)}
+  ctx.lineWidth=1.6;ctx.lineJoin="round";
+  if(rocks)for(const r of rocks){ctx.save();ctx.translate(r.x,r.y);ctx.rotate(r.rot);ctx.strokeStyle="#c9d2ff";ctx.shadowColor="#8fa0ff";ctx.shadowBlur=8;ctx.beginPath();
+    r.shape.forEach((m,i)=>{const a=i/r.shape.length*Math.PI*2;ctx.lineTo(Math.cos(a)*r.r*m,Math.sin(a)*r.r*m)});ctx.closePath();ctx.stroke();ctx.restore()}
+  ctx.shadowBlur=0;
+  if(bullets){ctx.fillStyle="#fff7a8";for(const b of bullets){ctx.beginPath();ctx.arc(b.x,b.y,2,0,7);ctx.fill()}}
+  if(ship&&state==="play"&&!(inv>0&&Math.floor(inv*10)%2)){ctx.save();ctx.translate(ship.x,ship.y);ctx.rotate(ship.a);ctx.strokeStyle="#7df9ff";ctx.shadowColor="#7df9ff";ctx.shadowBlur=10;ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(-10,-9);ctx.lineTo(-5,0);ctx.lineTo(-10,9);ctx.closePath();ctx.stroke();ctx.restore();ctx.shadowBlur=0}
+  if(touch&&state==="play"){ctx.strokeStyle="rgba(125,249,255,.35)";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(touch.x,touch.y,14,0,7);ctx.stroke()}
+  drawParts()}
+loop(dt=>{update(dt);stepParts(dt);draw()});
+fit();level=1;makeLevel();hud();
+card(`<h1>Rock Field</h1><p>Blast the drifting rocks. Big ones split into smaller, faster pieces.</p><p class="sub">Touch and hold where you want to go. The ship turns toward your finger, thrusts when it's far away, and fires when it's lined up.</p>`,"Fly",newGame);
+
+})();
+</script>
+
+</body></html>

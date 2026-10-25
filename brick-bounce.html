@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Brick Bounce</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Righteous&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#14122b;--ink:#f4f1ff;--muted:#a49cd0;--accent:#ff8a3d;--f-display:"Righteous","Arial Black",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#111;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Brick Bounce</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Slide anywhere to move the paddle · tap to launch</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=620,FONT="'Righteous', 'Arial Black', sans-serif";
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+
+
+const COLS=9,BW=36,BH=16,TOP=72,ROWCOL=["#ff5d73","#ff8a3d","#ffc93d","#7ee081","#4fc3f7","#9d7cff","#f06bd6"];
+const LAYOUTS=[
+ r=>true,
+ (r,c)=>(r+c)%2===0||r<2,
+ (r,c)=>Math.abs(c-4)<=r,
+ (r,c)=>c!==4&&r!==3,
+ (r,c)=>(c%3!==1)||r%2===0,
+];
+let bricks,ball,pad,lives,score,level,state="menu",best=getBest("bb-best"),serve=true,shakeT=0;
+function makeLevel(){bricks=[];const L=LAYOUTS[(level-1)%LAYOUTS.length];const rows=Math.min(7,5+Math.floor((level-1)/2));
+  for(let r=0;r<rows;r++)for(let c=0;c<COLS;c++)if(L(r,c))bricks.push({x:8+c*(BW+2),y:TOP+r*(BH+4),hp:level>2&&r===0?2:1,col:ROWCOL[r%ROWCOL.length]});
+  resetBall()}
+function resetBall(){pad={x:LW/2,w:70,y:LH-40};ball={x:pad.x,y:pad.y-10,vx:0,vy:0,r:6,sp:300+level*20};serve=true}
+function launch(){if(!serve||state!=="play")return;serve=false;const a=-Math.PI/2+rnd(-.5,.5);ball.vx=Math.cos(a)*ball.sp;ball.vy=Math.sin(a)*ball.sp}
+function newGame(){lives=3;score=0;level=1;makeLevel();state="play";hud()}
+function hud(){stats({Score:score,Best:Math.max(best,score),Lvl:level||1,"♥":lives??3})}
+pointer({move:(l,dx)=>{if(state==="play")pad.x=clamp(pad.x+dx*1.15,pad.w/2,LW-pad.w/2)},up:(l,p,t)=>{if(t<250&&Math.hypot(l.x-p.x0,l.y-p.y0)<10)launch()}});
+addEventListener("keydown",e=>{if(e.key===" ")launch()});
+function update(dt){
+  if(state!=="play")return;
+  const kx=(keys.ArrowLeft?-1:0)+(keys.ArrowRight?1:0);if(kx)pad.x=clamp(pad.x+kx*420*dt,pad.w/2,LW-pad.w/2);
+  if(serve){ball.x=pad.x;ball.y=pad.y-12;return}
+  const steps=Math.ceil(Math.hypot(ball.vx,ball.vy)*dt/4);
+  for(let s=0;s<steps;s++){const h=dt/steps;ball.x+=ball.vx*h;ball.y+=ball.vy*h;
+    if(ball.x<ball.r){ball.x=ball.r;ball.vx=Math.abs(ball.vx)}if(ball.x>LW-ball.r){ball.x=LW-ball.r;ball.vx=-Math.abs(ball.vx)}
+    if(ball.y<ball.r+40){ball.y=ball.r+40;ball.vy=Math.abs(ball.vy)}
+    if(ball.vy>0&&ball.y+ball.r>=pad.y-6&&ball.y<pad.y+6&&Math.abs(ball.x-pad.x)<pad.w/2+ball.r){
+      const off=(ball.x-pad.x)/(pad.w/2),a=-Math.PI/2+off*1.05,sp=Math.hypot(ball.vx,ball.vy);ball.vx=Math.cos(a)*sp;ball.vy=Math.sin(a)*sp;ball.y=pad.y-6-ball.r}
+    for(let i=bricks.length-1;i>=0;i--){const b=bricks[i];const cx=clamp(ball.x,b.x,b.x+BW),cy=clamp(ball.y,b.y,b.y+BH);
+      if(Math.hypot(ball.x-cx,ball.y-cy)<ball.r){
+        const ox=Math.min(ball.x+ball.r-b.x,b.x+BW-(ball.x-ball.r)),oy=Math.min(ball.y+ball.r-b.y,b.y+BH-(ball.y-ball.r));
+        if(ox<oy)ball.vx*=-1;else ball.vy*=-1;
+        b.hp--;if(b.hp<=0){bricks.splice(i,1);score+=10*level;burst(b.x+BW/2,b.y+BH/2,b.col,14,160)}else burst(ball.x,ball.y,"#fff",6,80);
+        const sp=Math.hypot(ball.vx,ball.vy),ns=Math.min(sp*1.006,560);ball.vx*=ns/sp;ball.vy*=ns/sp;hud();break}}
+  }
+  if(ball.y>LH+20){lives--;shakeT=.3;hud();if(lives<=0){state="over";if(score>best){best=score;setBest("bb-best",best)}
+    card(`<h1>Game over</h1><p>Score ${score} · level ${level}</p><p class="sub">Best ${best}</p>`,"Play again",newGame)}else resetBall()}
+  if(!bricks.length){level++;score+=100;hud();makeLevel()}
+}
+function draw(){
+  const g=ctx.createLinearGradient(0,0,0,LH);g.addColorStop(0,"#1d1a3d");g.addColorStop(1,"#0d0b1f");ctx.fillStyle=g;ctx.fillRect(0,0,LW,LH);
+  ctx.save();if(shakeT>0)ctx.translate(rnd(-4,4),rnd(-4,4));
+  ctx.strokeStyle="rgba(164,156,208,.08)";for(let x=0;x<LW;x+=24){ctx.beginPath();ctx.moveTo(x,40);ctx.lineTo(x,LH);ctx.stroke()}
+  ctx.fillStyle="#2a2556";ctx.fillRect(0,36,LW,4);
+  for(const b of bricks){ctx.fillStyle=b.col;rr(b.x,b.y,BW,BH,4);ctx.fill();ctx.fillStyle="rgba(255,255,255,.35)";ctx.fillRect(b.x+3,b.y+2,BW-6,3);
+    if(b.hp>1){ctx.strokeStyle="#fff";ctx.lineWidth=2;rr(b.x+1,b.y+1,BW-2,BH-2,4);ctx.stroke()}}
+  if(pad){const pg=ctx.createLinearGradient(0,pad.y-6,0,pad.y+6);pg.addColorStop(0,"#ffd0a8");pg.addColorStop(1,"#ff8a3d");ctx.fillStyle=pg;rr(pad.x-pad.w/2,pad.y-6,pad.w,12,6);ctx.fill();
+    ctx.fillStyle="rgba(255,138,61,.25)";ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r*2.4,0,7);ctx.fill();ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,7);ctx.fill()}
+  drawParts();ctx.restore();
+  if(state==="play"&&serve)text("Tap to launch",LW/2,LH/2+60,18,"#f4f1ff");
+}
+loop(dt=>{update(dt);stepParts(dt);shakeT=Math.max(0,shakeT-dt);draw()});
+fit();level=1;makeLevel();hud();
+card(`<h1>Brick Bounce</h1><p>Clear every brick. Where the ball hits the paddle sets its angle.</p><p class="sub">Slide anywhere to move the paddle, tap to launch.</p>`,"Play",newGame);
+
+})();
+</script>
+
+</body></html>

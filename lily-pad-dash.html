@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Lily Pad Dash</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800&display=swap">
+<style>
+/* Layout: one-screen arcade — score strip, full-height playfield canvas, short help line */
+:root{
+  --bg:#10241a; --panel:#173324; --ink:#effae9; --muted:#9cc4a6; --accent:#ffd34d; --danger:#ff6b57;
+  --f-display:"Lilita One","Arial Black",sans-serif; --f-body:"Nunito",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:var(--f-body);overscroll-behavior:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;font-weight:800;gap:8px}
+.hud .title{font-family:var(--f-display);font-size:20px;color:var(--accent);letter-spacing:.02em}
+.hud .stats{display:flex;gap:12px;font-variant-numeric:tabular-nums;font-size:14px}
+.hud .stats span b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+canvas{display:block;touch-action:none;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.help{font-size:12px;color:var(--muted);text-align:center}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:rgba(16,36,26,.94);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:300px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:32px;color:var(--accent)}
+.card p{margin:0}
+.card button{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2a2100;font-family:var(--f-display);font-size:20px;cursor:pointer}
+.card button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Lily Pad Dash</div>
+    <div class="stats"><span>Score <b id="sc">0</b></span><span>Best <b id="hi">0</b></span><span>Lvl <b id="lv">1</b></span><span id="lives">🐸🐸🐸</span></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas>
+    <div class="over" id="over"><div class="card"><h1>Lily Pad Dash</h1>
+      <p>Get the frog across the road and river into all five lily pad bays.</p>
+      <p style="color:var(--muted);font-size:14px">Tap ahead of the frog to hop forward, behind to hop back, beside it to hop left or right. Ride logs and turtles. Watch for diving turtles.</p>
+      <button id="start">Hop in</button></div></div>
+  </div>
+  <div class="help">Tap around the frog to hop · arrow keys work too</div>
+</div>
+<script>
+(()=>{
+const C=40,COLS=9,ROWS=13,LW=COLS*C,LH=ROWS*C;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d");let sc=1;
+const BAYS=[0,2,4,6,8];
+let lanes,frog,level,score,lives,best=0,homes,timer,state="menu",maxRow,deathAnim=0,msg="",msgT=0,t=0;
+try{best=+localStorage.getItem("lpd-best")||0}catch(e){}
+document.getElementById("hi").textContent=best;
+const CARCOL=["#e8443a","#3a7be8","#f2b632","#9b59d0","#2cc0a8","#ff8a3d"];
+function makeLanes(){
+  const k=1+(level-1)*0.18;
+  const L=[];
+  // river rows 1-5
+  const river=[
+    {row:1,type:"log",len:3,gap:3.2,sp:1.1},
+    {row:2,type:"turtle",len:2,gap:2.2,sp:-1.5,dive:true},
+    {row:3,type:"log",len:5,gap:3.5,sp:1.8},
+    {row:4,type:"log",len:2,gap:2.8,sp:-1.3},
+    {row:5,type:"turtle",len:3,gap:2.4,sp:-1.0,dive:true},
+  ];
+  const road=[
+    {row:7,type:"truck",len:2,gap:4.5,sp:-1.0},
+    {row:8,type:"car",len:1,gap:3.6,sp:1.9},
+    {row:9,type:"car",len:1,gap:3.0,sp:-1.4},
+    {row:10,type:"car",len:1,gap:4,sp:1.2},
+    {row:11,type:"car",len:1,gap:3.4,sp:-0.9},
+  ];
+  for(const d of [...river,...road]){
+    const items=[];const period=d.len+d.gap;const n=Math.ceil((COLS+period*2)/period)+1;
+    const off=Math.random()*period;
+    for(let i=0;i<n;i++)items.push({x:-period+i*period+off,len:d.len,col:CARCOL[(Math.random()*CARCOL.length)|0],diveOff:Math.random()*6});
+    L.push({...d,sp:d.sp*k,items,span:n*period});
+  }
+  return L;
+}
+function resetFrog(){frog={c:4,r:12,x:4,fromX:4,fromR:12,hop:1,dir:0};timer=30;maxRow=12}
+function newGame(){level=1;score=0;lives=3;homes=[0,0,0,0,0];lanes=makeLanes();resetFrog();state="play";hud()}
+function hud(){document.getElementById("sc").textContent=score;document.getElementById("lv").textContent=level;
+  document.getElementById("lives").textContent="🐸".repeat(Math.max(0,lives));
+  if(score>best){best=score;try{localStorage.setItem("lpd-best",best)}catch(e){}document.getElementById("hi").textContent=best}}
+function move(dc,dr){
+  if(state!=="play"||frog.hop<1)return;
+  const nr=frog.r+dr;let nx=frog.x+dc;
+  if(frog.r>=6)nx=Math.round(nx); // snap to the grid on land and road
+  if(nr<0||nr>12||nx<-0.3||nx>COLS-0.7)return;
+  frog.fromX=frog.x;frog.fromR=frog.r;frog.r=nr;frog.x=nx;frog.hop=0;
+  frog.dir=dr<0?0:dr>0?Math.PI:dc>0?Math.PI/2:-Math.PI/2;
+}
+function die(why){if(state!=="play")return;state="dying";deathAnim=0;msg=why;msgT=1.4;lives--;hud()}
+function laneAt(r){return lanes.find(l=>l.row===r)}
+function wrapX(it,l){const p=l.span;let x=((it.x+p/2)%p+p)%p-p/2;return x} // unused helper
+function update(dt){
+  t+=dt;
+  for(const l of lanes)for(const it of l.items){it.x+=l.sp*dt;
+    if(l.sp>0&&it.x>COLS+1)it.x-=l.span; if(l.sp<0&&it.x+it.len<-1)it.x+=l.span;}
+  if(state==="dying"){deathAnim+=dt;if(deathAnim>1){if(lives<=0){state="over";showOver()}else{resetFrog();state="play"}}return}
+  if(state!=="play")return;
+  if(frog.hop<1){frog.hop=Math.min(1,frog.hop+dt/0.13);if(frog.hop>=1)land();return}
+  timer-=dt;if(timer<=0){die("Out of time");return}
+  const l=laneAt(frog.r);
+  if(l&&l.row<=5){ // river
+    const on=l.items.find(it=>frog.x+0.5>it.x+0.15&&frog.x+0.5<it.x+it.len-0.15&&!submerged(l,it));
+    if(!on){die("Splash!");return}
+    frog.x+=l.sp*dt;if(frog.x<-0.4||frog.x>COLS-0.6){die("Swept away");return}
+  } else if(l){ // road
+    if(l.items.some(it=>frog.x+0.8>it.x+0.08&&frog.x+0.2<it.x+it.len-0.08)){die("Squashed!");return}
+  }
+}
+function submerged(l,it){if(!l.dive)return false;if(it.diveOff>3.5)return false;const ph=(t+it.diveOff*1.7)%7;return ph>5.4&&ph<6.6}
+function sinkAmt(l,it){if(!l.dive||it.diveOff>3.5)return 0;const ph=(t+it.diveOff*1.7)%7;if(ph<4.6||ph>6.9)return 0;if(ph<5.4)return (ph-4.6)/0.8;if(ph<6.6)return 1;return 1-(ph-6.6)/0.3}
+function land(){
+  if(frog.r<maxRow){score+=10*(maxRow-frog.r);maxRow=frog.r;hud()}
+  if(frog.r===0){
+    const b=BAYS.findIndex(c=>Math.abs(frog.x-c)<0.45);
+    if(b<0){die("Missed the bay");return}
+    if(homes[b]){die("Bay taken");return}
+    homes[b]=1;score+=50+Math.round(timer)*2;hud();msg="Home!";msgT=0.9;
+    if(homes.every(h=>h)){level++;score+=200;homes=[0,0,0,0,0];lanes=makeLanes();msg="Level "+level;msgT=1.4;hud()}
+    resetFrog();return;
+  }
+  const l=laneAt(frog.r);
+  if(l&&l.row<=5){const on=l.items.find(it=>frog.x+0.5>it.x+0.15&&frog.x+0.5<it.x+it.len-0.15&&!submerged(l,it));if(!on)die("Splash!")}
+}
+// ---------- drawing ----------
+function draw(){
+  ctx.clearRect(0,0,LW,LH);
+  // home bank
+  ctx.fillStyle="#1f5a2c";ctx.fillRect(0,0,LW,C);
+  for(let i=0;i<COLS;i++){if(!BAYS.includes(i)){ctx.fillStyle="#2d7a3a";ctx.fillRect(i*C,0,C,C);hedge(i*C,0)}}
+  // river
+  const g=ctx.createLinearGradient(0,C,0,C*6);g.addColorStop(0,"#1b5e93");g.addColorStop(1,"#2479b5");ctx.fillStyle=g;ctx.fillRect(0,C,LW,C*5);
+  ctx.strokeStyle="rgba(255,255,255,.12)";ctx.lineWidth=2;
+  for(let r=1;r<=5;r++)for(let i=0;i<5;i++){const x=((i*90+t*20*(r%2?1:-1))%(LW+60)+LW+60)%(LW+60)-30,y=r*C+12+(i%2)*16;
+    ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x+8,y-4,x+16,y);ctx.quadraticCurveTo(x+24,y+4,x+32,y);ctx.stroke()}
+  // bays (lily pads in water)
+  for(const [i,c] of BAYS.entries()){ctx.fillStyle="#1b5e93";ctx.fillRect(c*C,0,C,C);
+    lily(c*C+C/2,C/2+2,15);if(homes[i])drawFrog(c*C+C/2,C/2,0,1,0.85)}
+  // median + start
+  grass(6);grass(12);
+  // road
+  ctx.fillStyle="#2b2d31";ctx.fillRect(0,C*7,LW,C*5);
+  ctx.fillStyle="#3a3c41";ctx.fillRect(0,C*7,LW,3);ctx.fillRect(0,C*12-3,LW,3);
+  ctx.fillStyle="#e9d36b";for(let r=8;r<=11;r++)for(let x=6;x<LW;x+=36)ctx.fillRect(x,r*C-1,18,2);
+  // lanes
+  for(const l of lanes)for(const it of l.items){const x=it.x*C,y=l.row*C;
+    if(l.type==="log")log(x,y,it.len);
+    else if(l.type==="turtle")turtles(x,y,it.len,sinkAmt(l,it));
+    else vehicle(x,y,it.len,it.col,l.sp>0,l.type==="truck");}
+  // timer bar
+  const tw=Math.max(0,timer/30);ctx.fillStyle="rgba(0,0,0,.4)";ctx.fillRect(4,LH-7,LW-8,4);
+  ctx.fillStyle=tw<.3?"#ff6b57":"#ffd34d";ctx.fillRect(4,LH-7,(LW-8)*tw,4);
+  // frog
+  if(state==="play"||state==="dying"){
+    const h=frog.hop,x=(frog.fromX+(frog.x-frog.fromX)*h)*C+C/2,r=frog.fromR+(frog.r-frog.fromR)*h,y=r*C+C/2;
+    const lift=Math.sin(h*Math.PI)*0.18;
+    if(state==="dying"){splat(x,y,deathAnim,laneAt(frog.r)&&frog.r<=5)}
+    else drawFrog(x,y,frog.dir,1+lift,1,h<1);
+  }
+  if(msgT>0){ctx.save();ctx.globalAlpha=Math.min(1,msgT*2);ctx.font="28px 'Lilita One', 'Arial Black', sans-serif";ctx.textAlign="center";
+    ctx.lineWidth=5;ctx.strokeStyle="#10241a";ctx.strokeText(msg,LW/2,C*6+28);ctx.fillStyle="#ffd34d";ctx.fillText(msg,LW/2,C*6+28);ctx.restore()}
+}
+function grass(r){ctx.fillStyle="#3f8f3a";ctx.fillRect(0,r*C,LW,C);ctx.fillStyle="#4fa548";
+  for(let i=0;i<30;i++){const x=(i*53+r*17)%LW,y=r*C+6+(i*29)%28;ctx.fillRect(x,y,2,5);ctx.fillRect(x+3,y+1,2,4)}
+  ctx.fillStyle="#f2d6f0";for(let i=0;i<5;i++){ctx.beginPath();ctx.arc((i*83+r*31)%LW+10,r*C+10+(i*13)%22,2,0,7);ctx.fill()}}
+function hedge(x,y){ctx.fillStyle="#256b33";for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(x+8+i*8,y+C-8,9,0,7);ctx.fill()}
+  ctx.fillStyle="#3a8e46";for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(x+12+i*8,y+C-18,8,0,7);ctx.fill()}}
+function lily(x,y,r){ctx.fillStyle="#3c9b48";ctx.beginPath();ctx.moveTo(x,y);ctx.arc(x,y,r,0.35,Math.PI*2-0.05);ctx.closePath();ctx.fill();
+  ctx.strokeStyle="#2c7a37";ctx.lineWidth=1;for(let a=0.8;a<6;a+=0.9){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a)*r*.8,y+Math.sin(a)*r*.8);ctx.stroke()}}
+function rrect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function log(x,y,len){const w=len*C;ctx.fillStyle="rgba(0,0,0,.25)";rrect(x+3,y+9,w-2,C-14,12);ctx.fill();
+  const g=ctx.createLinearGradient(0,y+6,0,y+C-6);g.addColorStop(0,"#a8703e");g.addColorStop(.5,"#8a5a2f");g.addColorStop(1,"#5e3b1c");
+  ctx.fillStyle=g;rrect(x+1,y+6,w-2,C-12,12);ctx.fill();
+  ctx.strokeStyle="rgba(50,28,10,.5)";ctx.lineWidth=1.5;for(let i=1;i<len*3;i++){ctx.beginPath();ctx.moveTo(x+i*13,y+11);ctx.lineTo(x+i*13+6,y+C-11);ctx.stroke()}
+  ctx.fillStyle="#c99a62";ctx.beginPath();ctx.ellipse(x+w-8,y+C/2,6,C/2-7,0,0,7);ctx.fill();
+  ctx.strokeStyle="#8a5a2f";ctx.beginPath();ctx.ellipse(x+w-8,y+C/2,3,7,0,0,7);ctx.stroke()}
+function turtles(x,y,len,sink){for(let i=0;i<len;i++){const cx=x+i*C+C/2,cy=y+C/2;
+  ctx.save();ctx.globalAlpha=1-sink*0.75;const s=1-sink*0.3;
+  ctx.fillStyle="#6fae5a";for(const [a,b] of [[-12,-11],[12,-11],[-12,11],[12,11]]){ctx.beginPath();ctx.ellipse(cx+a*s,cy+b*s,5*s,3.5*s,Math.atan2(b,a),0,7);ctx.fill()}
+  ctx.beginPath();ctx.arc(cx-16*s,cy,5*s,0,7);ctx.fill();
+  ctx.fillStyle=sink>0.3?"#2f6f8f":"#b8452e";ctx.beginPath();ctx.ellipse(cx,cy,14*s,13*s,0,0,7);ctx.fill();
+  ctx.strokeStyle="rgba(0,0,0,.3)";ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(cx-6*s,cy-10*s);ctx.lineTo(cx-6*s,cy+10*s);ctx.moveTo(cx+6*s,cy-10*s);ctx.lineTo(cx+6*s,cy+10*s);ctx.moveTo(cx-13*s,cy);ctx.lineTo(cx+13*s,cy);ctx.stroke();
+  ctx.restore()}}
+function vehicle(x,y,len,col,right,truck){const w=len*C-6,h=C-14,vx=x+3,vy=y+7;
+  ctx.save();if(!right){ctx.translate(vx*2+w,0);ctx.scale(-1,1)}
+  ctx.fillStyle="rgba(0,0,0,.35)";rrect(vx+2,vy+3,w,h,6);ctx.fill();
+  ctx.fillStyle="#111";for(const wx of truck?[vx+8,vx+w-14,vx+w-24]:[vx+6,vx+w-12])for(const wy of [vy-2,vy+h-3]){ctx.fillRect(wx,wy,8,5)}
+  if(truck){ctx.fillStyle="#dfe3e8";rrect(vx,vy,w-22,h,4);ctx.fill();ctx.fillStyle="#c5cbd3";ctx.fillRect(vx+4,vy+4,w-30,h-8);
+    ctx.fillStyle=col;rrect(vx+w-20,vy+1,20,h-2,5);ctx.fill();ctx.fillStyle="#9fd3ff";ctx.fillRect(vx+w-8,vy+4,5,h-8)}
+  else{const g=ctx.createLinearGradient(0,vy,0,vy+h);g.addColorStop(0,col);g.addColorStop(1,shade(col));ctx.fillStyle=g;rrect(vx,vy,w,h,7);ctx.fill();
+    ctx.fillStyle="#9fd3ff";rrect(vx+w*0.55,vy+3,w*0.22,h-6,3);ctx.fill();ctx.fillStyle="rgba(159,211,255,.6)";rrect(vx+w*0.12,vy+4,w*0.18,h-8,3);ctx.fill()}
+  ctx.fillStyle="#fff6b0";ctx.fillRect(vx+w-3,vy+2,3,4);ctx.fillRect(vx+w-3,vy+h-6,3,4);
+  ctx.fillStyle="#ff3b30";ctx.fillRect(vx,vy+2,2,4);ctx.fillRect(vx,vy+h-6,2,4);ctx.restore()}
+function shade(h){const n=parseInt(h.slice(1),16);return `rgb(${(n>>16)*.6|0},${(n>>8&255)*.6|0},${(n&255)*.6|0})`}
+function drawFrog(x,y,rot,s,alpha=1,jumping=false){ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.scale(s,s);ctx.globalAlpha=alpha;
+  ctx.fillStyle="rgba(0,0,0,.25)";ctx.beginPath();ctx.ellipse(2,3,12,13,0,0,7);ctx.fill();
+  ctx.fillStyle="#2f8f2f";const ext=jumping?5:0;
+  for(const sx of [-1,1]){ctx.beginPath();ctx.ellipse(sx*12,8+ext,5,8,sx*0.5,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(sx*15,14+ext,5,3,0,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(sx*11,-6-ext/2,3.5,6,-sx*0.5,0,7);ctx.fill()}
+  const g=ctx.createRadialGradient(-3,-4,2,0,0,13);g.addColorStop(0,"#9be15d");g.addColorStop(1,"#3fa34d");ctx.fillStyle=g;
+  ctx.beginPath();ctx.ellipse(0,1,10,13,0,0,7);ctx.fill();
+  ctx.fillStyle="#2f7d32";ctx.beginPath();ctx.arc(-3,4,2,0,7);ctx.arc(3,7,1.6,0,7);ctx.fill();
+  for(const sx of [-1,1]){ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(sx*5,-9,4,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(sx*5,-10,2,0,7);ctx.fill()}
+  ctx.restore()}
+function splat(x,y,a,water){ctx.save();if(water){ctx.strokeStyle=`rgba(255,255,255,${1-a})`;ctx.lineWidth=2;for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(x,y,4+a*18+i*6,0,7);ctx.stroke()}}
+  else{ctx.fillStyle=`rgba(63,163,77,${1-a*0.7})`;for(let i=0;i<8;i++){const an=i*0.8;ctx.beginPath();ctx.arc(x+Math.cos(an)*a*14,y+Math.sin(an)*a*14,5,0,7);ctx.fill()}}
+  ctx.restore()}
+// ---------- sizing / loop / input ----------
+function resize(){const st=document.getElementById("stage");const s=Math.min(st.clientWidth/LW,st.clientHeight/LH);sc=s;const d=devicePixelRatio||1;
+  cv.style.width=LW*s+"px";cv.style.height=LH*s+"px";cv.width=Math.round(LW*s*d);cv.height=Math.round(LH*s*d);ctx.setTransform(s*d,0,0,s*d,0,0)}
+let last=performance.now();
+function frame(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;if(state!=="menu"&&state!=="over"||true)update(dt);msgT=Math.max(0,msgT-dt);draw();requestAnimationFrame(frame)}
+cv.addEventListener("pointerdown",e=>{e.preventDefault();if(state!=="play")return;const r=cv.getBoundingClientRect();
+  const px=(e.clientX-r.left)/sc,py=(e.clientY-r.top)/sc,fx=frog.x*C+C/2,fy=frog.r*C+C/2,dx=px-fx,dy=py-fy;
+  if(Math.abs(dy)>=Math.abs(dx))move(0,dy<0?-1:1);else move(dx<0?-1:1,0)});
+addEventListener("keydown",e=>{const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(m){e.preventDefault();move(...m)}});
+function showOver(){const o=document.getElementById("over");o.querySelector(".card").innerHTML=`<h1>Game over</h1><p>Score ${score} · Level ${level}</p><p style="color:var(--muted)">Best ${best}</p><button id="start">Hop again</button>`;o.hidden=false;document.getElementById("start").onclick=go}
+function go(){document.getElementById("over").hidden=true;newGame()}
+document.getElementById("start").onclick=go;
+addEventListener("resize",resize);
+level=1;lanes=makeLanes();homes=[0,0,0,0,0];resetFrog();resize();requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>

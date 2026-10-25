@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Stack Shift</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Space+Mono:wght@700&display=swap">
+<style>
+/* Layout: one-screen stacker — side rail (hold / next / stats) beside the well, control pad below */
+:root{--bg:#121a33;--panel:#1b2547;--line:#2c3a6b;--ink:#eef2ff;--muted:#93a0cc;--accent:#ffcf3f;
+  --f-display:"Bungee","Arial Black",sans-serif;--f-num:"Space Mono",ui-monospace,monospace;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:8px;max-width:520px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center}
+.top h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:20px;color:var(--accent)}
+.main{flex:1;min-height:0;display:flex;gap:8px;justify-content:center}
+.well{position:relative;min-height:0;display:flex}
+canvas#board{display:block;touch-action:none;border-radius:6px;background:#0b1126;box-shadow:0 0 0 2px var(--line),0 10px 30px rgba(0,0,0,.5)}
+.rail{display:flex;flex-direction:column;gap:8px;width:84px;flex:none}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center}
+.box .k{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.box .v{font-family:var(--f-num);font-size:18px;font-variant-numeric:tabular-nums}
+.box canvas{display:block;margin:2px auto 0}
+.pad{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.pad button{height:50px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:20px;font-weight:700;cursor:pointer;touch-action:manipulation}
+.pad button:active{background:var(--line)}
+.pad button small{display:block;font-size:9px;letter-spacing:.1em;color:var(--muted);font-weight:600}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(11,17,38,.75)}
+.card{background:var(--panel);border:2px solid var(--accent);border-radius:14px;padding:16px;text-align:center;display:grid;gap:8px;margin:0 10px}
+.card h2{margin:0;font-family:var(--f-display);font-weight:400;font-size:24px;color:var(--accent)}
+.card p{margin:0;font-size:13px;color:var(--muted)}
+.card button{height:44px;border:0;border-radius:10px;background:var(--accent);color:#2b1f00;font-family:var(--f-display);font-size:16px;cursor:pointer}
+</style>
+<div class="app">
+  <div class="top"><h1>Stack Shift</h1><button id="pause" style="background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:4px 10px;cursor:pointer">Pause</button></div>
+  <div class="main">
+    <div class="well" id="well"><canvas id="board"></canvas>
+      <div class="over" id="over"><div class="card"><h2>Stack Shift</h2>
+        <p>Drag sideways to move · tap to rotate<br>Swipe down hard to drop · drag down slowly to soft drop</p>
+        <button id="go">Start</button></div></div></div>
+    <div class="rail">
+      <div class="box"><div class="k">Hold</div><canvas id="hold" width="72" height="44"></canvas></div>
+      <div class="box"><div class="k">Next</div><canvas id="next" width="72" height="150"></canvas></div>
+      <div class="box"><div class="k">Score</div><div class="v" id="score">0</div></div>
+      <div class="box"><div class="k">Lines</div><div class="v" id="lines">0</div></div>
+      <div class="box"><div class="k">Level</div><div class="v" id="level">1</div></div>
+      <div class="box"><div class="k">Best</div><div class="v" id="best">0</div></div>
+    </div>
+  </div>
+  <div class="pad">
+    <button data-a="left" aria-label="Move left">◀</button>
+    <button data-a="right" aria-label="Move right">▶</button>
+    <button data-a="rot" aria-label="Rotate">⟳</button>
+    <button data-a="soft" aria-label="Soft drop">▼</button>
+    <button data-a="hard" aria-label="Hard drop">⤓</button>
+    <button data-a="hold" aria-label="Hold piece">⇄<small>HOLD</small></button>
+  </div>
+</div>
+<script>
+(()=>{
+const COLS=10,ROWS=20;
+const SH={I:[[0,1],[1,1],[2,1],[3,1]],O:[[1,0],[2,0],[1,1],[2,1]],T:[[1,0],[0,1],[1,1],[2,1]],S:[[1,0],[2,0],[0,1],[1,1]],Z:[[0,0],[1,0],[1,1],[2,1]],J:[[0,0],[0,1],[1,1],[2,1]],L:[[2,0],[0,1],[1,1],[2,1]]};
+const COL={I:"#3fd3e8",O:"#ffd23f",T:"#b05ce8",S:"#5ad66b",Z:"#ff5a5f",J:"#4a7cff",L:"#ff9a3c"};
+const $=id=>document.getElementById(id);
+const bc=$("board"),bx=bc.getContext("2d");let CELL=24;
+let grid,cur,bag=[],queue=[],held=null,canHold=true,score=0,lines=0,level=1,best=0,state="menu",dropT=0,lockT=0,clearing=null,clearT=0;
+try{best=+localStorage.getItem("ss-best")||0}catch(e){}$("best").textContent=best;
+function newBag(){const b=Object.keys(SH);for(let i=b.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[b[i],b[j]]=[b[j],b[i]]}return b}
+function nextType(){while(queue.length<4){if(!bag.length)bag=newBag();queue.push(bag.pop())}return queue.shift()}
+function cellsOf(p){const n=p.t==="I"?4:p.t==="O"?4:3;return SH[p.t].map(([x,y])=>{let a=x,b=y;for(let i=0;i<p.r;i++){if(p.t==="O")break;[a,b]=[n-1-b,a]}return [a+p.x,b+p.y]})}
+function fits(p){return cellsOf(p).every(([x,y])=>x>=0&&x<COLS&&y<ROWS&&(y<0||!grid[y][x]))}
+function spawn(t){cur={t:t||nextType(),r:0,x:3,y:-1};if(!fits(cur)){cur.y=-2;if(!fits(cur)){gameOver();return}}lockT=0;canHold=t?canHold:true;drawSide()}
+function move(dx){if(state!=="play"||!cur)return false;const p={...cur,x:cur.x+dx};if(fits(p)){cur=p;lockT=0;return true}return false}
+function rotate(){if(state!=="play"||!cur)return;const r=(cur.r+1)%4;for(const k of [0,-1,1,-2,2]){for(const dy of [0,-1]){const p={...cur,r,x:cur.x+k,y:cur.y+dy};if(fits(p)){cur=p;lockT=0;return}}}}
+function soft(){if(state!=="play"||!cur)return;const p={...cur,y:cur.y+1};if(fits(p)){cur=p;score+=1;hud();dropT=0}else lock()}
+function hard(){if(state!=="play"||!cur)return;let n=0;while(fits({...cur,y:cur.y+1})){cur.y++;n++}score+=n*2;lock()}
+function hold(){if(state!=="play"||!cur||!canHold)return;const t=cur.t;if(held){const h=held;held=t;spawn(h)}else{held=t;spawn()}canHold=false;drawSide()}
+function ghostY(){let p={...cur};while(fits({...p,y:p.y+1}))p.y++;return p.y}
+function lock(){
+  for(const [x,y] of cellsOf(cur)){if(y<0){gameOver();return}grid[y][x]=cur.t}
+  cur=null;
+  const full=[];for(let y=0;y<ROWS;y++)if(grid[y].every(c=>c))full.push(y);
+  if(full.length){clearing=full;clearT=0;const pts=[0,100,300,500,800][full.length]*level;score+=pts;lines+=full.length;level=1+Math.floor(lines/10);hud()}
+  else spawn();
+  hud();
+}
+function finishClear(){for(const y of clearing){grid.splice(y,1);grid.unshift(Array(COLS).fill(null))}clearing=null;spawn()}
+function gameOver(){state="over";cur=null;if(score>best){best=score;try{localStorage.setItem("ss-best",best)}catch(e){}}hud();
+  $("over").querySelector(".card").innerHTML=`<h2>Topped out</h2><p>Score ${score} · ${lines} lines · level ${level}</p><button id="go">Play again</button>`;$("over").hidden=false;$("go").onclick=start}
+function hud(){$("score").textContent=score;$("lines").textContent=lines;$("level").textContent=level;$("best").textContent=Math.max(best,score)}
+function start(){grid=Array.from({length:ROWS},()=>Array(COLS).fill(null));bag=[];queue=[];held=null;canHold=true;score=0;lines=0;level=1;clearing=null;state="play";$("over").hidden=true;spawn();hud()}
+// ---- drawing ----
+function block(g,x,y,s,c,alpha=1){g.globalAlpha=alpha;g.fillStyle=c;g.fillRect(x,y,s,s);
+  g.fillStyle="rgba(255,255,255,.35)";g.fillRect(x,y,s,s*.16);g.fillRect(x,y,s*.16,s);
+  g.fillStyle="rgba(0,0,0,.28)";g.fillRect(x,y+s*.84,s,s*.16);g.fillRect(x+s*.84,y,s*.16,s);
+  g.fillStyle="rgba(255,255,255,.18)";g.fillRect(x+s*.3,y+s*.3,s*.4,s*.4);g.globalAlpha=1}
+function draw(){
+  bx.clearRect(0,0,COLS*CELL,ROWS*CELL);
+  bx.strokeStyle="rgba(147,160,204,.07)";bx.lineWidth=1;
+  for(let x=1;x<COLS;x++){bx.beginPath();bx.moveTo(x*CELL+.5,0);bx.lineTo(x*CELL+.5,ROWS*CELL);bx.stroke()}
+  for(let y=1;y<ROWS;y++){bx.beginPath();bx.moveTo(0,y*CELL+.5);bx.lineTo(COLS*CELL,y*CELL+.5);bx.stroke()}
+  if(grid)for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){const c=grid[y][x];if(c){
+    if(clearing&&clearing.includes(y)){const f=clearT/0.25;block(bx,x*CELL,y*CELL,CELL,"#ffffff",1-f*0.9)}else block(bx,x*CELL,y*CELL,CELL,COL[c])}}
+  if(cur&&state==="play"){const gy=ghostY();for(const [x,y] of cellsOf({...cur,y:gy}))if(y>=0){bx.strokeStyle=COL[cur.t];bx.globalAlpha=.55;bx.lineWidth=2;bx.strokeRect(x*CELL+2,y*CELL+2,CELL-4,CELL-4);bx.globalAlpha=1}
+    for(const [x,y] of cellsOf(cur))if(y>=0)block(bx,x*CELL,y*CELL,CELL,COL[cur.t])}
+}
+function mini(g,t,cx,cy,s){if(!t)return;const cs=SH[t];const xs=cs.map(c=>c[0]),ys=cs.map(c=>c[1]);const w=(Math.max(...xs)-Math.min(...xs)+1)*s,h=(Math.max(...ys)-Math.min(...ys)+1)*s;
+  for(const [x,y] of cs)block(g,cx-w/2+(x-Math.min(...xs))*s,cy-h/2+(y-Math.min(...ys))*s,s,COL[t],(g===hc&&!canHold)?.4:1)}
+const hc=$("hold").getContext("2d"),nc=$("next").getContext("2d");
+function drawSide(){hc.clearRect(0,0,72,44);mini(hc,held,36,22,13);nc.clearRect(0,0,72,150);queue.slice(0,3).forEach((t,i)=>mini(nc,t,36,25+i*50,i?11:13))}
+// ---- loop ----
+let last=performance.now();
+function frame(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;
+  if(state==="play"){
+    if(clearing){clearT+=dt;if(clearT>0.25)finishClear()}
+    else if(cur){const interval=Math.max(0.05,0.8*Math.pow(0.85,level-1));dropT+=dt;
+      if(dropT>=interval){dropT=0;const p={...cur,y:cur.y+1};if(fits(p))cur=p}
+      if(!fits({...cur,y:cur.y+1})){lockT+=dt;if(lockT>0.5)lock()}}
+  }
+  draw();requestAnimationFrame(frame)}
+// ---- sizing ----
+function resize(){const w=$("well"),main=w.parentElement;const availW=main.clientWidth-92,availH=main.clientHeight;
+  CELL=Math.max(12,Math.floor(Math.min(availW/COLS,availH/ROWS)));const d=devicePixelRatio||1;
+  bc.style.width=COLS*CELL+"px";bc.style.height=ROWS*CELL+"px";bc.width=COLS*CELL*d;bc.height=ROWS*CELL*d;bx.setTransform(d,0,0,d,0,0)}
+// ---- input: gestures on the board ----
+let g0=null;
+bc.addEventListener("pointerdown",e=>{bc.setPointerCapture(e.pointerId);g0={x:e.clientX,y:e.clientY,t:performance.now(),mx:0,my:0,moved:false}});
+bc.addEventListener("pointermove",e=>{if(!g0)return;const dx=e.clientX-g0.x,dy=e.clientY-g0.y;
+  const step=CELL*0.9;while(dx-g0.mx*step>step){if(move(1));g0.mx++;g0.moved=true}while(dx-g0.mx*step<-step){move(-1);g0.mx--;g0.moved=true}
+  while(dy-g0.my*step>step){soft();g0.my++;g0.moved=true}});
+bc.addEventListener("pointerup",e=>{if(!g0)return;const dt=performance.now()-g0.t,dy=e.clientY-g0.y,dx=e.clientX-g0.x;
+  if(dy>CELL*2.5&&dt<260&&Math.abs(dy)>Math.abs(dx))hard();else if(!g0.moved&&dt<300)rotate();g0=null});
+bc.addEventListener("pointercancel",()=>g0=null);
+// buttons with auto-repeat for move/soft
+const acts={left:()=>move(-1),right:()=>move(1),rot:rotate,soft,hard,hold};
+document.querySelectorAll(".pad button").forEach(b=>{let rep,del;const a=b.dataset.a;
+  b.addEventListener("pointerdown",e=>{e.preventDefault();acts[a]();if(a==="left"||a==="right"||a==="soft"){del=setTimeout(()=>rep=setInterval(acts[a],55),170)}});
+  const stop=()=>{clearTimeout(del);clearInterval(rep)};["pointerup","pointerleave","pointercancel"].forEach(ev=>b.addEventListener(ev,stop));
+  b.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();acts[a]()}})});
+addEventListener("keydown",e=>{const m={ArrowLeft:()=>move(-1),ArrowRight:()=>move(1),ArrowUp:rotate,ArrowDown:soft," ":hard,c:hold,C:hold}[e.key];if(m&&state==="play"){e.preventDefault();m()}});
+$("pause").onclick=()=>{if(state==="play"){state="paused";$("pause").textContent="Resume"}else if(state==="paused"){state="play";$("pause").textContent="Pause"}};
+$("go").onclick=start;addEventListener("resize",resize);
+resize();grid=Array.from({length:ROWS},()=>Array(COLS).fill(null));requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>

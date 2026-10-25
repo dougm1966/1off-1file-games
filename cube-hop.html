@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Cube Hop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#101433;--ink:#f1f3ff;--muted:#9aa2d6;--accent:#ffcf33;--f-display:"Baloo 2","Arial Rounded MT Bold",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#111;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Cube Hop</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Tap diagonally around the hopper to jump that way</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=560,FONT="'Baloo 2', sans-serif";
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+
+
+const ROWS=7,CW=46,RH=52,TOPY=96,CX=LW/2;
+const PAL=[["#5b6cff","#ffcf33"],["#ff6b6b","#4ee0b0","#ffcf33"],["#2ec4ff","#ff7ad9"]];
+let cubes,hero,foes,score,lives,level,state="menu",best=getBest("ch-best"),spawnT=0,banner="",bannerT=0,dead=0;
+const cubeXY=(r,c)=>({x:CX+(c-r/2)*CW,y:TOPY+r*RH});
+const on=(r,c)=>r>=0&&r<ROWS&&c>=0&&c<=r;
+function steps(){return level===1?1:level===2?2:1}
+function makeLevel(){cubes=[];for(let r=0;r<ROWS;r++)for(let c=0;c<=r;c++)cubes.push({r,c,s:0});foes=[];hero={r:0,c:0,fr:0,fc:0,t:1,falling:false};spawnT=2.5;banner=`Level ${level}`;bannerT=1.4}
+function pal(){return PAL[(level-1)%PAL.length]}
+function cube(r,c){return cubes.find(q=>q.r===r&&q.c===c)}
+function newGame(){score=0;lives=3;level=1;makeLevel();state="play";hud()}
+function hud(){stats({Score:score,Best:Math.max(best,score),Lvl:level||1,"♥":lives??3})}
+function hop(dr,dc){if(state!=="play"||hero.t<1||hero.falling||bannerT>0||dead>0)return;hero.fr=hero.r;hero.fc=hero.c;hero.r+=dr;hero.c+=dc;hero.t=0;hero.dr=dr;hero.dc=dc}
+pointer({down:l=>{if(!hero)return;const p=pos(hero);const dx=l.x-p.x,dy=l.y-(p.y-10);if(dy<0)hop(-1,dx<0?-1:0);else hop(1,dx<0?0:1)}});
+addEventListener("keydown",e=>{const m={q:[-1,-1],e:[-1,0],a:[1,0],d:[1,1],ArrowUp:[-1,0],ArrowLeft:[-1,-1],ArrowDown:[1,0],ArrowRight:[1,1]}[e.key];if(m)hop(...m)});
+function pos(e){const a=cubeXY(e.fr,e.fc),b=cubeXY(e.r,e.c),t=Math.min(1,e.t);const x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t-Math.sin(t*Math.PI)*26-(e.drop||0);return {x,y:y-14}}
+function land(){const q=cube(hero.r,hero.c);if(!q){hero.falling=true;hero.vy=0;return}
+  const n=steps();if(level>=3){if(q.s===0){q.s=1;score+=25}else q.s=0}else if(q.s<n){q.s++;score+=25}hud();
+  if(cubes.every(k=>k.s===(level>=3?1:steps()))){score+=1000;hud();level++;setTimeout(()=>{makeLevel()},500);state="clear";setTimeout(()=>state="play",500)}}
+function die(){lives--;hud();dead=1;foes=[];if(lives<=0){state="over";if(score>best){best=score;setBest("ch-best",best)}setTimeout(()=>card(`<h1>Toppled</h1><p>Score ${score} · level ${level}</p><p class="sub">Best ${best}</p>`,"Hop again",newGame),900)}}
+function update(dt){if(state!=="play"&&state!=="clear")return;
+  if(bannerT>0){bannerT-=dt;return}
+  if(dead>0){dead-=dt;if(dead<=0&&lives>0){hero={r:0,c:0,fr:0,fc:0,t:1,falling:false}}return}
+  if(hero.falling){hero.vy+=900*dt;hero.drop=(hero.drop||0)-hero.vy*dt;if(hero.drop<-400){hero.falling=false;hero.drop=0;die()}return}
+  if(hero.t<1){hero.t+=dt/0.26;if(hero.t>=1){hero.t=1;land()}}
+  spawnT-=dt;if(spawnT<=0){spawnT=rnd(2,4)/(1+level*.15);const kind=Math.random()<.28&&!foes.some(f=>f.kind==="burr")?"burr":"ball";foes.push({kind,r:1,c:Math.random()<.5?0:1,fr:0,fc:0,t:0,drop:120,wait:0})}
+  for(const f of foes){if(f.drop>0){f.drop=Math.max(0,f.drop-300*dt);f.fr=f.r;f.fc=f.c;f.t=1;continue}
+    if(f.t<1){f.t+=dt/0.3;continue}
+    f.wait+=dt;if(f.wait<(f.kind==="burr"?0.55:0.45)-level*.02)continue;f.wait=0;f.fr=f.r;f.fc=f.c;
+    if(f.kind==="ball"){f.r++;f.c+=Math.random()<.5?0:1;f.t=0}
+    else{if(!f.hunting&&f.r<ROWS-1){f.r++;f.c+=Math.random()<.5?0:1}else{f.hunting=true;const opts=[[-1,-1],[-1,0],[1,0],[1,1]].filter(([a,b])=>on(f.r+a,f.c+b));let bd=1e9,ch=opts[0];for(const o of opts){const p=cubeXY(f.r+o[0],f.c+o[1]),h=cubeXY(hero.r,hero.c),d=Math.hypot(p.x-h.x,p.y-h.y);if(d<bd){bd=d;ch=o}}f.r+=ch[0];f.c+=ch[1]}f.t=0}}
+  foes=foes.filter(f=>!(f.kind==="ball"&&f.r>=ROWS&&f.t>=1));
+  for(const f of foes){if(f.drop>0||hero.t<1)continue;if(f.r===hero.r&&f.c===hero.c&&f.t>=.6){burst(pos(hero).x,pos(hero).y,"#4ee0b0",28,170,1);die();break}}
+}
+function drawCube(q){const {x,y}=cubeXY(q.r,q.c),P=pal(),top=P[Math.min(q.s,P.length-1)],h=CW/2;
+  ctx.fillStyle=top;ctx.beginPath();ctx.moveTo(x,y-14);ctx.lineTo(x+h,y);ctx.lineTo(x,y+14);ctx.lineTo(x-h,y);ctx.closePath();ctx.fill();
+  ctx.fillStyle="#2b2f6b";ctx.beginPath();ctx.moveTo(x-h,y);ctx.lineTo(x,y+14);ctx.lineTo(x,y+RH);ctx.lineTo(x-h,y+RH-14);ctx.closePath();ctx.fill();
+  ctx.fillStyle="#1b1e4d";ctx.beginPath();ctx.moveTo(x+h,y);ctx.lineTo(x,y+14);ctx.lineTo(x,y+RH);ctx.lineTo(x+h,y+RH-14);ctx.closePath();ctx.fill();
+  ctx.strokeStyle="rgba(255,255,255,.25)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x-h,y);ctx.lineTo(x,y-14);ctx.lineTo(x+h,y);ctx.stroke()}
+function drawHero(){const p=pos(hero),sq=hero.t<1?1+Math.sin(hero.t*Math.PI)*.12:1;ctx.save();ctx.translate(p.x,p.y);ctx.scale(1/sq,sq);
+  ctx.fillStyle="rgba(0,0,0,.25)";ctx.beginPath();ctx.ellipse(0,14,10,3,0,0,7);ctx.fill();
+  ctx.strokeStyle="#2b8f73";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-5,8);ctx.lineTo(-7,14);ctx.moveTo(5,8);ctx.lineTo(7,14);ctx.stroke();
+  const g=ctx.createRadialGradient(-4,-4,2,0,0,13);g.addColorStop(0,"#9effdf");g.addColorStop(1,"#22b58c");ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,12,0,7);ctx.fill();
+  ctx.strokeStyle="#22b58c";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(2,-11);ctx.quadraticCurveTo(6,-20,10,-18);ctx.stroke();ctx.fillStyle="#ffcf33";ctx.beginPath();ctx.arc(10,-18,3,0,7);ctx.fill();
+  const lx=(hero.dc===0&&hero.dr>0)||(hero.dr<0&&hero.dc<0)?-3:3,ly=hero.dr<0?-3:1;ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(lx*.6,-2,6,0,7);ctx.fill();ctx.fillStyle="#101433";ctx.beginPath();ctx.arc(lx*.6+lx*.7,-2+ly*.7,3,0,7);ctx.fill();ctx.restore()}
+function drawFoe(f){const a=cubeXY(f.fr,f.fc),b=cubeXY(f.r,f.c),t=Math.min(1,f.t);const x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t-Math.sin(t*Math.PI)*22-14-f.drop;
+  if(f.kind==="ball"){const g=ctx.createRadialGradient(x-3,y-3,1,x,y,9);g.addColorStop(0,"#ffb3b3");g.addColorStop(1,"#e62e4d");ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.fill()}
+  else{ctx.fillStyle="#7cd63a";ctx.beginPath();for(let i=0;i<16;i++){const ang=i/16*Math.PI*2,r=i%2?8:13;ctx.lineTo(x+Math.cos(ang+performance.now()/300)*r,y+Math.sin(ang+performance.now()/300)*r)}ctx.closePath();ctx.fill();ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(x-3,y-1,3,0,7);ctx.arc(x+3,y-1,3,0,7);ctx.fill();ctx.fillStyle="#101433";ctx.fillRect(x-4,y-1,2,2);ctx.fillRect(x+2,y-1,2,2)}}
+function draw(){const g=ctx.createLinearGradient(0,0,0,LH);g.addColorStop(0,"#1a1f55");g.addColorStop(1,"#0b0d26");ctx.fillStyle=g;ctx.fillRect(0,0,LW,LH);
+  ctx.fillStyle="rgba(255,255,255,.4)";for(let i=0;i<40;i++)ctx.fillRect((i*89)%LW,(i*53)%LH,1,1);
+  if(cubes){const P=pal(),goal=P[level>=3?1:steps()];text("Make every top",58,26,13,"#9aa2d6");ctx.fillStyle=goal;ctx.beginPath();ctx.moveTo(120,18);ctx.lineTo(132,26);ctx.lineTo(120,34);ctx.lineTo(108,26);ctx.closePath();ctx.fill();
+    for(const q of cubes)drawCube(q);
+    const ents=[...(foes||[]),...(hero&&dead<=0?[hero]:[])].sort((a,b)=>a.r-b.r);for(const e of ents){if(e===hero)drawHero();else drawFoe(e)}}
+  drawParts();if(bannerT>0&&state==="play")text(banner,LW/2,LH-40,26,"#ffcf33")}
+loop(dt=>{update(dt);stepParts(dt);draw()});
+fit();level=1;makeLevel();bannerT=0;hud();
+card(`<h1>Cube Hop</h1><p>Hop on every cube until all the tops match the goal color shown up top. Dodge the red balls and the green burr that hunts you. Don't hop off the edge.</p><p class="sub">Tap above-left, above-right, below-left or below-right of the hopper to jump that way.</p>`,"Hop",newGame);
+
+})();
+</script>
+
+</body></html>

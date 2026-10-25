@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Coil</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#0f1a12;--ink:#e8f5e1;--muted:#8fb08a;--accent:#b8f05a;--f-display:"Silkscreen",ui-monospace,monospace;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#111;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Coil</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Swipe in any direction to turn</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=504,FONT="'Silkscreen', monospace";
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+
+
+const CS=18,GW=20,GH=28;
+let snake,dir,ndir,food,bonus,score,best=getBest("coil-best"),state="menu",stepT=0,speed,grow=0,deadT=0;
+function free(){let p;do{p={x:Math.random()*GW|0,y:Math.random()*GH|0}}while(snake.some(s=>s.x===p.x&&s.y===p.y)||(food&&food.x===p.x&&food.y===p.y));return p}
+function newGame(){snake=[{x:10,y:16},{x:10,y:17},{x:10,y:18}];dir={x:0,y:-1};ndir=[];food=null;food=free();bonus=null;score=0;speed=7;grow=0;state="play";hud()}
+function hud(){stats({Score:score,Best:Math.max(best,score),Length:snake?snake.length:3})}
+function turn(x,y){const last=ndir.length?ndir[ndir.length-1]:dir;if(last.x===-x&&last.y===-y||last.x===x&&last.y===y)return;if(ndir.length<3)ndir.push({x,y})}
+pointer({move:(l,dx,dy,p)=>{const ax=l.x-p.x0,ay=l.y-p.y0;if(Math.hypot(ax,ay)>16){Math.abs(ax)>Math.abs(ay)?turn(Math.sign(ax),0):turn(0,Math.sign(ay));p.x0=l.x;p.y0=l.y}}});
+addEventListener("keydown",e=>{const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(m&&state==="play")turn(...m)});
+function tick(){if(ndir.length)dir=ndir.shift();const h={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+  if(h.x<0||h.y<0||h.x>=GW||h.y>=GH||snake.some((s,i)=>i<snake.length-(grow?0:1)&&s.x===h.x&&s.y===h.y)){die();return}
+  snake.unshift(h);if(grow)grow--;else snake.pop();
+  if(h.x===food.x&&h.y===food.y){score+=10;grow+=2;burst(h.x*CS+9,h.y*CS+9,"#ff5d5d",14,120);food=free();speed=Math.min(16,speed+.25);if(!bonus&&Math.random()<.25)bonus={...free(),t:6}}
+  if(bonus&&h.x===bonus.x&&h.y===bonus.y){score+=50;grow+=4;burst(h.x*CS+9,h.y*CS+9,"#ffd84a",20,160);bonus=null}
+  hud()}
+function die(){state="dead";deadT=0;for(const s of snake)burst(s.x*CS+9,s.y*CS+9,"#b8f05a",4,90);if(score>best){best=score;setBest("coil-best",best)}
+  setTimeout(()=>card(`<h1>Bonk</h1><p>Score ${score} · length ${snake.length}</p><p class="sub">Best ${best}</p>`,"Again",newGame),700)}
+function draw(){ctx.fillStyle="#13221a";ctx.fillRect(0,0,LW,LH);
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++)if((x+y)%2){ctx.fillStyle="#162a1e";ctx.fillRect(x*CS,y*CS,CS,CS)}
+  if(food){const fx=food.x*CS+9,fy=food.y*CS+9;ctx.fillStyle="#ff5d5d";ctx.beginPath();ctx.arc(fx,fy+1,7,0,7);ctx.fill();ctx.fillStyle="#7ed957";ctx.fillRect(fx-1,fy-9,3,5);ctx.fillStyle="rgba(255,255,255,.5)";ctx.fillRect(fx-4,fy-3,3,3)}
+  if(bonus){const p=1+Math.sin(performance.now()/120)*.15;ctx.fillStyle="#ffd84a";ctx.beginPath();for(let i=0;i<10;i++){const a=i*Math.PI/5-Math.PI/2,r=(i%2?3.5:8)*p;ctx.lineTo(bonus.x*CS+9+Math.cos(a)*r,bonus.y*CS+9+Math.sin(a)*r)}ctx.fill()}
+  if(snake&&state!=="dead"){snake.forEach((s,i)=>{const t=i/snake.length;ctx.fillStyle=`hsl(${85-t*40},${75-t*20}%,${58-t*18}%)`;rr(s.x*CS+1.5,s.y*CS+1.5,CS-3,CS-3,i===0?7:5);ctx.fill()});
+    const h=snake[0],cx=h.x*CS+9,cy=h.y*CS+9;ctx.fillStyle="#0f1a12";for(const s of [-1,1]){const ex=cx+dir.x*3+(dir.y?s*4:0),ey=cy+dir.y*3+(dir.x?s*4:0);ctx.beginPath();ctx.arc(ex,ey,2.2,0,7);ctx.fill()}}
+  drawParts()}
+loop(dt=>{if(state==="play"){stepT+=dt;const iv=1/speed;while(stepT>=iv&&state==="play"){stepT-=iv;tick()}if(bonus){bonus.t-=dt;if(bonus.t<=0)bonus=null}}stepParts(dt);draw()});
+fit();snake=[{x:10,y:16},{x:10,y:17},{x:10,y:18}];dir={x:0,y:-1};food={x:10,y:8};hud();
+card(`<h1>Coil</h1><p>Eat apples to grow. Golden stars are worth 50 but vanish fast. Don't hit the walls or yourself.</p><p class="sub">Swipe anywhere to turn.</p>`,"Play",newGame);
+
+})();
+</script>
+
+</body></html>

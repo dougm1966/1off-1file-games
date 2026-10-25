@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Pocket Puzzle Duel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen pool-hall app — status bar, portrait table, cue controls, league-style scoresheet below */
+:root{
+  --hall:#0d1317;      /* room dark, blue-green bias */
+  --panel:#162027;
+  --line:#26343e;
+  --ink:#e9eef1;
+  --muted:#8c9daa;
+  --chalk:#6fb3ea;     /* blue chalk accent */
+  --brass:#d9a845;
+  --good:#5fcf8a;
+  --bad:#ef6a5a;
+  --f-display:"Bungee","Impact","Arial Black",sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--hall);color:var(--ink)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.4;
+  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-block:8px 24px}
+.app{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.hole{font-family:var(--f-display);font-size:18px;letter-spacing:.02em;color:var(--brass);line-height:1.1}
+.hole small{display:block;font-family:var(--f-num);font-size:13px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.shooter{text-align:right;min-width:0}
+.shooter .who{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shooter .ct{font-family:var(--f-num);font-size:13px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+.shooter .ct b{color:var(--ink);font-size:18px}
+.tablewrap{position:relative;display:flex;justify-content:center}
+canvas{display:block;touch-action:none;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.controls{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
+.nudge{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:20px;cursor:pointer}
+.nudge:active{background:var(--line)}
+.power{display:flex;flex-direction:column;gap:2px;min-width:0}
+.power label{font-family:var(--f-num);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+.power label span{color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--chalk);height:28px}
+.shoot{grid-column:1/-1;height:52px;border:0;border-radius:12px;background:var(--chalk);color:#0b1a26;font-family:var(--f-display);font-size:20px;letter-spacing:.06em;cursor:pointer}
+.shoot:disabled{opacity:.35;cursor:default}
+.hint{font-size:13px;color:var(--muted);text-align:center}
+button:focus-visible,input:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.sheet h2{margin:0 0 8px;font-family:var(--f-num);font-weight:700;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-family:var(--f-num);font-variant-numeric:tabular-nums;font-size:16px}
+th,td{padding:5px 4px;text-align:center;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--f-body);font-weight:600;font-size:14px}
+thead th{color:var(--muted);font-weight:500;font-size:13px}
+tr.par td{color:var(--brass);font-size:14px}
+td.cur{outline:1px dashed var(--chalk);outline-offset:-3px}
+td.win{color:var(--good);font-weight:700}
+td.tot{font-weight:700}
+.rules{font-size:13px;color:var(--muted);margin:10px 0 0;display:grid;gap:4px}
+.newgame{margin-top:10px;background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer}
+
+.overlay{position:fixed;inset:0;background:rgba(5,9,12,.82);display:flex;align-items:center;justify-content:center;z-index:20;
+  padding:env(safe-area-inset-top,0px) max(16px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(16px,env(safe-area-inset-left,0px))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 20px;max-width:360px;width:100%;display:grid;gap:12px;text-align:center}
+.card .eyebrow{font-family:var(--f-num);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:26px;line-height:1.1;color:var(--brass);text-wrap:balance}
+.card p{margin:0;color:var(--ink)}
+.card .big{font-family:var(--f-num);font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.card input[type=text]{width:100%;box-sizing:border-box;background:var(--hall);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;font-size:16px}
+.card .names{display:grid;gap:8px;text-align:left}
+.card .names label{font-size:12px;color:var(--muted);font-family:var(--f-num);letter-spacing:.1em;text-transform:uppercase}
+.primary{height:50px;border:0;border-radius:12px;background:var(--chalk);color:#0b1a26;font-family:var(--f-display);font-size:18px;letter-spacing:.05em;cursor:pointer}
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(13,19,23,.88);border:1px solid var(--line);color:var(--ink);padding:6px 12px;border-radius:999px;font-weight:600;font-size:14px;pointer-events:none;transition:opacity .25s;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+
+<div class="app">
+  <div class="bar">
+    <div class="hole" id="holeLbl">Hole 1 <small id="holeSub">Par 2 · Opening Shot</small></div>
+    <div class="shooter"><div class="who" id="whoLbl">Player 1</div><div class="ct">Strokes <b id="strokeLbl">0</b> / <span id="capLbl">6</span></div></div>
+  </div>
+
+  <div class="tablewrap" id="tablewrap">
+    <canvas id="cv" aria-label="Pool table"></canvas>
+    <div class="toast" id="toast" style="opacity:0"></div>
+  </div>
+
+  <div class="controls">
+    <button class="nudge" id="nudgeL" aria-label="Rotate aim left">‹</button>
+    <div class="power">
+      <label for="pow">Power <span id="powLbl">45%</span></label>
+      <input type="range" id="pow" min="5" max="100" value="45">
+    </div>
+    <button class="nudge" id="nudgeR" aria-label="Rotate aim right">›</button>
+    <button class="shoot" id="shootBtn">Shoot</button>
+  </div>
+  <div class="hint">Slide a finger left or right anywhere on the table to turn the cue. ‹ › fine-tune the angle.</div>
+
+  <section class="sheet">
+    <h2>Scoresheet · fewest strokes wins</h2>
+    <div class="scroll"><table id="score"></table></div>
+    <div class="rules">
+      <div>Both players shoot the same layout. Clear every ball in as few strokes as you can.</div>
+      <div>Scratch = +1 stroke, cue ball goes back to its spot. Hitting the cap ends your turn.</div>
+    </div>
+    <button class="newgame" id="newGame">New match</button>
+  </section>
+</div>
+
+<div class="overlay" id="overlay" hidden><div class="card" id="card"></div></div>
+
+<script>
+(()=>{
+const W=400,H=760,R=11,RAIL=26,CW=W+RAIL*2,CH=H+RAIL*2;
+const POCKETS=[{x:-4,y:-4,r:24},{x:W+4,y:-4,r:24},{x:-4,y:H+4,r:24},{x:W+4,y:H+4,r:24},{x:-10,y:H/2,r:26},{x:W+10,y:H/2,r:26}];
+const COLORS={1:"#f2c12e",2:"#2458c4",3:"#d6342a",4:"#6a3ea0",5:"#ef7a1a",6:"#1e8a4c",7:"#8b1f2b",8:"#151515"};
+const r3=23*0.866;
+const HOLES=[
+ {name:"Opening Shot",par:2,cue:[200,600],balls:[[110,170],[300,330]],posts:[]},
+ {name:"Three Ball",par:3,cue:[200,640],balls:[[200,190],[188.5,190-r3],[211.5,190-r3]],posts:[]},
+ {name:"Rail Huggers",par:3,cue:[200,420],balls:[[388,250],[13,560],[200,13]],posts:[]},
+ {name:"Bumpers",par:3,cue:[200,630],balls:[[200,250],[60,140],[340,140]],posts:[[200,410,16],[110,340,16],[290,340,16]]},
+ {name:"The Rack",par:5,cue:[200,640],balls:[[200,230],[188.5,230-r3],[211.5,230-r3],[177,230-2*r3],[200,230-2*r3],[223,230-2*r3]],posts:[]},
+ {name:"Through the Gate",par:4,cue:[200,640],balls:[[60,120],[340,120],[200,90],[200,250]],posts:[[80,380,18],[200,380,18],[320,380,18]]},
+];
+const CAPX=4;
+const AIM_LEN=110; // length of the sight line in table units (table is 400 wide)
+
+const $=id=>document.getElementById(id);
+const cv=$("cv"),ctx=cv.getContext("2d");
+let scale=1;
+
+// ---- match state (persisted between turns) ----
+let M=null;
+function freshMatch(names){return {names:names||["Player 1","Player 2"],hole:0,turn:0,scores:[Array(HOLES.length).fill(null),Array(HOLES.length).fill(null)],done:false};}
+function save(){try{localStorage.setItem("ppd-match",JSON.stringify(M))}catch(e){}}
+function load(){try{const s=JSON.parse(localStorage.getItem("ppd-match"));if(s&&s.scores)return s}catch(e){}return null}
+const shooterIdx=()=> (M.hole%2===0? M.turn : 1-M.turn);
+
+// ---- turn state ----
+let balls=[],posts=[],cue,strokes=0,phase="aim",angle=-Math.PI/2,sunk=[],shotT=0,scratched=false,pocketedThisShot=0;
+function setupTurn(){
+  const h=HOLES[M.hole];
+  cue={x:h.cue[0],y:h.cue[1],vx:0,vy:0,n:0,in:false};
+  balls=[cue,...h.balls.map((b,i)=>({x:b[0],y:b[1],vx:0,vy:0,n:i+1,in:false}))];
+  posts=h.posts.map(p=>({x:p[0],y:p[1],r:p[2]}));
+  strokes=0;phase="aim";sunk=[];
+  const t=balls[1];angle=Math.atan2(t.y-cue.y,t.x-cue.x);
+  updateHud();renderScore();
+}
+const cap=()=>HOLES[M.hole].par+CAPX;
+
+// ---- physics ----
+function step(dt){
+  for(const b of balls){ if(b.in)continue;
+    b.x+=b.vx*dt;b.y+=b.vy*dt;
+    const sp=Math.hypot(b.vx,b.vy);
+    if(sp>0){const ns=Math.max(0,sp-(150+sp*0.35)*dt);b.vx*=ns/sp;b.vy*=ns/sp;}
+    const e=0.78;
+    const yJaw=b.y<26||b.y>H-26||Math.abs(b.y-H/2)<20, xJaw=b.x<26||b.x>W-26;
+    if(b.x<R&&!yJaw){b.x=R;b.vx=Math.abs(b.vx)*e}
+    if(b.x>W-R&&!yJaw){b.x=W-R;b.vx=-Math.abs(b.vx)*e}
+    if(b.y<R&&!xJaw){b.y=R;b.vy=Math.abs(b.vy)*e}
+    if(b.y>H-R&&!xJaw){b.y=H-R;b.vy=-Math.abs(b.vy)*e}
+    for(const p of posts){const dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy),m=R+p.r;
+      if(d<m&&d>0){const nx=dx/d,ny=dy/d;b.x=p.x+nx*m;b.y=p.y+ny*m;const vn=b.vx*nx+b.vy*ny;if(vn<0){b.vx-=1.85*vn*nx;b.vy-=1.85*vn*ny}}}
+  }
+  for(let i=0;i<balls.length;i++){const a=balls[i];if(a.in)continue;
+    for(let j=i+1;j<balls.length;j++){const b=balls[j];if(b.in)continue;
+      const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
+      if(d<2*R&&d>0){const nx=dx/d,ny=dy/d,o=(2*R-d)/2;a.x-=nx*o;a.y-=ny*o;b.x+=nx*o;b.y+=ny*o;
+        const rel=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
+        if(rel>0){const k=rel*0.97;a.vx-=k*nx;a.vy-=k*ny;b.vx+=k*nx;b.vy+=k*ny;}}}}
+  for(const b of balls){ if(b.in)continue;
+    let gone=b.x<-30||b.x>W+30||b.y<-30||b.y>H+30;
+    for(const p of POCKETS){if(Math.hypot(b.x-p.x,b.y-p.y)<p.r){gone=true;break}}
+    if(gone){b.in=true;sunk.push({x:b.x,y:b.y,n:b.n,t:0});b.vx=b.vy=0;
+      if(b.n===0)scratched=true;else pocketedThisShot++;}
+  }
+}
+function moving(){return balls.some(b=>!b.in&&(Math.abs(b.vx)>2||Math.abs(b.vy)>2))}
+
+function shoot(){
+  if(phase!=="aim")return;
+  const p=+$("pow").value, sp=140+p/100*1500;
+  cue.vx=Math.cos(angle)*sp;cue.vy=Math.sin(angle)*sp;
+  strokes++;phase="roll";shotT=0;scratched=false;pocketedThisShot=0;updateHud();
+}
+function settle(){
+  for(const b of balls){b.vx=b.vy=0}
+  if(scratched){strokes++;toast("Scratch · +1 stroke");
+    const h=HOLES[M.hole];cue.in=false;cue.x=h.cue[0];cue.y=h.cue[1];
+    while(balls.some(b=>b!==cue&&!b.in&&Math.hypot(b.x-cue.x,b.y-cue.y)<2*R+2))cue.y-=25;}
+  else if(pocketedThisShot>0)toast(pocketedThisShot>1?pocketedThisShot+" balls down":"Ball down");
+  const left=balls.filter(b=>b.n>0&&!b.in).length;
+  updateHud();
+  if(left===0){endTurn(Math.min(strokes,cap()),true);return}
+  if(strokes>=cap()){endTurn(cap(),false);return}
+  phase="aim";
+  updateHud();
+}
+
+// ---- turn / match flow ----
+function endTurn(score,cleared){
+  phase="over";
+  const who=shooterIdx();M.scores[who][M.hole]=score;
+  const name=M.names[who],par=HOLES[M.hole].par,diff=score-par;
+  const rel=diff===0?"Even par":diff<0?`${-diff} under par`:`${diff} over par`;
+  if(M.turn===0){
+    M.turn=1;save();
+    const next=M.names[shooterIdx()];
+    showCard(`<div class="eyebrow">Hole ${M.hole+1} · ${esc(name)}</div>
+      <div class="big">${score}</div><p>${cleared?"Table cleared. ":"Hit the cap. "}${rel}.</p>
+      <h1>Pass to ${esc(next)}</h1><p>Beat ${score} on the same layout.</p>
+      <button class="primary" id="go">I'm ${esc(next)} · Rack it</button>`,()=>{setupTurn()});
+  } else {
+    const a=M.scores[0][M.hole],b=M.scores[1][M.hole];
+    const res=a===b?"Hole halved":`${esc(M.names[a<b?0:1])} takes hole ${M.hole+1}`;
+    M.turn=0;M.hole++;
+    if(M.hole>=HOLES.length){M.done=true;save();renderScore();finalCard();return}
+    save();renderScore();
+    const first=M.names[shooterIdx()];
+    showCard(`<div class="eyebrow">Hole ${M.hole} result</div>
+      <p>${esc(name)}: <b>${score}</b> · ${cleared?"cleared":"capped"}</p>
+      <h1>${res}</h1>
+      <p>Next up: hole ${M.hole+1}, ${esc(HOLES[M.hole].name)}. ${esc(first)} breaks.</p>
+      <button class="primary" id="go">I'm ${esc(first)} · Rack it</button>`,()=>{setupTurn()});
+  }
+}
+function totals(){return M.scores.map(r=>r.reduce((s,v)=>s+(v??0),0))}
+function holeWins(){let w=[0,0];for(let i=0;i<HOLES.length;i++){const a=M.scores[0][i],b=M.scores[1][i];if(a!=null&&b!=null&&a!==b)w[a<b?0:1]++}return w}
+function finalCard(){
+  const t=totals(),w=holeWins();
+  const head=t[0]===t[1]?"Dead even":`${esc(M.names[t[0]<t[1]?0:1])} wins`;
+  showCard(`<div class="eyebrow">Match over</div><h1>${head}</h1>
+    <p>${esc(M.names[0])}: <b>${t[0]}</b> strokes · ${w[0]} holes<br>${esc(M.names[1])}: <b>${t[1]}</b> strokes · ${w[1]} holes</p>
+    <button class="primary" id="go">Rematch</button>`,()=>{const n=M.names.slice().reverse();M=freshMatch(n);save();setupTurn();});
+}
+function startCard(){
+  showCard(`<div class="eyebrow">Pass-and-play · 6 holes</div><h1>Pocket Puzzle Duel</h1>
+    <p>Same table layout for both of you. Clear it in the fewest strokes. Lowest total after six holes wins.</p>
+    <div class="names"><label for="n1">Breaks first</label><input type="text" id="n1" maxlength="14" value="${esc(M.names[0])}">
+    <label for="n2">Second shooter</label><input type="text" id="n2" maxlength="14" value="${esc(M.names[1])}"></div>
+    <button class="primary" id="go">Rack it</button>`,()=>{
+      M.names=[$("n1").value.trim()||"Player 1",$("n2").value.trim()||"Player 2"];save();setupTurn();},true);
+}
+function showCard(html,onGo,keepNames){
+  $("card").innerHTML=html;$("overlay").hidden=false;
+  $("go").onclick=()=>{if(keepNames){onGo()} $("overlay").hidden=true; if(!keepNames)onGo();};
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+// ---- HUD ----
+function updateHud(){
+  const h=HOLES[M.hole]||HOLES[HOLES.length-1];
+  $("holeLbl").firstChild.nodeValue=`Hole ${Math.min(M.hole+1,HOLES.length)} `;
+  $("holeSub").textContent=`Par ${h.par} · ${h.name}`;
+  $("whoLbl").textContent=M.names[shooterIdx()];
+  $("strokeLbl").textContent=strokes;$("capLbl").textContent=h.par+CAPX;
+  $("shootBtn").disabled=phase!=="aim";
+}
+function renderScore(){
+  const w=[];for(let i=0;i<HOLES.length;i++){const a=M.scores[0][i],b=M.scores[1][i];w.push(a!=null&&b!=null&&a!==b?(a<b?0:1):-1)}
+  const t=totals();
+  let h=`<thead><tr><th>Hole</th>${HOLES.map((_,i)=>`<th>${i+1}</th>`).join("")}<th>Tot</th></tr></thead><tbody>`;
+  h+=`<tr class="par"><td>Par</td>${HOLES.map(x=>`<td>${x.par}</td>`).join("")}<td>${HOLES.reduce((s,x)=>s+x.par,0)}</td></tr>`;
+  for(let p=0;p<2;p++){
+    h+=`<tr><td>${esc(M.names[p])}</td>${HOLES.map((_,i)=>{const v=M.scores[p][i];const cur=!M.done&&i===M.hole&&shooterIdx()===p;
+      return `<td class="${w[i]===p?"win":""} ${cur?"cur":""}">${v??(cur?"·":"")}</td>`}).join("")}<td class="tot">${t[p]}</td></tr>`;
+  }
+  $("score").innerHTML=h+"</tbody>";
+}
+let toastT;function toast(m){const t=$("toast");t.textContent=m;t.style.opacity=1;clearTimeout(toastT);toastT=setTimeout(()=>t.style.opacity=0,1300)}
+
+// ---- aiming prediction ----
+function predict(){
+  const dx=Math.cos(angle),dy=Math.sin(angle);let best=Infinity,hit=null;
+  const ray=(cx,cy,rr)=>{const fx=cue.x-cx,fy=cue.y-cy,b=fx*dx+fy*dy,c=fx*fx+fy*fy-rr*rr,disc=b*b-c;if(disc<0)return Infinity;const t=-b-Math.sqrt(disc);return t>0.01?t:Infinity};
+  for(const b of balls){if(b===cue||b.in)continue;const t=ray(b.x,b.y,2*R);if(t<best){best=t;hit={type:"ball",b}}}
+  for(const p of posts){const t=ray(p.x,p.y,R+p.r);if(t<best){best=t;hit={type:"post"}}}
+  const walls=[dx<0?(R-cue.x)/dx:dx>0?(W-R-cue.x)/dx:Infinity, dy<0?(R-cue.y)/dy:dy>0?(H-R-cue.y)/dy:Infinity];
+  const tw=Math.min(...walls);if(tw<best){best=tw;hit={type:"wall",vert:walls[0]<walls[1]}}
+  return {t:best,x:cue.x+dx*best,y:cue.y+dy*best,hit,dx,dy};
+}
+
+// ---- drawing ----
+function resize(){
+  const wrap=$("tablewrap"),avail=wrap.clientWidth;
+  const vh=window.innerHeight-230;
+  scale=Math.max(0.4,Math.min(avail/CW,vh/CH,1.3));
+  const dpr=window.devicePixelRatio||1;
+  cv.style.width=CW*scale+"px";cv.style.height=CH*scale+"px";
+  cv.width=Math.round(CW*scale*dpr);cv.height=Math.round(CH*scale*dpr);
+  ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);
+}
+function drawTable(){
+  // rails
+  const g=ctx.createLinearGradient(0,0,CW,CH);g.addColorStop(0,"#5a2f1a");g.addColorStop(.5,"#7a4226");g.addColorStop(1,"#4a2614");
+  ctx.fillStyle=g;rr(0,0,CW,CH,16);ctx.fill();
+  ctx.save();ctx.translate(RAIL,RAIL);
+  // cushions
+  ctx.fillStyle="#174a6e";ctx.fillRect(-7,-7,W+14,H+14);
+  // cloth (tournament blue)
+  const c=ctx.createRadialGradient(W/2,H/2,60,W/2,H/2,H*.65);c.addColorStop(0,"#2878ad");c.addColorStop(1,"#1d5f8c");
+  ctx.fillStyle=c;ctx.fillRect(0,0,W,H);
+  // head string + foot spot
+  ctx.strokeStyle="rgba(255,255,255,.08)";ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(0,H*.75);ctx.lineTo(W,H*.75);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle="rgba(255,255,255,.18)";ctx.beginPath();ctx.arc(W/2,H*.25,2.5,0,7);ctx.fill();
+  // diamonds
+  ctx.fillStyle="#efe3c4";
+  const dia=(x,y)=>{ctx.beginPath();ctx.moveTo(x,y-4);ctx.lineTo(x+3,y);ctx.lineTo(x,y+4);ctx.lineTo(x-3,y);ctx.fill()};
+  for(let k=1;k<8;k++){if(k===4)continue;dia(-RAIL/2-3,H*k/8);dia(W+RAIL/2+3,H*k/8)}
+  for(let k=1;k<4;k++){dia(W*k/4,-RAIL/2-3);dia(W*k/4,H+RAIL/2+3)}
+  // pockets
+  for(const p of POCKETS){ctx.fillStyle="#050608";ctx.beginPath();ctx.arc(p.x,p.y,p.r-3,0,7);ctx.fill();
+    ctx.strokeStyle="#2b1a10";ctx.lineWidth=3;ctx.stroke();}
+  ctx.restore();
+}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function drawBall(x,y,n,s=1){
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  ctx.fillStyle="rgba(0,0,0,.28)";ctx.beginPath();ctx.ellipse(2,3,R,R*.9,0,0,7);ctx.fill();
+  const base=n===0?"#f4f1e8":COLORS[n];
+  const g=ctx.createRadialGradient(-4,-5,1,0,0,R);g.addColorStop(0,n===0?"#ffffff":lighten(base));g.addColorStop(1,base);
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.fill();
+  if(n>0){ctx.fillStyle="#fbf8ef";ctx.beginPath();ctx.arc(0,0,5.6,0,7);ctx.fill();
+    ctx.fillStyle="#111";ctx.font="700 8px Barlow, sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(n,0,.5)}
+  if(n===0){ctx.fillStyle="#c0392b";ctx.beginPath();ctx.arc(2,1,1.4,0,7);ctx.fill()}
+  ctx.fillStyle="rgba(255,255,255,.55)";ctx.beginPath();ctx.arc(-4,-4.5,2.2,0,7);ctx.fill();
+  ctx.restore();
+}
+function lighten(h){const n=parseInt(h.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;r=Math.min(255,r+70);g=Math.min(255,g+70);b=Math.min(255,b+70);return `rgb(${r},${g},${b})`}
+function drawPost(p){
+  ctx.fillStyle="rgba(0,0,0,.3)";ctx.beginPath();ctx.arc(p.x+2,p.y+3,p.r,0,7);ctx.fill();
+  const g=ctx.createRadialGradient(p.x-p.r*.4,p.y-p.r*.4,1,p.x,p.y,p.r);g.addColorStop(0,"#ffe39a");g.addColorStop(1,"#a8761f");
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();
+  ctx.fillStyle="#1a1a1a";ctx.beginPath();ctx.arc(p.x,p.y,p.r*.45,0,7);ctx.fill();
+}
+function draw(){
+  ctx.clearRect(0,0,CW,CH);drawTable();
+  ctx.save();ctx.translate(RAIL,RAIL);
+  for(const p of posts)drawPost(p);
+  if(phase==="aim"&&!cue.in){
+    const pr=predict(),pw=+$("pow").value/100;
+    // Medium help: dashed line to the first thing the cue ball touches, plus a faint ghost ball there.
+    // No lines showing where the object ball or cue ball go after contact.
+    ctx.strokeStyle="rgba(255,255,255,.4)";ctx.lineWidth=1.3;ctx.setLineDash([5,6]);
+    ctx.beginPath();ctx.moveTo(cue.x+pr.dx*(R+2),cue.y+pr.dy*(R+2));ctx.lineTo(pr.x,pr.y);ctx.stroke();ctx.setLineDash([]);
+    ctx.strokeStyle="rgba(255,255,255,.35)";ctx.beginPath();ctx.arc(pr.x,pr.y,R,0,7);ctx.stroke();
+    // cue stick
+    const back=14+pw*40,len=300,dx=Math.cos(angle),dy=Math.sin(angle);
+    const sx=cue.x-dx*(R+back),sy=cue.y-dy*(R+back),ex=sx-dx*len,ey=sy-dy*len;
+    const g=ctx.createLinearGradient(sx,sy,ex,ey);g.addColorStop(0,"#dfe9f2");g.addColorStop(.03,"#f2e3c0");g.addColorStop(.62,"#d4a86a");g.addColorStop(.64,"#1b1b1b");g.addColorStop(1,"#2d1a10");
+    ctx.strokeStyle=g;ctx.lineCap="round";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.lineCap="butt";
+  }
+  for(const b of balls)if(!b.in)drawBall(b.x,b.y,b.n);
+  for(const s of sunk)if(s.t<1)drawBall(s.x,s.y,s.n,1-s.t);
+  ctx.restore();
+}
+
+// ---- loop ----
+let last=performance.now();
+function frame(now){
+  let el=Math.min(.05,(now-last)/1000);last=now;
+  if(phase==="roll"){shotT+=el;const n=Math.ceil(el/(1/240));for(let i=0;i<n;i++)step(el/n);
+    if(!moving()||shotT>14)settle();}
+  for(const s of sunk)s.t=Math.min(1,s.t+el*4);
+  draw();requestAnimationFrame(frame);
+}
+
+// ---- input ----
+// Relative aiming: the cue stays put on touch; sliding left/right rotates it from where it was.
+let dragging=false,dragX=0,dragAngle=0;
+const DEG_PER_PX=0.18;
+cv.addEventListener("pointerdown",e=>{if(phase!=="aim")return;dragging=true;cv.setPointerCapture(e.pointerId);dragX=e.clientX;dragAngle=angle});
+cv.addEventListener("pointermove",e=>{if(!dragging||phase!=="aim")return;angle=dragAngle+(e.clientX-dragX)*DEG_PER_PX*Math.PI/180});
+cv.addEventListener("pointerup",()=>dragging=false);
+cv.addEventListener("pointercancel",()=>dragging=false);
+let rep;const nudge=d=>{if(phase==="aim")angle+=d*Math.PI/180*0.35};
+for(const [id,d] of [["nudgeL",-1],["nudgeR",1]]){const b=$(id);
+  b.addEventListener("pointerdown",e=>{e.preventDefault();nudge(d);clearInterval(rep);let k=0;rep=setInterval(()=>{k++;if(k>4)nudge(d)},70)});
+  ["pointerup","pointerleave","pointercancel"].forEach(ev=>b.addEventListener(ev,()=>clearInterval(rep)));
+  b.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();nudge(d)}});}
+$("pow").addEventListener("input",()=>$("powLbl").textContent=$("pow").value+"%");
+$("shootBtn").addEventListener("click",shoot);
+$("newGame").addEventListener("click",()=>{
+  showCard(`<div class="eyebrow">New match</div><h1>Start over?</h1><p>The current scoresheet will be cleared.</p>
+    <button class="primary" id="go">Clear and start</button><button class="newgame" id="cancel">Keep playing</button>`,()=>{M=freshMatch(M.names);save();startCard()});
+  $("cancel").onclick=()=>$("overlay").hidden=true;
+});
+window.addEventListener("resize",resize);
+
+// ---- boot ----
+M=load()||freshMatch();
+if(M.done)M=freshMatch(M.names);
+resize();setupTurn();
+if(M.hole===0&&M.turn===0)startCard();
+else showCard(`<div class="eyebrow">Match in progress · Hole ${M.hole+1}</div><h1>${esc(M.names[shooterIdx()])} is up</h1>
+  <button class="primary" id="go">Rack it</button>`,()=>{});
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
