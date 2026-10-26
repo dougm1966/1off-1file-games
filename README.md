@@ -1,66 +1,125 @@
-# Phone Arcade
+# 1 Off 1 File Games
 
-46 single-file browser games built for phones: arcade classics, puzzles, two-player pass-and-play games, and a few clinical-lab games (trivia, microscope ID, specimen sorting).
+**46 browser games, each one a single self-contained HTML file, built to be played on a phone.**
 
-Every game is one self-contained HTML file with no build step and no dependencies beyond Google Fonts. Open `index.html` to browse them all, or open any game file directly.
+Arcade classics reworked for touch, thinking puzzles, two-player games meant to be passed back and forth on one phone, and a set of clinical-lab games (trivia, microscope identification, specimen sorting) made for a hospital lab tech.
 
-## Play online
+▶ **Play them all:** [https://dougm1966.github.io/1off-1file-games/](https://dougm1966.github.io/1off-1file-games/)
 
-With GitHub Pages turned on (Settings → Pages → deploy from the `main` branch, root folder), the games are playable at `https://<user>.github.io/<repo>/`.
+---
 
-## Games
+## What makes these different
 
-| Game | Type | About |
+- **One file per game.** Each game is a single `index.html` with its CSS and JavaScript inline. No build step, no framework, no dependencies; the only external request is Google Fonts, with system-font fallbacks.
+- **Phone first.** Portrait layouts, touch controls designed for thumbs (slides, swipes, holds, multi-touch where it matters), safe-area aware, no sideways scrolling. Mouse and keyboard work too.
+- **Depth, not just demos.** Most games open with a settings menu, unlockable levels or missions, and a challenge checklist that saves on your device.
+- **Two players, one phone.** Pool, darts, air hockey, checkers, Reversi, Battleship, Connect Four, Dots and Boxes, dice, mini golf and more support pass-and-play, and many add an easy-to-hard CPU.
+- **Original characters.** Games inspired by famous arcade titles use original designs and names.
+- **Recreatable.** Every game folder includes a `PROMPT.md` you can hand to an AI coding model to rebuild or remix it.
+
+## The games
+
+### Two players (12)
+
+Pass-and-play on one phone, most with a CPU opponent too.
+
+| Game | What it is | |
 |---|---|---|
-| [Pocket Puzzle Duel](pocket-puzzle-duel.html) | Two players | Pass-and-play pool trick-shot puzzles |
-| [Rink Rivals](rink-rivals.html) | Two players | Air hockey, two players on one phone or a CPU ladder |
-| [Oche](oche.html) | Two players | Darts: x01, Cricket, Around the Clock |
-| [Rack & Run](rack-and-run.html) | Two players | 9-ball pool with real rules, friend or CPU |
-| [Drop Four](drop-four.html) | Two players | Connect Four, friend or CPU |
-| [Bench Rounds](bench-rounds.html) | Lab | Clinical lab trivia, solo or pass-and-play |
-| [Under the Scope](under-the-scope.html) | Lab | Identify blood smears, Gram stains and urine sediment |
-| [Sort It Out](sort-it-out.html) | Lab | Speed-sort tubes, organisms and blood cells |
-| [Lily Pad Dash](lily-pad-dash.html) | Arcade | Frogger-style road and river crossing |
-| [Sunset Run](sunset-run.html) | Arcade | Pseudo-3D desert driving |
-| [Stack Shift](stack-shift.html) | Puzzle | Falling-blocks stacker |
-| [Brick Bounce](brick-bounce.html) | Arcade | Breakout-style brick breaker |
-| [Coil](coil.html) | Arcade | Snake |
-| [Star Siege](star-siege.html) | Arcade | Space Invaders-style shooter |
-| [Rock Field](rock-field.html) | Arcade | Asteroids-style vector shooter |
-| [Last Line](last-line.html) | Arcade | Missile Command-style city defense |
-| [Swarm Wing](swarm-wing.html) | Arcade | Galaga-style swooping shooter |
-| [Garden Crawl](garden-crawl.html) | Arcade | Centipede-style shooter |
-| [Pantry Raid](pantry-raid.html) | Arcade | Maze chase: mouse vs cats |
-| [Cube Hop](cube-hop.html) | Arcade | Pyramid cube-hopping |
-| [Deep Dig](deep-dig.html) | Arcade | Tunnel digging and monster popping |
-| [Soft Landing](soft-landing.html) | Arcade | Lunar lander, 10 levels |
-| [Night Flipper](night-flipper.html) | Arcade | Neon pinball with missions |
-| [Sky Rescue](sky-rescue.html) | Arcade | Defender-style rescue shooter |
-| [Last Call](last-call.html) | Arcade | Tapper-style bar rush |
-| [Pop Lab](pop-lab.html) | Puzzle | Bubble shooter, 15 levels |
-| [Mine Field](mine-field.html) | Puzzle | Minesweeper |
-| [Picture Cross](picture-cross.html) | Puzzle | Nonogram picture puzzles |
-| [Putt Party](putt-party.html) | Two players | 18-hole mini golf for 1-4 players |
-| [Lab Letters](lab-letters.html) | Lab | Five-letter word guessing with lab words or partner-set words |
-| [Lab Hunt](lab-hunt.html) | Lab | Lab-themed word search |
-| [Patience](patience.html) | Puzzle | Klondike solitaire |
-| [Nine Squares](nine-squares.html) | Puzzle | Sudoku with generated puzzles |
-| [Slide & Merge](slide-and-merge.html) | Puzzle | 2048-style sliding merge puzzle |
-| [Gem Rush](gem-rush.html) | Puzzle | Match-3 gems with 15 levels |
-| [Tile Temple](tile-temple.html) | Puzzle | Mahjong solitaire |
-| [Eight & Out](eight-and-out.html) | Two players | 8-ball pool, friend or CPU |
-| [Fleet Duel](fleet-duel.html) | Two players | Battleship, pass-and-play or CPU |
-| [King Me](king-me.html) | Two players | Checkers, friend or CPU |
-| [Flip Side](flip-side.html) | Two players | Reversi / Othello, friend or CPU |
-| [Box Out](box-out.html) | Two players | Dots and Boxes, friend or CPU |
-| [Roll Call](roll-call.html) | Two players | Five-dice scorecard game for 1–4 or vs CPU |
-| [Pair Up](pair-up.html) | Lab | Memory match with lab decks, solo or two players |
-| [Puff Flight](puff-flight.html) | Arcade | Tap-to-flap flyer |
-| [Sky Hopper](sky-hopper.html) | Arcade | Endless bounce-and-climb jumper |
-| [Crate Crew](crate-crew.html) | Puzzle | Sokoban crate-pushing puzzles |
+| [Box Out](games/box-out/) | Dots and Boxes, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/box-out/) |
+| [Drop Four](games/drop-four/) | Connect Four, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/drop-four/) |
+| [Eight & Out](games/eight-and-out/) | 8-ball pool, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/eight-and-out/) |
+| [Fleet Duel](games/fleet-duel/) | Battleship, pass-and-play or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/fleet-duel/) |
+| [Flip Side](games/flip-side/) | Reversi / Othello, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/flip-side/) |
+| [King Me](games/king-me/) | Checkers, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/king-me/) |
+| [Oche](games/oche/) | Darts: x01, Cricket, Around the Clock | [Play](https://dougm1966.github.io/1off-1file-games/games/oche/) |
+| [Pocket Puzzle Duel](games/pocket-puzzle-duel/) | Pass-and-play pool trick-shot puzzles | [Play](https://dougm1966.github.io/1off-1file-games/games/pocket-puzzle-duel/) |
+| [Putt Party](games/putt-party/) | 18-hole mini golf for 1-4 players | [Play](https://dougm1966.github.io/1off-1file-games/games/putt-party/) |
+| [Rack & Run](games/rack-and-run/) | 9-ball pool with real rules, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/rack-and-run/) |
+| [Rink Rivals](games/rink-rivals/) | Air hockey, two players on one phone or a CPU ladder | [Play](https://dougm1966.github.io/1off-1file-games/games/rink-rivals/) |
+| [Roll Call](games/roll-call/) | Five-dice scorecard game for 1–4 or vs CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/roll-call/) |
 
-## Notes
+### Lab (6)
 
-- Progress, settings and challenge checklists save in the browser's local storage on each device.
-- Lab content (tube colors, organism Gram reactions, trivia answers) follows common clinical lab references. Local lab practice can differ.
-- Characters in the arcade games are original designs, not copies of the classic games' characters.
+Built for a hospital lab tech: trivia, microscope ID, specimen sorting and word games.
+
+| Game | What it is | |
+|---|---|---|
+| [Bench Rounds](games/bench-rounds/) | Clinical lab trivia, solo or pass-and-play | [Play](https://dougm1966.github.io/1off-1file-games/games/bench-rounds/) |
+| [Lab Hunt](games/lab-hunt/) | Lab-themed word search | [Play](https://dougm1966.github.io/1off-1file-games/games/lab-hunt/) |
+| [Lab Letters](games/lab-letters/) | Five-letter word guessing with lab words or partner-set words | [Play](https://dougm1966.github.io/1off-1file-games/games/lab-letters/) |
+| [Pair Up](games/pair-up/) | Memory match with lab decks, solo or two players | [Play](https://dougm1966.github.io/1off-1file-games/games/pair-up/) |
+| [Sort It Out](games/sort-it-out/) | Speed-sort tubes, organisms and blood cells | [Play](https://dougm1966.github.io/1off-1file-games/games/sort-it-out/) |
+| [Under the Scope](games/under-the-scope/) | Identify blood smears, Gram stains and urine sediment | [Play](https://dougm1966.github.io/1off-1file-games/games/under-the-scope/) |
+
+### Arcade (18)
+
+Classic arcade action reworked for touch screens, with original characters.
+
+| Game | What it is | |
+|---|---|---|
+| [Brick Bounce](games/brick-bounce/) | Breakout-style brick breaker | [Play](https://dougm1966.github.io/1off-1file-games/games/brick-bounce/) |
+| [Coil](games/coil/) | Snake | [Play](https://dougm1966.github.io/1off-1file-games/games/coil/) |
+| [Cube Hop](games/cube-hop/) | Pyramid cube-hopping | [Play](https://dougm1966.github.io/1off-1file-games/games/cube-hop/) |
+| [Deep Dig](games/deep-dig/) | Tunnel digging and monster popping | [Play](https://dougm1966.github.io/1off-1file-games/games/deep-dig/) |
+| [Garden Crawl](games/garden-crawl/) | Centipede-style shooter | [Play](https://dougm1966.github.io/1off-1file-games/games/garden-crawl/) |
+| [Last Call](games/last-call/) | Tapper-style bar rush | [Play](https://dougm1966.github.io/1off-1file-games/games/last-call/) |
+| [Last Line](games/last-line/) | Missile Command-style city defense | [Play](https://dougm1966.github.io/1off-1file-games/games/last-line/) |
+| [Lily Pad Dash](games/lily-pad-dash/) | Frogger-style road and river crossing | [Play](https://dougm1966.github.io/1off-1file-games/games/lily-pad-dash/) |
+| [Night Flipper](games/night-flipper/) | Neon pinball with missions | [Play](https://dougm1966.github.io/1off-1file-games/games/night-flipper/) |
+| [Pantry Raid](games/pantry-raid/) | Maze chase: mouse vs cats | [Play](https://dougm1966.github.io/1off-1file-games/games/pantry-raid/) |
+| [Puff Flight](games/puff-flight/) | Tap-to-flap flyer | [Play](https://dougm1966.github.io/1off-1file-games/games/puff-flight/) |
+| [Rock Field](games/rock-field/) | Asteroids-style vector shooter | [Play](https://dougm1966.github.io/1off-1file-games/games/rock-field/) |
+| [Sky Hopper](games/sky-hopper/) | Endless bounce-and-climb jumper | [Play](https://dougm1966.github.io/1off-1file-games/games/sky-hopper/) |
+| [Sky Rescue](games/sky-rescue/) | Defender-style rescue shooter | [Play](https://dougm1966.github.io/1off-1file-games/games/sky-rescue/) |
+| [Soft Landing](games/soft-landing/) | Lunar lander, 10 levels | [Play](https://dougm1966.github.io/1off-1file-games/games/soft-landing/) |
+| [Star Siege](games/star-siege/) | Space Invaders-style shooter | [Play](https://dougm1966.github.io/1off-1file-games/games/star-siege/) |
+| [Sunset Run](games/sunset-run/) | Pseudo-3D desert driving | [Play](https://dougm1966.github.io/1off-1file-games/games/sunset-run/) |
+| [Swarm Wing](games/swarm-wing/) | Galaga-style swooping shooter | [Play](https://dougm1966.github.io/1off-1file-games/games/swarm-wing/) |
+
+### Puzzle (10)
+
+Thinking games, from Sudoku and nonograms to Sokoban and match-3.
+
+| Game | What it is | |
+|---|---|---|
+| [Crate Crew](games/crate-crew/) | Sokoban crate-pushing puzzles | [Play](https://dougm1966.github.io/1off-1file-games/games/crate-crew/) |
+| [Gem Rush](games/gem-rush/) | Match-3 gems with 15 levels | [Play](https://dougm1966.github.io/1off-1file-games/games/gem-rush/) |
+| [Mine Field](games/mine-field/) | Minesweeper | [Play](https://dougm1966.github.io/1off-1file-games/games/mine-field/) |
+| [Nine Squares](games/nine-squares/) | Sudoku with generated puzzles | [Play](https://dougm1966.github.io/1off-1file-games/games/nine-squares/) |
+| [Patience](games/patience/) | Klondike solitaire | [Play](https://dougm1966.github.io/1off-1file-games/games/patience/) |
+| [Picture Cross](games/picture-cross/) | Nonogram picture puzzles | [Play](https://dougm1966.github.io/1off-1file-games/games/picture-cross/) |
+| [Pop Lab](games/pop-lab/) | Bubble shooter, 15 levels | [Play](https://dougm1966.github.io/1off-1file-games/games/pop-lab/) |
+| [Slide & Merge](games/slide-and-merge/) | 2048-style sliding merge puzzle | [Play](https://dougm1966.github.io/1off-1file-games/games/slide-and-merge/) |
+| [Stack Shift](games/stack-shift/) | Falling-blocks stacker | [Play](https://dougm1966.github.io/1off-1file-games/games/stack-shift/) |
+| [Tile Temple](games/tile-temple/) | Mahjong solitaire | [Play](https://dougm1966.github.io/1off-1file-games/games/tile-temple/) |
+
+## Running them
+
+- **Online:** with GitHub Pages enabled, every game is live at `https://dougm1966.github.io/1off-1file-games/games/<game>/`.
+- **Locally:** download or clone the repo and open `index.html` (or any `games/<game>/index.html`) in a browser. Nothing to install.
+- **Offline:** games work offline once loaded; only the web fonts need a connection (fallback fonts are used otherwise).
+
+### Turning on GitHub Pages
+
+Repository **Settings → Pages → Build and deployment → Deploy from a branch → `main` / root → Save**. The site appears at `https://dougm1966.github.io/1off-1file-games/` within a minute or two.
+
+## Repository layout
+
+```
+index.html              launcher page linking every game
+games/
+  <game>/
+    index.html          the complete game, one file
+    README.md           how to play, controls, settings, levels, challenges
+    PROMPT.md           a prompt to recreate the game with an AI model
+```
+
+## How they were built
+
+The games were designed and written with Claude in a single long session, then tested in a phone-sized headless browser (load, start, play actions, screenshots) before each was published. Puzzles with a right answer are checked by code: every Sudoku is generated with exactly one solution, and every Sokoban level is generated backwards from the solved state so it is always winnable.
+
+Lab content (tube colors, Gram reactions, normal ranges, trivia answers) follows common clinical laboratory references. Local lab practice can differ, so check your own lab's procedures for anything that matters.
+
+## Saved data
+
+Settings, best scores, unlocked levels and challenge progress are stored in your browser's `localStorage` on each device. Clearing site data resets them. Nothing is sent anywhere.
