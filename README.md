@@ -1,6 +1,6 @@
 # Phone Arcade
 
-36 single-file browser games built for phones: arcade classics, puzzles, two-player pass-and-play games, and a few clinical-lab games (trivia, microscope ID, specimen sorting).
+46 single-file browser games built for phones: arcade classics, puzzles, two-player pass-and-play games, and a few clinical-lab games (trivia, microscope ID, specimen sorting).
 
 Every game is one self-contained HTML file with no build step and no dependencies beyond Google Fonts. Open `index.html` to browse them all, or open any game file directly.
 
@@ -48,6 +48,16 @@ With GitHub Pages turned on (Settings → Pages → deploy from the `main` branc
 | [Slide & Merge](slide-and-merge.html) | Puzzle | 2048-style sliding merge puzzle |
 | [Gem Rush](gem-rush.html) | Puzzle | Match-3 gems with 15 levels |
 | [Tile Temple](tile-temple.html) | Puzzle | Mahjong solitaire |
+| [Eight & Out](eight-and-out.html) | Two players | 8-ball pool, friend or CPU |
+| [Fleet Duel](fleet-duel.html) | Two players | Battleship, pass-and-play or CPU |
+| [King Me](king-me.html) | Two players | Checkers, friend or CPU |
+| [Flip Side](flip-side.html) | Two players | Reversi / Othello, friend or CPU |
+| [Box Out](box-out.html) | Two players | Dots and Boxes, friend or CPU |
+| [Roll Call](roll-call.html) | Two players | Five-dice scorecard game for 1–4 or vs CPU |
+| [Pair Up](pair-up.html) | Lab | Memory match with lab decks, solo or two players |
+| [Puff Flight](puff-flight.html) | Arcade | Tap-to-flap flyer |
+| [Sky Hopper](sky-hopper.html) | Arcade | Endless bounce-and-climb jumper |
+| [Crate Crew](crate-crew.html) | Puzzle | Sokoban crate-pushing puzzles |
 
 ## Notes
 

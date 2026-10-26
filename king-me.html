@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>King Me</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#1e1410;--ink:#f7ecdc;--muted:#c4a88a;--accent:#e85d4a;--f-display:"Abril Fatface",Georgia,serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2a0a05;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#2a0a05}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#2a0a05;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">King Me</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Tap a piece, then tap where it should go</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=480,FONT="system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const N=8,CS=42,BX=(LW-CS*N)/2,BY=40;
+let B,turn=1,state="menu",sel=null,opts=[],lastMove=null,moveCount=0,lostPieces=[0,0],thinking=false,multi=false;
+function vsCPU(){return setting("opp","med")!=="friend"}
+function newGame(){B=Array.from({length:N},(_,y)=>Array.from({length:N},(_,x)=>(x+y)%2===1?(y<3?{p:2,k:false}:y>4?{p:1,k:false}:null):null));turn=1;sel=null;opts=[];lastMove=null;moveCount=0;lostPieces=[0,0];state="play";hud()}
+function hud(){const c=p=>B.flat().filter(q=>q&&q.p===p).length;stats({[vsCPU()?"You":"Red"]:c(1),[vsCPU()?"CPU":"Black"]:c(2),Turn:turn===1?"Red":"Black"})}
+function dirs(pc){return pc.k?[[1,1],[-1,1],[1,-1],[-1,-1]]:pc.p===1?[[1,-1],[-1,-1]]:[[1,1],[-1,1]]}
+const inb=(x,y)=>x>=0&&y>=0&&x<N&&y<N;
+function jumps(b,x,y,pc,path,taken){const out=[];for(const [dx,dy] of dirs(pc)){const mx=x+dx,my=y+dy,tx=x+2*dx,ty=y+2*dy;if(!inb(tx,ty))continue;const m=b[my][mx];
+    if(m&&m.p!==pc.p&&!taken.some(t=>t[0]===mx&&t[1]===my)&&(!b[ty][tx]||(tx===path[0][0]&&ty===path[0][1]))){const np=[...path,[tx,ty]],nt=[...taken,[mx,my]];const crowned=!pc.k&&((pc.p===1&&ty===0)||(pc.p===2&&ty===N-1));
+      const more=crowned?[]:jumps(b,tx,ty,pc,np,nt);if(more.length)out.push(...more);else out.push({path:np,caps:nt})}}return out}
+function movesFor(b,p){let caps=[],simple=[];for(let y=0;y<N;y++)for(let x=0;x<N;x++){const pc=b[y][x];if(!pc||pc.p!==p)continue;caps.push(...jumps(b,x,y,pc,[[x,y]],[]));for(const [dx,dy] of dirs(pc)){const tx=x+dx,ty=y+dy;if(inb(tx,ty)&&!b[ty][tx])simple.push({path:[[x,y],[tx,ty]],caps:[]})}}
+  if(caps.length&&setting("force","on")==="on")return caps;return [...caps,...simple]}
+function apply(b,m){const [sx,sy]=m.path[0],[ex,ey]=m.path[m.path.length-1];const pc=b[sy][sx];b[sy][sx]=null;for(const [cx,cy] of m.caps)b[cy][cx]=null;b[ey][ex]=pc;let crowned=false;if(!pc.k&&((pc.p===1&&ey===0)||(pc.p===2&&ey===N-1))){pc.k=true;crowned=true}return crowned}
+const clone=b=>b.map(r=>r.map(c=>c&&{...c}));
+function doMove(m){const crowned=apply(B,m);lastMove=m;moveCount++;if(m.caps.length){lostPieces[turn===1?1:0]+=m.caps.length;for(const [cx,cy] of m.caps)burst(BX+cx*CS+CS/2,BY+cy*CS+CS/2,turn===1?"#333":"#e85d4a",14,120);if(m.caps.length>=3&&(turn===1||!vsCPU()))award("triple")}
+  if(crowned&&(turn===1||!vsCPU()))award("king");turn=3-turn;sel=null;opts=[];hud();
+  const ms=movesFor(B,turn);if(!ms.length){end(3-turn);return}if(vsCPU()&&turn===2){thinking=true;setTimeout(cpu,350)}}
+function end(w){state="over";const name=vsCPU()?(w===1?"You":"CPU"):(w===1?"Red":"Black");if(vsCPU()&&w===1){award("win");if(setting("opp")==="hard")award("hard");if(lostPieces[0]===0)award("flawless");if(moveCount<=60)award("quick")}if(!vsCPU())award("duel");persist();
+  setTimeout(()=>card(`<h1>${name} win${name==="You"?"":"s"}</h1><p>${moveCount} moves</p>`,"Play again",newGame),600)}
+function evalB(b){let s=0;for(let y=0;y<N;y++)for(let x=0;x<N;x++){const c=b[y][x];if(!c)continue;let v=c.k?3:1;if(!c.k)v+=(c.p===2?y:(N-1-y))*.07;if(x>1&&x<6&&y>1&&y<6)v+=.1;s+=c.p===2?v:-v}return s}
+function mm(b,d,a,bb,p){const ms=movesFor(b,p);if(!ms.length)return p===2?-1000:1000;if(d===0)return evalB(b);let best=p===2?-1e9:1e9;for(const m of ms){const nb=clone(b);apply(nb,m);const v=mm(nb,d-1,a,bb,3-p);if(p===2){best=Math.max(best,v);a=Math.max(a,v)}else{best=Math.min(best,v);bb=Math.min(bb,v)}if(a>=bb)break}return best}
+function cpu(){thinking=false;if(state!=="play")return;const depth={easy:1,med:4,hard:6}[setting("opp","med")];const ms=movesFor(B,2);let best=null,bv=-1e9;for(const m of ms.sort(()=>Math.random()-.5)){const nb=clone(B);apply(nb,m);const v=mm(nb,depth-1,-1e9,1e9,1)+(setting("opp")==="easy"?rnd(-1,1):0);if(v>bv){bv=v;best=m}}doMove(best)}
+pointer({down:l=>{if(state!=="play"||thinking||(vsCPU()&&turn===2))return;const x=Math.floor((l.x-BX)/CS),y=Math.floor((l.y-BY)/CS);if(!inb(x,y))return;
+  const o=opts.find(m=>{const e=m.path[m.path.length-1];return e[0]===x&&e[1]===y});if(o){doMove(o);return}
+  const pc=B[y][x];if(pc&&pc.p===turn){const all=movesFor(B,turn);opts=all.filter(m=>m.path[0][0]===x&&m.path[0][1]===y);sel=opts.length?[x,y]:null;if(!opts.length&&all.length)toast(all[0].caps.length?"You must take a jump":"That piece can't move")}else{sel=null;opts=[]}}});
+function piece(cx,cy,pc,lift){const col=pc.p===1?["#e85d4a","#a8301f"]:["#3a3a3a","#141414"];ctx.fillStyle="rgba(0,0,0,.35)";ctx.beginPath();ctx.ellipse(cx+2,cy+4,CS*.38,CS*.34,0,0,TAU);ctx.fill();
+  ctx.fillStyle=col[1];ctx.beginPath();ctx.arc(cx,cy+3-lift,CS*.38,0,TAU);ctx.fill();const g=ctx.createRadialGradient(cx-5,cy-6-lift,2,cx,cy-lift,CS*.38);g.addColorStop(0,pc.p===1?"#ff9a8a":"#777");g.addColorStop(1,col[0]);ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy-lift,CS*.38,0,TAU);ctx.fill();
+  ctx.strokeStyle="rgba(255,255,255,.18)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy-lift,CS*.26,0,TAU);ctx.stroke();if(pc.k){ctx.fillStyle="#ffd34d";ctx.font="700 18px system-ui";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("♛",cx,cy-lift+1)}}
+function draw(){ctx.fillStyle="#1e1410";ctx.fillRect(0,0,LW,LH);if(!B)return;text(state==="over"?"Game over":thinking?"CPU is thinking…":`${turn===1?(vsCPU()?"Your":"Red's"):(vsCPU()?"CPU's":"Black's")} move`,LW/2,18,16,turn===1?"#e85d4a":"#c4a88a");
+  ctx.fillStyle="#6b3f22";rr(BX-8,BY-8,CS*N+16,CS*N+16,8);ctx.fill();for(let y=0;y<N;y++)for(let x=0;x<N;x++){ctx.fillStyle=(x+y)%2?"#5b3a26":"#e9d6b4";ctx.fillRect(BX+x*CS,BY+y*CS,CS,CS)}
+  if(lastMove){ctx.fillStyle="rgba(255,211,77,.18)";for(const [x,y] of lastMove.path)ctx.fillRect(BX+x*CS,BY+y*CS,CS,CS)}
+  if(sel){ctx.strokeStyle="#ffd34d";ctx.lineWidth=3;ctx.strokeRect(BX+sel[0]*CS+1.5,BY+sel[1]*CS+1.5,CS-3,CS-3);for(const m of opts){const [x,y]=m.path[m.path.length-1];ctx.fillStyle="rgba(255,211,77,.55)";ctx.beginPath();ctx.arc(BX+x*CS+CS/2,BY+y*CS+CS/2,7,0,TAU);ctx.fill()}}
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const pc=B[y][x];if(pc)piece(BX+x*CS+CS/2,BY+y*CS+CS/2,pc,sel&&sel[0]===x&&sel[1]===y?4:0)}drawParts()}
+loop(dt=>{stepParts(dt);draw()});
+function openMenu(){menu({title:"King Me",html:`<p class="sub">American checkers. Move diagonally forward and jump to capture. Reach the far row to become a king that moves both ways. Chain jumps happen in one move.</p>`,
+  settings:[{k:"opp",label:"Opponent",def:"med",opts:[["friend","Pass & play"],["easy","CPU easy"],["med","CPU medium"],["hard","CPU hard"]]},{k:"force",label:"Forced captures",def:"on",opts:[["on","On (official)"],["off","Off"]]}],
+  challenges:[{id:"win",text:"Beat the CPU"},{id:"hard",text:"Beat the hard CPU"},{id:"king",text:"Crown a king"},{id:"triple",text:"Capture 3 in one move"},{id:"flawless",text:"Beat the CPU without losing a piece"},{id:"quick",text:"Beat the CPU in 60 moves or fewer"},{id:"duel",text:"Finish a two-player game"}],play:"Play"},newGame)}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>

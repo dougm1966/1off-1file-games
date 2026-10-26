@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Crate Crew</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#1d1a16;--ink:#f4ede1;--muted:#b5a993;--accent:#f2a93b;--f-display:"Russo One",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2a1600;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.pad{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);display:grid;grid-template-columns:repeat(5,44px);gap:5px;z-index:2}.pad button{height:40px;border-radius:9px;border:1px solid #b5a993;background:#2a251f;color:#f4ede1;font:800 16px system-ui}
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#2a1600}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#2a1600;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Crate Crew</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Swipe or use the pad to walk · push every crate onto a dock</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=560,FONT="system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const LV=[["######", "#  # #", "# $ .#", "# . $#", "#  #@#", "######"], ["#######", "#. $@##", "# . $ #", "#  #  #", "# #   #", "#######"], ["#######", "#     #", "# $.  #", "#  #  #", "# $ # #", "#@ ##.#", "#######"], ["#######", "##    #", "##$+ .#", "#  .# #", "# # $$#", "#     #", "#######"], ["########", "#     ##", "#    $ #", "##.. $ #", "# . $# #", "# #  @ #", "########"], ["########", "#      #", "##   $ #", "#  #  ##", "#.   #@#", "#.$$ # #", "#.#    #", "########"], ["########", "#      #", "## $ $ #", "#  ### #", "#...  @#", "##   $ #", "#      #", "########"], ["#########", "#     ..#", "# $ # $ #", "#  @  # #", "##$ #  ##", "## # .# #", "#       #", "#########"], ["#########", "#   .  .#", "# $$ # .#", "#  ##   #", "# #.$   #", "# $@#   #", "#     # #", "#########"], ["#########", "#    .  #", "# $## ###", "#       #", "# # #.$ #", "#  #. @ #", "# $ # $ #", "#    .  #", "#########"], ["#########", "#       #", "#     .##", "#   #   #", "#.# #$# #", "#@$     #", "# $ # # #", "#  #..$ #", "#########"], ["##########", "# #    ###", "# # $  ..#", "#   #    #", "# .$     #", "#        #", "#  #.$$  #", "##     @ #", "##########"], ["##########", "#        #", "# #.  ## #", "#   $ #  #", "#   .#   #", "# # #    #", "##    $  #", "#.$$#    #", "#.$@#  . #", "##########"], ["##########", "#  #. $@##", "#   # $$##", "#  .     #", "#   . # ##", "#.$      #", "#   $ #. #", "#   #    #", "#    ### #", "##########"], ["##########", "#. $ #   #", "# #. $   #", "##. ## $ #", "#        #", "#.    $  #", "###  #@$ #", "#     #. #", "# ##     #", "##########"]],PAR=[8, 14, 25, 24, 29, 35, 41, 49, 50];
+const LEVELS=LV.map((l,i)=>`Level ${i+1} · ${l.join("").split("").filter(c=>c==="$"||c==="*").length} crates${PAR[i]?` · best ${PAR[i]} moves`:""}`);
+let W,H,grid,boxes,player,hist,moves,pushes,lvl=1,state="menu",cs,ox,oy,anim=0,face=[0,1],undos=0;
+const pad=document.createElement("div");pad.className="pad";pad.innerHTML=`<button data-a="undo" style="grid-area:1/1" aria-label="Undo">↶</button><button data-d="0,-1" style="grid-area:1/3" aria-label="Up">▲</button><button data-a="reset" style="grid-area:1/5" aria-label="Restart">⟲</button><button data-d="-1,0" style="grid-area:2/2" aria-label="Left">◀</button><button data-d="0,1" style="grid-area:2/3" aria-label="Down">▼</button><button data-d="1,0" style="grid-area:2/4" aria-label="Right">▶</button>`;
+stage.appendChild(pad);pad.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{const [x,y]=b.dataset.d.split(",").map(Number);go(x,y)});
+pad.querySelector('[data-a=undo]').onclick=undo;pad.querySelector('[data-a=reset]').onclick=()=>{if(state==="play")load(lvl)};
+function load(l){lvl=l;const rows=LV[l-1];H=rows.length;W=Math.max(...rows.map(r=>r.length));grid=[];boxes=[];
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const c=rows[y][x]||" ";grid.push(c==="#"?1:(c==="."||c==="*"||c==="+")?2:0);if(c==="$"||c==="*")boxes.push(y*W+x);if(c==="@"||c==="+")player=y*W+x}
+  cs=Math.floor(Math.min((LW-12)/W,(LH-110)/H,44));ox=(LW-cs*W)/2;oy=40+(LH-150-cs*H)/2;hist=[];moves=0;pushes=0;undos=0;state="play";pad.style.display=setting("ctl","both")==="swipe"?"none":"grid";hud()}
+function hud(){stats({Lvl:lvl,Moves:moves,Pushes:pushes,Best:SAVE.best["l"+lvl]||"–"})}
+function go(dx,dy){if(state!=="play")return;face=[dx,dy];const d=dx+dy*W,np=player+d;if(grid[np]===1)return;const bi=boxes.indexOf(np);
+  if(bi>=0){const t=np+d;if(grid[t]===1||boxes.includes(t))return;hist.push([player,boxes.slice(),moves,pushes]);boxes[bi]=t;pushes++;if(grid[t]===2)burst(ox+(t%W)*cs+cs/2,oy+Math.floor(t/W)*cs+cs/2,"#f2a93b",8,70,.4)}
+  else hist.push([player,boxes.slice(),moves,pushes]);player=np;moves++;anim=1;hud();
+  if(boxes.every(b=>grid[b]===2))win()}
+function undo(){if(state!=="play"||!hist.length)return;if(setting("undo","on")==="off")return;[player,boxes,moves,pushes]=hist.pop();undos++;hud()}
+function win(){state="won";const k="l"+lvl;const first=!SAVE.best[k];if(!SAVE.best[k]||moves<SAVE.best[k])SAVE.best[k]=moves;unlock(lvl+1);
+  if(PAR[lvl-1]&&moves<=PAR[lvl-1])award("par");if(undos===0)award("noundo");if(lvl>=5)award("l5");if(lvl>=10)award("l10");if(lvl>=15)award("l15");persist();
+  for(let i=0;i<24;i++)burst(rnd(ox,ox+cs*W),rnd(oy,oy+cs*H),pick(["#f2a93b","#7ee787","#f4ede1"]),2,100,1);
+  setTimeout(()=>card(`<h1>Level ${lvl} done</h1><p>${moves} moves · ${pushes} pushes</p>${PAR[lvl-1]?`<p class="sub">Shortest possible: ${PAR[lvl-1]} moves</p>`:""}`,lvl<LV.length?"Next level":"Menu",()=>lvl<LV.length?load(lvl+1):openMenu()),600)}
+pointer({up:(l,p)=>{if(setting("ctl","both")==="pad")return;const dx=l.x-p.x0,dy=l.y-p.y0;if(Math.hypot(dx,dy)<18)return;Math.abs(dx)>Math.abs(dy)?go(Math.sign(dx),0):go(0,Math.sign(dy))}});
+addEventListener("keydown",e=>{const m={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(m){e.preventDefault();go(...m)}if(e.key==="z")undo()});
+function draw(dt){ctx.fillStyle="#1d1a16";ctx.fillRect(0,0,LW,LH);if(!grid)return;const T=setting("theme","warehouse")==="warehouse"?{floor:["#4a4136","#524839"],wall:"#2e2a26",wallT:"#6b5f50",crate:"#c9873a",crateD:"#8a5a22",dock:"#f2a93b"}:{floor:["#dfe7ec","#e8eef2"],wall:"#7c8a96",wallT:"#a9b6c1",crate:"#5ab0e0",crateD:"#2f7ca8",dock:"#e0524a"};
+  text(`Level ${lvl}`,LW/2,18,15,"#b5a993");
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x,X=ox+x*cs,Y=oy+y*cs;if(grid[i]===1){ctx.fillStyle=T.wall;ctx.fillRect(X,Y,cs,cs);ctx.fillStyle=T.wallT;ctx.fillRect(X+1,Y+1,cs-2,cs*.28);ctx.fillStyle="rgba(0,0,0,.2)";ctx.fillRect(X+cs/2-1,Y+cs*.3,2,cs*.7)}
+    else{ctx.fillStyle=T.floor[(x+y)%2];ctx.fillRect(X,Y,cs,cs);if(grid[i]===2){ctx.strokeStyle=T.dock;ctx.lineWidth=2.5;ctx.setLineDash([4,3]);ctx.strokeRect(X+cs*.2,Y+cs*.2,cs*.6,cs*.6);ctx.setLineDash([])}}}
+  for(const b of boxes){const X=ox+(b%W)*cs,Y=oy+Math.floor(b/W)*cs,on=grid[b]===2;ctx.fillStyle=on?"#7ee787":T.crate;rr(X+3,Y+3,cs-6,cs-6,4);ctx.fill();ctx.strokeStyle=on?"#2f8a46":T.crateD;ctx.lineWidth=2.5;rr(X+3,Y+3,cs-6,cs-6,4);ctx.stroke();ctx.beginPath();ctx.moveTo(X+6,Y+6);ctx.lineTo(X+cs-6,Y+cs-6);ctx.moveTo(X+cs-6,Y+6);ctx.lineTo(X+6,Y+cs-6);ctx.stroke()}
+  const px=ox+(player%W)*cs+cs/2,py=oy+Math.floor(player/W)*cs+cs/2,bob=anim>0?Math.sin(anim*Math.PI)*2:0;anim=Math.max(0,anim-dt*8);
+  ctx.fillStyle="#3a7bd5";rr(px-cs*.28,py-cs*.12-bob,cs*.56,cs*.46,6);ctx.fill();ctx.fillStyle="#f1c27d";ctx.beginPath();ctx.arc(px,py-cs*.22-bob,cs*.2,0,TAU);ctx.fill();ctx.fillStyle="#f2a93b";ctx.beginPath();ctx.arc(px,py-cs*.28-bob,cs*.21,Math.PI,0);ctx.fill();
+  ctx.fillStyle="#1d1a16";ctx.beginPath();ctx.arc(px+face[0]*cs*.08-cs*.07,py-cs*.22-bob+face[1]*2,1.8,0,TAU);ctx.arc(px+face[0]*cs*.08+cs*.07,py-cs*.22-bob+face[1]*2,1.8,0,TAU);ctx.fill();
+  const left=boxes.filter(b=>grid[b]!==2).length;text(`${left} crate${left===1?"":"s"} to dock`,LW/2,oy+H*cs+20,13,"#b5a993");drawParts()}
+loop(dt=>{stepParts(dt);draw(dt)});
+function openMenu(){pad.style.display="none";menu({title:"Crate Crew",html:`<p class="sub">Push every crate onto a dock. You can only push, never pull, and only one crate at a time. Plan ahead so nothing gets stuck in a corner.</p>`,
+  settings:[{k:"ctl",label:"Controls",def:"both",opts:[["both","Swipe + pad"],["swipe","Swipe only"],["pad","Pad only"]]},{k:"undo",label:"Undo",def:"on",opts:[["on","On"],["off","Off"]]},{k:"theme",label:"Look",def:"warehouse",opts:[["warehouse","Warehouse"],["lab","Lab"]]}],
+  levels:LEVELS,challenges:[{id:"par",text:"Solve a level in the shortest possible moves"},{id:"noundo",text:"Solve a level without undo"},{id:"l5",text:"Clear level 5"},{id:"l10",text:"Clear level 10"},{id:"l15",text:"Clear all 15 levels"}],play:"Start"},load)}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Fleet Duel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#0a1a2a;--ink:#e6f1fb;--muted:#86a3bd;--accent:#ff6b4a;--f-display:"Black Ops One","Arial Black",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2a0a00;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.tool{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:2}.tool button{height:38px;padding:0 12px;border-radius:10px;border:1px solid #86a3bd;background:#0a1a2a;color:#e6f1fb;font:700 14px system-ui;white-space:nowrap}.tool button.go{background:#ff6b4a;color:#2a0a00;border-color:#ff6b4a}
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#2a0a00}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#2a0a00;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Fleet Duel</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Tap the enemy grid to fire · set up: tap a ship, tap where it goes</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=620,FONT="system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const N=10;const FLEETS={classic:[5,4,3,3,2],small:[4,3,3,2]};const NAMES={5:"Carrier",4:"Battleship",3:"Cruiser",2:"Destroyer"};
+let P,turn=0,state="menu",phase="",sel=-1,shotsLeft=1,streak=0,cpuQ=[],cpuMode="hunt";
+const tool=document.createElement("div");tool.className="tool";tool.innerHTML=`<button id="rot">⟲ Rotate</button><button id="shuf">Shuffle</button><button id="ready" class="go">Ready</button>`;stage.appendChild(tool);
+const $=id=>document.getElementById(id);
+function vsCPU(){return setting("opp","cpu")!=="friend"}
+function fleet(){return FLEETS[setting("fleet","classic")]}
+function cells(s){return [...Array(s.len)].map((_,i)=>s.h?[s.x+i,s.y]:[s.x,s.y+i])}
+function valid(ships,s,skip){for(const [x,y] of cells(s)){if(x<0||y<0||x>=N||y>=N)return false;for(const o of ships)if(o!==skip&&o!==s&&cells(o).some(([a,b])=>Math.abs(a-x)<=0&&Math.abs(b-y)<=0))return false}return true}
+function randomFleet(){const ships=[];for(const len of fleet()){let s;do{s={len,h:Math.random()<.5,x:rnd(0,N)|0,y:rnd(0,N)|0,hits:0}}while(!valid(ships,s));ships.push(s)}return ships}
+function player(name){return {name,ships:randomFleet(),shots:Array.from({length:N},()=>Array(N).fill(0)),fired:0,lost:0}} // shots: 0 none, 1 miss, 2 hit, 3 sunk
+function start(){P=[player(vsCPU()?"You":"Player 1"),player(vsCPU()?"CPU":"Player 2")];turn=0;streak=0;cpuQ=[];cpuMode="hunt";setupPhase(0)}
+function setupPhase(i){phase="setup";turn=i;sel=-1;state="play";tool.hidden=false;if(!vsCPU())handoff(`${P[i].name}, set up your fleet`,"Place ships");hud()}
+function hud(){if(!P)return;const left=p=>p.ships.filter(s=>s.hits<s.len).length;stats({[P[0].name]:left(P[0])+" ships",[P[1].name]:left(P[1])+" ships",...(setting("salvo","off")==="on"&&phase==="battle"?{Shots:shotsLeft}:{})})}
+function handoff(t,btn){state="hand";card(`<h1>${t}</h1><p class="sub">Pass the phone. No peeking at the other screen.</p>`,btn,()=>{state="play"})}
+$("rot").onclick=()=>{if(phase!=="setup"||sel<0)return;const p=P[turn],s=p.ships[sel],t={...s,h:!s.h};if(valid(p.ships,t,s)){s.h=t.h}else toast("No room to rotate there")};
+$("shuf").onclick=()=>{if(phase!=="setup")return;P[turn].ships=randomFleet();sel=-1};
+$("ready").onclick=()=>{if(phase!=="setup")return;sel=-1;if(!vsCPU()&&turn===0){setupPhase(1);return}phase="battle";tool.hidden=true;turn=0;beginTurn()};
+function beginTurn(){shotsLeft=setting("salvo","off")==="on"?P[turn].ships.filter(s=>s.hits<s.len).length:1;hud();if(!vsCPU()){handoff(`${P[turn].name}'s turn`,"Show my boards")}else if(turn===1)setTimeout(cpuFire,650)}
+// layout: big target grid on top, own fleet small below
+const BIG=32,BX=(LW-BIG*N)/2,BY=40,SM=17,SX=(LW-SM*N)/2,SY=BY+BIG*N+48;
+pointer({down:l=>{if(state!=="play")return;const me=P[turn];
+  if(phase==="setup"){const x=Math.floor((l.x-BX)/BIG),y=Math.floor((l.y-BY)/BIG);if(x<0||y<0||x>=N||y>=N)return;const hit=me.ships.findIndex(s=>cells(s).some(c=>c[0]===x&&c[1]===y));
+    if(hit>=0&&sel!==hit){sel=hit;return}if(sel>=0){const s=me.ships[sel],t={...s,x,y};if(valid(me.ships,t,s)){s.x=x;s.y=y}else toast("Doesn't fit there")}return}
+  if(phase!=="battle"||(vsCPU()&&turn===1))return;const x=Math.floor((l.x-BX)/BIG),y=Math.floor((l.y-BY)/BIG);if(x<0||y<0||x>=N||y>=N)return;if(me.shots[y][x])return;fire(turn,x,y)}});
+function fire(i,x,y){const me=P[i],foe=P[1-i];me.fired++;const s=foe.ships.find(s=>cells(s).some(c=>c[0]===x&&c[1]===y));
+  if(s){s.hits++;me.shots[y][x]=2;if(i===0||!vsCPU()){streak++;if(streak>=5)award("streak")}burst(BX+x*BIG+BIG/2,BY+y*BIG+BIG/2,"#ff6b4a",14,140);
+    if(s.hits>=s.len){for(const [a,b] of cells(s))me.shots[b][a]=3;foe.lost++;toast(`${i===0&&vsCPU()?"You sank":P[i].name+" sank"} the ${NAMES[s.len]}!`)}}
+  else{me.shots[y][x]=1;if(i===0||!vsCPU())streak=0}
+  if(i===1&&vsCPU())cpuLearn(x,y,!!s,s&&s.hits>=s.len);
+  hud();if(foe.ships.every(s=>s.hits>=s.len)){end(i);return}
+  shotsLeft--;if(shotsLeft>0){if(vsCPU()&&i===1)setTimeout(cpuFire,450);return}
+  const hitKeep=setting("rule","alt")==="again"&&s;if(hitKeep){shotsLeft=1;if(vsCPU()&&i===1)setTimeout(cpuFire,500);return}
+  setTimeout(()=>{turn=1-i;beginTurn()},vsCPU()?550:900)}
+function end(i){phase="over";const w=P[i];if(vsCPU()){if(i===0){award("win");if(setting("opp")==="hard")award("hard");if(P[0].lost===0)award("flawless");if(P[0].fired<=45)award("sharp");if(setting("salvo","off")==="on")award("salvo")}}else award("duel");persist();
+  setTimeout(()=>card(`<h1>${w.name} win${w.name==="You"?"":"s"}!</h1><p>${w.fired} shots fired</p>`,"New battle",()=>{tool.hidden=false;start()}),700)}
+// CPU: hunt on a checkerboard, then target around hits
+function cpuLearn(x,y,hit,sunk){if(sunk){cpuQ=[];cpuMode="hunt";return}if(hit){cpuMode="target";for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])cpuQ.push([x+dx,y+dy])}}
+function cpuFire(){if(phase!=="battle"||turn!==1)return;const sh=P[1].shots;let pickC=null;const hard=setting("opp","cpu")==="hard";
+  while(cpuQ.length&&!pickC){const [x,y]=cpuQ.shift();if(x>=0&&y>=0&&x<N&&y<N&&!sh[y][x])pickC=[x,y]}
+  if(!pickC){const open=[];for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(!sh[y][x]&&(!hard||(x+y)%2===0))open.push([x,y]);if(!open.length)for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(!sh[y][x])open.push([x,y]);pickC=pick(open);if(!hard&&Math.random()<.3)cpuQ=[]}
+  fire(1,...pickC)}
+function grid(ox,oy,cs,shots,ships,showShips,selIdx){ctx.fillStyle="#103050";ctx.fillRect(ox,oy,cs*N,cs*N);
+  ctx.strokeStyle="rgba(134,163,189,.25)";ctx.lineWidth=1;for(let i=0;i<=N;i++){ctx.beginPath();ctx.moveTo(ox+i*cs,oy);ctx.lineTo(ox+i*cs,oy+N*cs);ctx.stroke();ctx.beginPath();ctx.moveTo(ox,oy+i*cs);ctx.lineTo(ox+N*cs,oy+i*cs);ctx.stroke()}
+  if(showShips)ships.forEach((s,k)=>{const [a]=cells(s),w=s.h?s.len*cs:cs,h=s.h?cs:s.len*cs;ctx.fillStyle=k===selIdx?"#ffcf5c":s.hits>=s.len?"#5a3a3a":"#8fa7bd";rr(ox+a[0]*cs+2,oy+a[1]*cs+2,w-4,h-4,cs/2.5);ctx.fill()});
+  if(shots)for(let y=0;y<N;y++)for(let x=0;x<N;x++){const v=shots[y][x],cx=ox+x*cs+cs/2,cy=oy+y*cs+cs/2;if(v===1){ctx.fillStyle="rgba(230,241,251,.55)";ctx.beginPath();ctx.arc(cx,cy,cs*.13,0,TAU);ctx.fill()}
+    if(v>=2){ctx.fillStyle=v===3?"#7a2a1e":"#ff6b4a";ctx.beginPath();ctx.arc(cx,cy,cs*.32,0,TAU);ctx.fill();if(v===2){ctx.strokeStyle="#ffd1c4";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-cs*.18,cy-cs*.18);ctx.lineTo(cx+cs*.18,cy+cs*.18);ctx.moveTo(cx+cs*.18,cy-cs*.18);ctx.lineTo(cx-cs*.18,cy+cs*.18);ctx.stroke()}}}
+  ctx.font=`600 ${Math.max(8,cs*.32)}px system-ui`;ctx.fillStyle="#86a3bd";ctx.textAlign="center";ctx.textBaseline="middle";for(let i=0;i<N;i++){ctx.fillText("ABCDEFGHIJ"[i],ox+i*cs+cs/2,oy-8);ctx.fillText(i+1,ox-9,oy+i*cs+cs/2)}}
+function draw(){ctx.fillStyle="#0a1a2a";ctx.fillRect(0,0,LW,LH);if(!P||state==="hand")return;const me=P[turn],foe=P[1-turn];
+  if(phase==="setup"){text(`${me.name}: arrange your fleet`,LW/2,10,15,"#e6f1fb");grid(BX,BY,BIG,null,me.ships,true,sel);if(sel>=0)text(`${NAMES[me.ships[sel].len]} selected · tap a square to move it`,LW/2,BY+BIG*N+18,13,"#ffcf5c")}
+  else{const viewer=vsCPU()?P[0]:me,enemy=vsCPU()?P[1]:foe;text(vsCPU()?(turn===0?"Your shot":"CPU is firing…"):`${me.name} · fire on the enemy`,LW/2,10,15,turn===0||!vsCPU()?"#ff6b4a":"#86a3bd");
+    grid(BX,BY,BIG,viewer.shots,enemy.ships,phase==="over",-1);text("Your fleet",LW/2,SY-24,12,"#86a3bd");grid(SX,SY,SM,enemy.shots,viewer.ships,true,-1)}
+  drawParts()}
+loop(dt=>{stepParts(dt);draw()});
+function openMenu(){tool.hidden=true;menu({title:"Fleet Duel",html:`<p class="sub">Battleship. Hide your fleet, then take turns firing at the enemy grid. Sink every ship to win. In two-player mode, pass the phone between turns.</p>`,
+  settings:[{k:"opp",label:"Opponent",def:"cpu",opts:[["cpu","CPU"],["hard","CPU hard"],["friend","Pass & play"]]},{k:"fleet",label:"Fleet",def:"classic",opts:[["classic","5 ships"],["small","4 ships · quicker"]]},{k:"salvo",label:"Salvo (one shot per ship afloat)",def:"off",opts:[["off","Off"],["on","On"]]},{k:"rule",label:"After a hit",def:"alt",opts:[["alt","Turn passes"],["again","Shoot again"]]}],
+  challenges:[{id:"win",text:"Beat the CPU"},{id:"hard",text:"Beat the hard CPU"},{id:"flawless",text:"Win without losing a ship"},{id:"sharp",text:"Win in 45 shots or fewer"},{id:"streak",text:"Hit 5 in a row"},{id:"salvo",text:"Win a salvo game"},{id:"duel",text:"Finish a two-player battle"}],play:"Set sail"},start)}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>

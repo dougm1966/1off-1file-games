@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Roll Call</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#16301f;--ink:#f3f7ef;--muted:#a7c2a9;--accent:#ffcc4d;--f-display:"Bowlby One","Arial Black",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2b1f00;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#2b1f00}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#2b1f00;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Roll Call</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Roll up to 3 times · tap dice to hold · tap a row to score</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=660,FONT="system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const CATS=[["ones","Ones"],["twos","Twos"],["threes","Threes"],["fours","Fours"],["fives","Fives"],["sixes","Sixes"],["tok","3 of a kind"],["fok","4 of a kind"],["fh","Full house"],["ss","Small straight"],["ls","Large straight"],["five","Five of a kind"],["ch","Chance"]];
+let dice=[1,2,3,4,5],held=[0,0,0,0,0],rolls=0,players,cur=0,state="menu",spin=0,round=1,cpuBusy=false;
+const DY=56,DS=56,DX=i=>12+i*((LW-24)/5)+((LW-24)/5-DS)/2,ROLLY=126,TY=184,RH=31;
+function np(){return setting("players","2")}
+function newGame(){const n=np();players=n==="cpu"?[{name:"You",card:{}},{name:"CPU",card:{},cpu:true}]:Array.from({length:+n},(_,i)=>({name:+n===1?"You":"P"+(i+1),card:{}}));cur=0;round=1;resetTurn();state="play";hud()}
+function resetTurn(){held=[0,0,0,0,0];rolls=0;dice=[1,1,1,1,1];if(players[cur].cpu)setTimeout(cpuTurn,600)}
+const cnt=d=>{const c=[0,0,0,0,0,0,0];for(const v of d)c[v]++;return c},sum=d=>d.reduce((a,b)=>a+b,0);
+function value(k,d){const c=cnt(d),mx=Math.max(...c),s=new Set(d);const has=a=>a.every(v=>s.has(v));
+  switch(k){case"ones":return c[1];case"twos":return c[2]*2;case"threes":return c[3]*3;case"fours":return c[4]*4;case"fives":return c[5]*5;case"sixes":return c[6]*6;
+    case"tok":return mx>=3?sum(d):0;case"fok":return mx>=4?sum(d):0;case"fh":return (c.includes(3)&&c.includes(2))||(mx===5&&setting("joker","on")==="on")?25:0;
+    case"ss":return has([1,2,3,4])||has([2,3,4,5])||has([3,4,5,6])?30:0;case"ls":return has([1,2,3,4,5])||has([2,3,4,5,6])?40:0;case"five":return mx===5?50:0;case"ch":return sum(d)}}
+function upper(p){return ["ones","twos","threes","fours","fives","sixes"].reduce((a,k)=>a+(p.card[k]||0),0)}
+function total(p){const u=upper(p);return u+(u>=63?35:0)+["tok","fok","fh","ss","ls","five","ch"].reduce((a,k)=>a+(p.card[k]||0),0)+(p.bonus5||0)}
+function hud(){stats(Object.fromEntries(players.map(p=>[p.name,total(p)])))}
+function roll(){if(state!=="play"||rolls>=3||spin>0)return;rolls++;spin=.45;for(let i=0;i<5;i++)if(!held[i])dice[i]=1+Math.floor(Math.random()*6);
+  if(cnt(dice).some(x=>x===5)){const p=players[cur];if(p.card.five===50){p.bonus5=(p.bonus5||0)+100;toast("Bonus five of a kind! +100")}else toast("Five of a kind!");if(!p.cpu)award("five")}}
+function score(k){const p=players[cur];if(state!=="play"||rolls===0||p.card[k]!==undefined||spin>0)return;p.card[k]=value(k,dice);hud();
+  if(!p.cpu&&k==="ls"&&p.card.ls===40&&rolls===1)award("ls1");
+  if(cur===players.length-1){if(round>=13){end();return}round++}cur=(cur+1)%players.length;resetTurn();if(players.length>1&&!players[cur].cpu)toast(`${players[cur].name}'s turn`)}
+function end(){state="over";const res=players.map(p=>({p,t:total(p)})).sort((a,b)=>b.t-a.t);for(const r of res)if(!r.p.cpu){if(upper(r.p)>=63)award("bonus");if(r.t>=250)award("t250");if(r.t>=300)award("t300")}
+  if(players.some(p=>p.cpu)&&res[0].p.name==="You")award("beatcpu");SAVE.best.score=Math.max(SAVE.best.score||0,...res.filter(r=>!r.p.cpu).map(r=>r.t));persist();
+  card(`<h1>${players.length>1?res[0].p.name+(res[0].p.name==="You"?" win!":" wins!"):"Final score"}</h1>${res.map(r=>`<p>${r.p.name}: <b>${r.t}</b></p>`).join("")}<p class="sub">Best ${SAVE.best.score}</p>`,"Play again",newGame)}
+// --- CPU: simple expected-value-ish heuristic ---
+function cpuTurn(){if(state!=="play"||!players[cur].cpu)return;const p=players[cur];
+  const step=()=>{if(state!=="play")return;if(rolls<3){roll();setTimeout(()=>{if(rolls<3&&!decideStop()){chooseHolds();setTimeout(step,650)}else setTimeout(()=>score(bestCat(p)),700)},600)}else score(bestCat(p))};step()}
+function bestCat(p){let best=null,bv=-1e9;for(const [k] of CATS){if(p.card[k]!==undefined)continue;let v=value(k,dice);const up=["ones","twos","threes","fours","fives","sixes"].indexOf(k);
+  if(up>=0)v=v-(up+1)*3+ (v>=(up+1)*3?6:0);if(k==="ch")v-=12;if(k==="five"&&v===0)v=-6;if(v===0&&["ls","ss","fh","fok"].includes(k))v=-3;if(v>bv){bv=v;best=k}}return best}
+function decideStop(){const p=players[cur];const v=k=>p.card[k]===undefined?value(k,dice):0;return v("five")||v("ls")||(v("fh")&&rolls>=2)||(v("ss")&&p.card.ls!==undefined&&rolls>=2)}
+function chooseHolds(){const c=cnt(dice),p=players[cur],s=[...new Set(dice)].sort();held=[0,0,0,0,0];
+  const run=[[1,2,3,4,5],[2,3,4,5,6],[3,4,5,6]].map(r=>r.filter(v=>s.includes(v)).length);if((p.card.ls===undefined||p.card.ss===undefined)&&Math.max(...run)>=4){const used=new Set();dice.forEach((v,i)=>{if(v>=2&&v<=5&&!used.has(v)){held[i]=1;used.add(v)}});return}
+  let tv=6,bc=0;for(let v=6;v>=1;v--)if(c[v]>bc){bc=c[v];tv=v}dice.forEach((v,i)=>{if(v===tv)held[i]=1})}
+pointer({down:l=>{if(state!=="play"||players[cur].cpu)return;if(l.y>DY&&l.y<DY+DS){for(let i=0;i<5;i++)if(l.x>DX(i)&&l.x<DX(i)+DS&&rolls>0&&rolls<3)held[i]^=1;return}
+  if(l.y>ROLLY&&l.y<ROLLY+44){roll();return}const r=Math.floor((l.y-TY)/RH);if(r>=0&&r<CATS.length)score(CATS[r][0])}});
+function die(x,y,v,h,wob){ctx.save();ctx.translate(x+DS/2,y+DS/2);ctx.rotate(wob);ctx.fillStyle="rgba(0,0,0,.3)";rr(-DS/2+3,-DS/2+4,DS,DS,11);ctx.fill();ctx.fillStyle=h?"#ffe9a8":"#fbfaf5";rr(-DS/2,-DS/2,DS,DS,11);ctx.fill();if(h){ctx.strokeStyle="#ffcc4d";ctx.lineWidth=3;ctx.stroke()}
+  const P={1:[[0,0]],2:[[-1,-1],[1,1]],3:[[-1,-1],[0,0],[1,1]],4:[[-1,-1],[1,-1],[-1,1],[1,1]],5:[[-1,-1],[1,-1],[0,0],[-1,1],[1,1]],6:[[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]]}[v];ctx.fillStyle=v===1?"#c8302c":"#1b2a1f";for(const [a,b] of P){ctx.beginPath();ctx.arc(a*DS*.26,b*DS*.26,DS*.085,0,TAU);ctx.fill()}ctx.restore()}
+function draw(dt){ctx.fillStyle="#16301f";ctx.fillRect(0,0,LW,LH);const g=ctx.createRadialGradient(LW/2,90,10,LW/2,90,240);g.addColorStop(0,"#23502f");g.addColorStop(1,"#16301f");ctx.fillStyle=g;ctx.fillRect(0,0,LW,TY-6);if(!players)return;const p=players[cur];
+  text(state==="over"?"Game over":`${p.name}${p.name==="You"?"r":"'s"} turn · round ${round}/13`,LW/2,22,15,"#ffcc4d");
+  for(let i=0;i<5;i++){const w=spin>0&&!held[i]?Math.sin(performance.now()/40+i)*.4:0;const v=spin>0&&!held[i]?1+Math.floor(Math.random()*6):dice[i];if(rolls===0){ctx.globalAlpha=.35}die(DX(i),DY,v,held[i],w);ctx.globalAlpha=1;if(held[i]){ctx.fillStyle="#ffcc4d";ctx.font="800 10px system-ui";ctx.textAlign="center";ctx.fillText("HELD",DX(i)+DS/2,DY+DS+11)}}
+  const can=rolls<3&&state==="play"&&!p.cpu;ctx.fillStyle=can?"#ffcc4d":"#3b5a43";rr(LW/2-90,ROLLY,180,44,12);ctx.fill();ctx.fillStyle=can?"#2b1f00":"#a7c2a9";ctx.font="800 18px system-ui";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(rolls===0?"ROLL":rolls<3?`ROLL AGAIN (${3-rolls})`:"PICK A ROW",LW/2,ROLLY+23);
+  const cols=players.length,nameW=120,cw=(LW-16-nameW)/cols;
+  CATS.forEach(([k,lab],r)=>{const y=TY+r*RH;ctx.fillStyle=r%2?"#1b3825":"#1f3f2a";ctx.fillRect(8,y,LW-16,RH-1);if(r===6){ctx.fillStyle="#ffcc4d";ctx.fillRect(8,y-1,LW-16,1)}
+    ctx.fillStyle="#f3f7ef";ctx.font="600 14px system-ui";ctx.textAlign="left";ctx.textBaseline="middle";ctx.fillText(lab,16,y+RH/2);
+    players.forEach((pl,j)=>{const x=8+nameW+j*cw+cw/2,v=pl.card[k];ctx.textAlign="center";if(v!==undefined){ctx.fillStyle="#f3f7ef";ctx.font="800 15px system-ui";ctx.fillText(v,x,y+RH/2)}
+      else if(j===cur&&rolls>0&&state==="play"&&setting("preview","on")==="on"){const pv=value(k,dice);ctx.fillStyle=pv?"rgba(255,204,77,.9)":"rgba(167,194,169,.45)";ctx.font="700 14px system-ui";ctx.fillText(pv,x,y+RH/2)}})});
+  const fy=TY+CATS.length*RH+4;ctx.fillStyle="#0f2316";ctx.fillRect(8,fy,LW-16,46);ctx.fillStyle="#a7c2a9";ctx.font="600 12px system-ui";ctx.textAlign="left";ctx.fillText("Upper bonus (63+)",16,fy+13);ctx.fillStyle="#f3f7ef";ctx.font="800 14px system-ui";ctx.fillText("Total",16,fy+34);
+  players.forEach((pl,j)=>{const x=8+nameW+j*cw+cw/2;ctx.textAlign="center";ctx.fillStyle=upper(pl)>=63?"#ffcc4d":"#a7c2a9";ctx.font="600 12px system-ui";ctx.fillText(upper(pl)>=63?"+35":`${upper(pl)}/63`,x,fy+13);ctx.fillStyle="#ffcc4d";ctx.font="800 16px system-ui";ctx.fillText(total(pl),x,fy+34);
+    ctx.fillStyle=j===cur?"#ffcc4d":"#a7c2a9";ctx.font="800 12px system-ui";ctx.fillText(pl.name,x,TY-8)});
+  drawParts()}
+loop(dt=>{spin=Math.max(0,spin-dt);draw(dt)});
+function openMenu(){menu({title:"Roll Call",html:`<p class="sub">Five dice and thirteen rows. Roll up to three times a turn, hold the dice you like, then score one row. Each row only gets used once. Hit 63 in the top section for a 35-point bonus.</p>`,
+  settings:[{k:"players",label:"Players",def:"2",opts:[["1","Solo"],["2","2"],["3","3"],["4","4"],["cpu","Vs CPU"]]},{k:"preview",label:"Show possible scores",def:"on",opts:[["on","On"],["off","Off"]]},{k:"joker",label:"Five of a kind counts as full house",def:"on",opts:[["on","On"],["off","Off"]]}],
+  challenges:[{id:"five",text:"Roll five of a kind"},{id:"ls1",text:"Score a large straight on the first roll"},{id:"bonus",text:"Earn the upper-section bonus"},{id:"t250",text:"Score 250+ in a game"},{id:"t300",text:"Score 300+ in a game"},{id:"beatcpu",text:"Beat the CPU"}],play:"Roll"},newGame)}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>

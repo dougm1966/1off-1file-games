@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Sky Hopper</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gochi+Hand&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#fbf6e9;--ink:#2b2a33;--muted:#7c7a86;--accent:#3aa3ff;--f-display:"Gochi Hand","Comic Sans MS",cursive;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#ffffff;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+:root{color-scheme:light}.card{background:#fffdf6}
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#ffffff}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#ffffff;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Sky Hopper</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Slide left or right to steer · bounce as high as you can</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=620,FONT="system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+let lastH=-1,hero,plats,items,enemies,camY,height,state="menu",steer=0,maxH=0,springs=0,stomps=0,spawnY=0,coinsGot=0;
+const G=1500,JUMP=-660;
+function D(){return ({easy:1,std:1.25,hard:1.55})[setting("diff","std")]}
+function newGame(){hero={x:LW/2,y:LH-80,vx:0,vy:JUMP,face:1,prop:0,shield:0};plats=[];items=[];enemies=[];camY=0;height=0;maxH=0;springs=0;stomps=0;coinsGot=0;
+  plats.push({x:LW/2-35,y:LH-40,w:70,type:"n"});spawnY=LH-40;while(spawnY>-LH)gen();state="play";hud()}
+function hud(){stats({Height:Math.floor(maxH/10),Best:SAVE.best[setting("diff","std")]||0,"🪙":coinsGot})}
+function gen(){const h=-spawnY/10,d=D(),gap=clamp(58+h*.035*d,58,120);spawnY-=rnd(gap*.6,gap);const w=clamp(70-h*.01,48,70),x=rnd(6,LW-6-w);
+  const r=Math.random();let type="n";if(h>150&&r<.18*d)type="move";else if(h>300&&r<.28*d)type="break";else if(h>500&&r<.33*d)type="vanish";
+  const p={x,y:spawnY,w,type,dir:pick([-1,1]),gone:false};plats.push(p);
+  if(type!=="break"&&Math.random()<.05)items.push({x:x+rnd(-w/3,w/3)+w/2,y:spawnY-6,kind:"spring",p});else if(type!=="break"&&setting("power","on")==="on"&&Math.random()<.025)items.push({x:x+w/2,y:spawnY-14,kind:"prop",p});
+  if(Math.random()<.12)items.push({x:rnd(20,LW-20),y:spawnY-40,kind:"coin"});
+  if(h>250&&setting("foes","on")==="on"&&Math.random()<.035*d)enemies.push({x:rnd(30,LW-30),y:spawnY-60,ph:rnd(0,TAU),dead:false})}
+let dragX=null;
+pointer({down:l=>{dragX=l.x},move:(l,dx)=>{if(state==="play"){hero.vx=clamp(hero.vx+dx*40,-420,420);steer=Math.sign(dx)}},up:()=>{dragX=null;steer=0}});
+function update(dt){if(state!=="play")return;
+  if(keys.ArrowLeft)hero.vx=-300;else if(keys.ArrowRight)hero.vx=300;else if(dragX===null)hero.vx*=Math.pow(.02,dt);else hero.vx*=Math.pow(.15,dt);
+  if(Math.abs(hero.vx)>20)hero.face=Math.sign(hero.vx);hero.x+=hero.vx*dt;if(hero.x<-15)hero.x=LW+15;if(hero.x>LW+15)hero.x=-15;
+  if(hero.prop>0){hero.prop-=dt;hero.vy=-720}else hero.vy+=G*dt;hero.y+=hero.vy*dt;hero.shield=Math.max(0,hero.shield-dt);
+  if(hero.vy>0&&hero.prop<=0)for(const p of plats){if(p.gone)continue;if(hero.x+10>p.x&&hero.x-10<p.x+p.w&&hero.y+18>=p.y&&hero.y+18-hero.vy*dt<=p.y+4){
+    if(p.type==="break"){p.gone=true;p.fall=0;burst(p.x+p.w/2,p.y,"#b5835a",10,80);continue}hero.y=p.y-18;hero.vy=JUMP;if(p.type==="vanish")p.gone=true;burst(hero.x,p.y,"#c7c3b6",5,60,.3);break}}
+  for(const p of plats){if(p.type==="move"&&!p.gone){p.x+=p.dir*(60+Math.min(140,-camY*.02))*dt;if(p.x<4||p.x+p.w>LW-4)p.dir*=-1}if(p.fall!==undefined)p.fall+=dt}
+  for(const it of items){if(it.p&&it.p.type==="move")it.x=it.p.x+it.p.w/2;if(it.got)continue;if(Math.hypot(hero.x-it.x,hero.y-it.y)<22){
+    if(it.kind==="spring"&&hero.vy>0){hero.vy=JUMP*1.65;springs++;if(springs>=5)award("spring5");it.used=.25;burst(it.x,it.y,"#3aa3ff",10,120)}
+    if(it.kind==="prop"){hero.prop=2.6;it.got=true;award("prop")}
+    if(it.kind==="coin"){it.got=true;coinsGot++;burst(it.x,it.y,"#ffcf3f",10,100);hud()}}if(it.used)it.used=Math.max(0,it.used-dt)}
+  for(const e of enemies){if(e.dead)continue;e.ph+=dt*2;const ex=e.x+Math.sin(e.ph)*40;if(Math.hypot(hero.x-ex,hero.y-e.y)<26){if(hero.vy>0&&hero.y<e.y-6){e.dead=true;hero.vy=JUMP;stomps++;award("stomp");burst(ex,e.y,"#8a5cd6",18,140)}else if(hero.prop<=0){lose("Caught by a gremlin");return}}}
+  const target=hero.y-LH*.42;if(target<camY)camY=target;maxH=Math.max(maxH,-(hero.y-(LH-80)));if(Math.floor(maxH/10)!==lastH){lastH=Math.floor(maxH/10);hud()}
+  const h=Math.floor(maxH/10);if(h>=1000)award("h1000");if(h>=2500)award("h2500");if(h>=5000)award("h5000");
+  while(spawnY>camY-LH)gen();plats=plats.filter(p=>p.y<camY+LH+40);items=items.filter(i=>i.y<camY+LH+40&&!(i.got&&i.kind!=="spring"));enemies=enemies.filter(e=>e.y<camY+LH+40);
+  if(hero.y>camY+LH+40)lose("Fell")}
+function lose(why){state="over";const k=setting("diff","std"),h=Math.floor(maxH/10);if(h>(SAVE.best[k]||0))SAVE.best[k]=h;if(coinsGot>=15)award("coins");persist();burst(hero.x,hero.y,"#3aa3ff",20,140);
+  setTimeout(()=>card(`<h1>${why}!</h1><p>Height ${h} · ${coinsGot} coins</p><p class="sub">Best ${SAVE.best[k]}</p>`,"Hop again",newGame),500)}
+function draw(){ctx.fillStyle="#fbf6e9";ctx.fillRect(0,0,LW,LH);ctx.strokeStyle="rgba(58,163,255,.15)";ctx.lineWidth=1;const off=((-camY)%20+20)%20;for(let y=off;y<LH;y+=20){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(LW,y);ctx.stroke()}for(let x=0;x<LW;x+=20){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,LH);ctx.stroke()}
+  if(!hero)return;ctx.save();ctx.translate(0,-camY);
+  for(const p of plats){if(p.gone&&p.type!=="break")continue;const y=p.y+(p.fall?p.fall*p.fall*400:0);const col={n:"#5cc46a",move:"#3aa3ff",break:"#b5835a",vanish:"#f2f2f2"}[p.type];ctx.fillStyle=col;rr(p.x,y,p.w,12,6);ctx.fill();ctx.strokeStyle="#2b2a33";ctx.lineWidth=2;rr(p.x,y,p.w,12,6);ctx.stroke();if(p.type==="break"){ctx.beginPath();ctx.moveTo(p.x+p.w/2,y);ctx.lineTo(p.x+p.w/2-4,y+6);ctx.lineTo(p.x+p.w/2+3,y+12);ctx.stroke()}}
+  for(const it of items){if(it.got)continue;if(it.kind==="spring"){const h=it.used?16:10,b=it.y+4;ctx.strokeStyle="#2b2a33";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(it.x-5,b);for(let k=1;k<=4;k++)ctx.lineTo(it.x+(k%2?5:-5),b-k*h/4);ctx.stroke();ctx.fillStyle="#9aa3ad";rr(it.x-9,b-h-3,18,4,2);ctx.fill();ctx.stroke()}
+    if(it.kind==="prop"){ctx.fillStyle="#ff6b6b";ctx.beginPath();ctx.arc(it.x,it.y,8,Math.PI,0);ctx.fill();ctx.strokeStyle="#2b2a33";ctx.lineWidth=2;ctx.stroke();ctx.beginPath();ctx.moveTo(it.x-12,it.y-10);ctx.lineTo(it.x+12,it.y-10);ctx.stroke()}
+    if(it.kind==="coin"){ctx.fillStyle="#ffcf3f";ctx.beginPath();ctx.ellipse(it.x,it.y,Math.abs(Math.cos(performance.now()/200))*8+2,9,0,0,TAU);ctx.fill();ctx.strokeStyle="#2b2a33";ctx.lineWidth=1.5;ctx.stroke()}}
+  for(const e of enemies){if(e.dead)continue;const ex=e.x+Math.sin(e.ph)*40;ctx.fillStyle="#8a5cd6";ctx.beginPath();ctx.ellipse(ex,e.y,20,14,0,0,TAU);ctx.fill();ctx.strokeStyle="#2b2a33";ctx.lineWidth=2;ctx.stroke();ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(ex-7,e.y-3,5,0,TAU);ctx.arc(ex+7,e.y-3,5,0,TAU);ctx.fill();ctx.fillStyle="#2b2a33";ctx.beginPath();ctx.arc(ex-6,e.y-2,2,0,TAU);ctx.arc(ex+8,e.y-2,2,0,TAU);ctx.fill();for(let k=-1;k<=1;k++){ctx.beginPath();ctx.moveTo(ex+k*10,e.y+12);ctx.lineTo(ex+k*12,e.y+20);ctx.stroke()}}
+  const x=hero.x,y=hero.y;ctx.save();ctx.translate(x,y);ctx.scale(hero.face,1);const sq=hero.vy<0?1.08:.95;ctx.scale(1/sq,sq);
+  ctx.fillStyle=({blue:"#3aa3ff",orange:"#ff8a3d",mint:"#4fd6a0"})[setting("skin","blue")];rr(-13,-16,26,30,10);ctx.fill();ctx.strokeStyle="#2b2a33";ctx.lineWidth=2.5;rr(-13,-16,26,30,10);ctx.stroke();
+  ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(4,-6,6,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle="#2b2a33";ctx.beginPath();ctx.arc(6,-6,2.5,0,TAU);ctx.fill();ctx.beginPath();ctx.moveTo(13,2);ctx.lineTo(20,4);ctx.lineTo(13,7);ctx.fill();
+  ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-6,14);ctx.lineTo(-8,19);ctx.moveTo(6,14);ctx.lineTo(8,19);ctx.stroke();
+  if(hero.prop>0){ctx.fillStyle="#ff6b6b";ctx.beginPath();ctx.arc(0,-17,9,Math.PI,0);ctx.fill();ctx.stroke();const s=Math.sin(performance.now()/30)*14;ctx.beginPath();ctx.moveTo(-s,-28);ctx.lineTo(s,-28);ctx.stroke()}ctx.restore();
+  drawParts();ctx.restore();ctx.font="34px 'Gochi Hand',system-ui";ctx.textAlign="left";ctx.fillStyle="#2b2a33";ctx.fillText(Math.floor(maxH/10),12,40)}
+loop(dt=>{update(dt);stepParts(dt);draw()});
+function openMenu(){menu({title:"Sky Hopper",html:`<p class="sub">Bounce from platform to platform and climb as high as you can. Springs launch you, propeller hats fly you up, and you can stomp gremlins from above. Blue platforms slide, brown ones crack, white ones vanish after one bounce.</p>`,
+  settings:[{k:"diff",label:"Difficulty",def:"std",opts:[["easy","Easy"],["std","Normal"],["hard","Hard"]]},{k:"foes",label:"Gremlins",def:"on",opts:[["on","On"],["off","Off"]]},{k:"power",label:"Propeller hats",def:"on",opts:[["on","On"],["off","Off"]]},{k:"skin",label:"Hopper",def:"blue",opts:[["blue","Blue"],["orange","Orange"],["mint","Mint"]]}],
+  challenges:[{id:"h1000",text:"Reach height 1,000"},{id:"h2500",text:"Reach height 2,500"},{id:"h5000",text:"Reach height 5,000"},{id:"spring5",text:"Hit 5 springs in one run"},{id:"prop",text:"Grab a propeller hat"},{id:"stomp",text:"Stomp a gremlin"},{id:"coins",text:"Collect 15 coins in one run"}],play:"Hop"},newGame)}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>

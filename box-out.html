@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Box Out</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#f6f1e3;--ink:#24303d;--muted:#7a7f88;--accent:#2f6fd6;--f-display:"Patrick Hand","Comic Sans MS",cursive;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#ffffff;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+:root{color-scheme:light}.card{background:#fffdf6}
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#ffffff}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#ffffff;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Box Out</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Tap between two dots to draw a line · close a box to go again</div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=540,FONT="'Patrick Hand', system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){return SAVE.settings[k]??d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+
+const SIZES={s:[4,4],m:[5,6],l:[6,7]};
+const PC=[null,{c:"#2f6fd6",f:"rgba(47,111,214,.22)"},{c:"#e0524a",f:"rgba(224,82,74,.22)"}];
+let W,H,hl,vl,box,turn=1,state="menu",sc=[0,0,0],sp,ox,oy,last=null,thinking=false,chain=0,bestChain=0;
+function vsCPU(){return setting("opp","med")!=="friend"}
+const nm=p=>vsCPU()?(p===1?"You":"CPU"):(p===1?"Blue":"Red");
+function newGame(){[W,H]=SIZES[setting("size","m")];hl=Array.from({length:H+1},()=>Array(W).fill(0));vl=Array.from({length:H},()=>Array(W+1).fill(0));box=Array.from({length:H},()=>Array(W).fill(0));
+  sp=Math.floor(Math.min((LW-40)/W,(LH-80)/H));ox=(LW-sp*W)/2;oy=60+(LH-70-sp*H)/2;sc=[0,0,0];turn=setting("first","you")==="cpu"?2:1;last=null;chain=0;bestChain=0;state="play";hud();if(vsCPU()&&turn===2)cpuGo()}
+function hud(){stats({[nm(1)]:sc[1],[nm(2)]:sc[2],Boxes:`${sc[1]+sc[2]}/${W*H}`})}
+const sides=(b,x,y)=>(b.hl[y][x]?1:0)+(b.hl[y+1][x]?1:0)+(b.vl[y][x]?1:0)+(b.vl[y][x+1]?1:0);
+function apply(b,m,p){if(m.h)b.hl[m.y][m.x]=p;else b.vl[m.y][m.x]=p;const done=[];const chk=(x,y)=>{if(x>=0&&y>=0&&x<W&&y<H&&!b.box[y][x]&&sides(b,x,y)===4){b.box[y][x]=p;done.push([x,y])}};
+  if(m.h){chk(m.x,m.y-1);chk(m.x,m.y)}else{chk(m.x-1,m.y);chk(m.x,m.y)}return done}
+function moves(b){const r=[];for(let y=0;y<=H;y++)for(let x=0;x<W;x++)if(!b.hl[y][x])r.push({h:1,x,y});for(let y=0;y<H;y++)for(let x=0;x<=W;x++)if(!b.vl[y][x])r.push({h:0,x,y});return r}
+function play(m){if(state!=="play")return;if(m.h?hl[m.y][m.x]:vl[m.y][m.x])return;const done=apply({hl,vl,box},m,turn);last=m;
+  for(const [x,y] of done)burst(ox+x*sp+sp/2,oy+y*sp+sp/2,PC[turn].c,10,90);
+  if(done.length){sc[turn]+=done.length;chain+=done.length;if(turn===1||!vsCPU()){bestChain=Math.max(bestChain,chain);if(chain>=4)award("chain4");if(done.length===2)award("double")}hud();
+    if(sc[1]+sc[2]===W*H){end();return}if(vsCPU()&&turn===2)setTimeout(cpuGo,setting("speed","std")==="fast"?180:420)}
+  else{turn=3-turn;chain=0;hud();if(vsCPU()&&turn===2)setTimeout(cpuGo,setting("speed","std")==="fast"?200:500)}}
+function end(){state="over";const w=sc[1]>sc[2]?1:sc[2]>sc[1]?2:0;if(vsCPU()&&w===1){award("win");const o=setting("opp","med");if(o==="hard")award("hard");if(sc[2]===0)award("shut");if(setting("size","m")==="l")award("big")}if(!vsCPU())award("duel");persist();
+  setTimeout(()=>card(`<h1>${w?nm(w)+(nm(w)==="You"?" win!":" wins!"):"Tie game"}</h1><p>${nm(1)} ${sc[1]} · ${nm(2)} ${sc[2]}</p>`,"Play again",newGame),700)}
+// CPU: take boxes, avoid giving 3rd sides, then give away the smallest chain
+function cpuGo(){if(state!=="play"||turn!==2)return;const b={hl,vl,box},M=moves(b),o=setting("opp","med");let pickM=null;
+  const gives=m=>{const t={hl:hl.map(r=>r.slice()),vl:vl.map(r=>r.slice()),box:box.map(r=>r.slice())};if(apply(t,m,2).length)return -1;let g=0;for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(!t.box[y][x]&&sides(t,x,y)===3)g++;return g};
+  const takes=M.filter(m=>gives(m)===-1);
+  if(takes.length&&(o!=="easy"||Math.random()<.8))pickM=pick(takes);
+  else{const safe=M.filter(m=>gives(m)===0);if(safe.length&&(o!=="easy"||Math.random()<.6))pickM=pick(safe);
+    else if(o==="hard"){let best=1e9;for(const m of M){const c=chainCost(m);if(c<best){best=c;pickM=m}}}else pickM=pick(M)}
+  play(pickM||pick(M))}
+function chainCost(m){const t={hl:hl.map(r=>r.slice()),vl:vl.map(r=>r.slice()),box:box.map(r=>r.slice())};apply(t,m,2);let n=0,guard=0;
+  while(guard++<200){let took=false;for(const mm of moves(t)){const tt={hl:t.hl.map(r=>r.slice()),vl:t.vl.map(r=>r.slice()),box:t.box.map(r=>r.slice())};const d=apply(tt,mm,1);if(d.length){apply(t,mm,1);n+=d.length;took=true;break}}if(!took)break}return n}
+pointer({down:l=>{if(state!=="play"||(vsCPU()&&turn===2))return;const gx=(l.x-ox)/sp,gy=(l.y-oy)/sp;let best=null,bd=.42;
+  for(let y=0;y<=H;y++)for(let x=0;x<W;x++){const d=Math.hypot(gx-(x+.5),gy-y);if(d<bd&&!hl[y][x]){bd=d;best={h:1,x,y}}}
+  for(let y=0;y<H;y++)for(let x=0;x<=W;x++){const d=Math.hypot(gx-x,gy-(y+.5));if(d<bd&&!vl[y][x]){bd=d;best={h:0,x,y}}}if(best)play(best)}});
+function draw(){ctx.fillStyle="#f6f1e3";ctx.fillRect(0,0,LW,LH);ctx.strokeStyle="rgba(47,111,214,.12)";ctx.lineWidth=1;for(let y=12;y<LH;y+=22){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(LW,y);ctx.stroke()}if(!hl)return;
+  ctx.font="26px 'Patrick Hand',system-ui";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle=PC[turn].c;ctx.fillText(state==="over"?"Game over":`${nm(turn)}${nm(turn)==="You"?"r":"'s"} turn`,LW/2,28);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(box[y][x]){ctx.fillStyle=PC[box[y][x]].f;ctx.fillRect(ox+x*sp+3,oy+y*sp+3,sp-6,sp-6);ctx.fillStyle=PC[box[y][x]].c;ctx.font=`${sp*.5}px 'Patrick Hand',system-ui`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(nm(box[y][x])[0],ox+x*sp+sp/2,oy+y*sp+sp/2+2)}
+  ctx.lineCap="round";const line=(x1,y1,x2,y2,p,isLast)=>{ctx.strokeStyle=PC[p].c;ctx.lineWidth=isLast?6:4.5;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()};
+  for(let y=0;y<=H;y++)for(let x=0;x<W;x++)if(hl[y][x])line(ox+x*sp,oy+y*sp,ox+(x+1)*sp,oy+y*sp,hl[y][x],last&&last.h&&last.x===x&&last.y===y);
+  for(let y=0;y<H;y++)for(let x=0;x<=W;x++)if(vl[y][x])line(ox+x*sp,oy+y*sp,ox+x*sp,oy+(y+1)*sp,vl[y][x],last&&!last.h&&last.x===x&&last.y===y);
+  if(setting("warn","on")==="on"&&state==="play")for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(!box[y][x]&&sides({hl,vl},x,y)===3){ctx.fillStyle="rgba(240,170,40,.25)";ctx.fillRect(ox+x*sp+6,oy+y*sp+6,sp-12,sp-12)}
+  ctx.fillStyle="#24303d";for(let y=0;y<=H;y++)for(let x=0;x<=W;x++){ctx.beginPath();ctx.arc(ox+x*sp,oy+y*sp,5,0,TAU);ctx.fill()}drawParts()}
+loop(dt=>{stepParts(dt);draw()});
+function openMenu(){menu({title:"Box Out",html:`<p class="sub">Take turns drawing lines between dots. Draw the fourth side of a box to claim it, then go again. Most boxes wins. Watch out for handing over long chains.</p>`,
+  settings:[{k:"opp",label:"Opponent",def:"med",opts:[["friend","Pass & play"],["easy","CPU easy"],["med","CPU medium"],["hard","CPU hard"]]},{k:"size",label:"Board",def:"m",opts:[["s","4×4"],["m","5×6"],["l","6×7"]]},{k:"first",label:"Goes first",def:"you",opts:[["you","You / Blue"],["cpu","CPU / Red"]]},{k:"warn",label:"Highlight 3-sided boxes",def:"on",opts:[["on","On"],["off","Off"]]},{k:"speed",label:"CPU speed",def:"std",opts:[["std","Normal"],["fast","Fast"]]}],
+  challenges:[{id:"win",text:"Beat the CPU"},{id:"hard",text:"Beat the hard CPU"},{id:"double",text:"Close two boxes with one line"},{id:"chain4",text:"Take 4+ boxes in one turn"},{id:"shut",text:"Beat the CPU without it scoring a box"},{id:"big",text:"Win on the 6×7 board"},{id:"duel",text:"Finish a two-player game"}],play:"Play"},newGame)}
+fit();openMenu();
+
+})();
+</script>
+
+</body></html>
