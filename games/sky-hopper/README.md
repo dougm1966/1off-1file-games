@@ -1,5 +1,7 @@
 # Sky Hopper
 
+[![Sky Hopper](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/sky-hopper/)
+
 **Endless bounce-and-climb jumper.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/sky-hopper/](https://dougm1966.github.io/1off-1file-games/games/sky-hopper/) · or open [`index.html`](index.html) in any browser

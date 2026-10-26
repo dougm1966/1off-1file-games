@@ -1,5 +1,7 @@
 # Rock Field
 
+[![Rock Field](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/rock-field/)
+
 **Asteroids-style vector shooter.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/rock-field/](https://dougm1966.github.io/1off-1file-games/games/rock-field/) · or open [`index.html`](index.html) in any browser

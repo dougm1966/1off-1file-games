@@ -1,5 +1,7 @@
 # Soft Landing
 
+[![Soft Landing](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/soft-landing/)
+
 **Lunar lander, 10 levels.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/soft-landing/](https://dougm1966.github.io/1off-1file-games/games/soft-landing/) · or open [`index.html`](index.html) in any browser

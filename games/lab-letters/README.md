@@ -1,5 +1,7 @@
 # Lab Letters
 
+[![Lab Letters](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/lab-letters/)
+
 **Five-letter word guessing with lab words or partner-set words.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/lab-letters/](https://dougm1966.github.io/1off-1file-games/games/lab-letters/) · or open [`index.html`](index.html) in any browser

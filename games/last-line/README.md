@@ -1,5 +1,7 @@
 # Last Line
 
+[![Last Line](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/last-line/)
+
 **Missile Command-style city defense.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/last-line/](https://dougm1966.github.io/1off-1file-games/games/last-line/) · or open [`index.html`](index.html) in any browser

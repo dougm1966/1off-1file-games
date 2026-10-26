@@ -1,5 +1,7 @@
 # Star Siege
 
+[![Star Siege](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/star-siege/)
+
 **Space Invaders-style shooter.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/star-siege/](https://dougm1966.github.io/1off-1file-games/games/star-siege/) · or open [`index.html`](index.html) in any browser

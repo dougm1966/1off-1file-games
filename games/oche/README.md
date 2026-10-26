@@ -1,5 +1,7 @@
 # Oche
 
+[![Oche](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/oche/)
+
 **Darts: x01, Cricket, Around the Clock.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/oche/](https://dougm1966.github.io/1off-1file-games/games/oche/) · or open [`index.html`](index.html) in any browser

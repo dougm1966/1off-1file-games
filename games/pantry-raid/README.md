@@ -1,5 +1,7 @@
 # Pantry Raid
 
+[![Pantry Raid](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/pantry-raid/)
+
 **Maze chase: mouse vs cats.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/pantry-raid/](https://dougm1966.github.io/1off-1file-games/games/pantry-raid/) · or open [`index.html`](index.html) in any browser

@@ -1,5 +1,7 @@
 # Putt Party
 
+[![Putt Party](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/putt-party/)
+
 **18-hole mini golf for 1-4 players.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/putt-party/](https://dougm1966.github.io/1off-1file-games/games/putt-party/) · or open [`index.html`](index.html) in any browser

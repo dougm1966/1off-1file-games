@@ -1,5 +1,7 @@
 # Stack Shift
 
+[![Stack Shift](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/stack-shift/)
+
 **Falling-blocks stacker.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/stack-shift/](https://dougm1966.github.io/1off-1file-games/games/stack-shift/) · or open [`index.html`](index.html) in any browser

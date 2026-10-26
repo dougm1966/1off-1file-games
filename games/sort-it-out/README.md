@@ -1,5 +1,7 @@
 # Sort It Out
 
+[![Sort It Out](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/sort-it-out/)
+
 **Speed-sort tubes, organisms and blood cells.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/sort-it-out/](https://dougm1966.github.io/1off-1file-games/games/sort-it-out/) · or open [`index.html`](index.html) in any browser

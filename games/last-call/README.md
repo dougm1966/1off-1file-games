@@ -1,5 +1,7 @@
 # Last Call
 
+[![Last Call](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/last-call/)
+
 **Tapper-style bar rush.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/last-call/](https://dougm1966.github.io/1off-1file-games/games/last-call/) · or open [`index.html`](index.html) in any browser

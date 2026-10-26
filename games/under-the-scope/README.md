@@ -1,5 +1,7 @@
 # Under the Scope
 
+[![Under the Scope](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/under-the-scope/)
+
 **Identify blood smears, Gram stains and urine sediment.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/under-the-scope/](https://dougm1966.github.io/1off-1file-games/games/under-the-scope/) · or open [`index.html`](index.html) in any browser

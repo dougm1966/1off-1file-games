@@ -1,5 +1,7 @@
 # Sunset Run
 
+[![Sunset Run](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/sunset-run/)
+
 **Pseudo-3D desert driving.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/sunset-run/](https://dougm1966.github.io/1off-1file-games/games/sunset-run/) · or open [`index.html`](index.html) in any browser

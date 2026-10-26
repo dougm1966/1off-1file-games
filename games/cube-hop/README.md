@@ -1,5 +1,7 @@
 # Cube Hop
 
+[![Cube Hop](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/cube-hop/)
+
 **Pyramid cube-hopping.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/cube-hop/](https://dougm1966.github.io/1off-1file-games/games/cube-hop/) · or open [`index.html`](index.html) in any browser

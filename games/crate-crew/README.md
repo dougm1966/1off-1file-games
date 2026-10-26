@@ -1,5 +1,7 @@
 # Crate Crew
 
+[![Crate Crew](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/crate-crew/)
+
 **Sokoban crate-pushing puzzles.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/crate-crew/](https://dougm1966.github.io/1off-1file-games/games/crate-crew/) · or open [`index.html`](index.html) in any browser

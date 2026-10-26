@@ -1,5 +1,7 @@
 # Deep Dig
 
+[![Deep Dig](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/deep-dig/)
+
 **Tunnel digging and monster popping.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/deep-dig/](https://dougm1966.github.io/1off-1file-games/games/deep-dig/) · or open [`index.html`](index.html) in any browser

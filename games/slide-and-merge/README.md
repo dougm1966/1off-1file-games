@@ -1,5 +1,7 @@
 # Slide & Merge
 
+[![Slide & Merge](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/slide-and-merge/)
+
 **2048-style sliding merge puzzle.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/slide-and-merge/](https://dougm1966.github.io/1off-1file-games/games/slide-and-merge/) · or open [`index.html`](index.html) in any browser

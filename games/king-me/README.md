@@ -1,5 +1,7 @@
 # King Me
 
+[![King Me](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/king-me/)
+
 **Checkers, friend or CPU.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/king-me/](https://dougm1966.github.io/1off-1file-games/games/king-me/) · or open [`index.html`](index.html) in any browser

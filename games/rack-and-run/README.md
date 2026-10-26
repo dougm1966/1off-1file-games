@@ -1,5 +1,7 @@
 # Rack & Run
 
+[![Rack & Run](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/rack-and-run/)
+
 **9-ball pool with real rules, friend or CPU.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/rack-and-run/](https://dougm1966.github.io/1off-1file-games/games/rack-and-run/) · or open [`index.html`](index.html) in any browser

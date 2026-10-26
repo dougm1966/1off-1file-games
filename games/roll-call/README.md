@@ -1,5 +1,7 @@
 # Roll Call
 
+[![Roll Call](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/roll-call/)
+
 **Five-dice scorecard game for 1–4 or vs CPU.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/roll-call/](https://dougm1966.github.io/1off-1file-games/games/roll-call/) · or open [`index.html`](index.html) in any browser

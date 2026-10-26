@@ -1,5 +1,7 @@
 # Pocket Puzzle Duel
 
+[![Pocket Puzzle Duel](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/pocket-puzzle-duel/)
+
 **Pass-and-play pool trick-shot puzzles.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/pocket-puzzle-duel/](https://dougm1966.github.io/1off-1file-games/games/pocket-puzzle-duel/) · or open [`index.html`](index.html) in any browser

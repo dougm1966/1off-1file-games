@@ -1,5 +1,7 @@
 # Bench Rounds
 
+[![Bench Rounds](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/bench-rounds/)
+
 **Clinical lab trivia, solo or pass-and-play.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/bench-rounds/](https://dougm1966.github.io/1off-1file-games/games/bench-rounds/) · or open [`index.html`](index.html) in any browser

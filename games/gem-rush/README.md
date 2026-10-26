@@ -1,5 +1,7 @@
 # Gem Rush
 
+[![Gem Rush](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/gem-rush/)
+
 **Match-3 gems with 15 levels.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/gem-rush/](https://dougm1966.github.io/1off-1file-games/games/gem-rush/) · or open [`index.html`](index.html) in any browser

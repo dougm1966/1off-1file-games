@@ -1,5 +1,7 @@
 # Patience
 
+[![Patience](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/patience/)
+
 **Klondike solitaire.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/patience/](https://dougm1966.github.io/1off-1file-games/games/patience/) · or open [`index.html`](index.html) in any browser

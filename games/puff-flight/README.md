@@ -1,5 +1,7 @@
 # Puff Flight
 
+[![Puff Flight](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/puff-flight/)
+
 **Tap-to-flap flyer.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/puff-flight/](https://dougm1966.github.io/1off-1file-games/games/puff-flight/) · or open [`index.html`](index.html) in any browser

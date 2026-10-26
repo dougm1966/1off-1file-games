@@ -1,5 +1,7 @@
 # Nine Squares
 
+[![Nine Squares](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/nine-squares/)
+
 **Sudoku with generated puzzles.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/nine-squares/](https://dougm1966.github.io/1off-1file-games/games/nine-squares/) · or open [`index.html`](index.html) in any browser

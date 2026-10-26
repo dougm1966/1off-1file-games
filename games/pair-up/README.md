@@ -1,5 +1,7 @@
 # Pair Up
 
+[![Pair Up](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/pair-up/)
+
 **Memory match with lab decks, solo or two players.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/pair-up/](https://dougm1966.github.io/1off-1file-games/games/pair-up/) · or open [`index.html`](index.html) in any browser

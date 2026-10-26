@@ -93,6 +93,11 @@ Thinking games, from Sudoku and nonograms to Sokoban and match-3.
 | [Stack Shift](games/stack-shift/) | Falling-blocks stacker | [Play](https://dougm1966.github.io/1off-1file-games/games/stack-shift/) |
 | [Tile Temple](games/tile-temple/) | Mahjong solitaire | [Play](https://dougm1966.github.io/1off-1file-games/games/tile-temple/) |
 
+## Downloading
+
+- **One game:** on the launcher page, every game has a **Download .html** button. The file is the whole game; open it in any browser.
+- **All games:** [`downloads/1off-1file-games.zip`](downloads/1off-1file-games.zip) has every game folder (game, README and prompt) plus the launcher page. Unzip it and open `index.html`.
+
 ## Running them
 
 - **Online:** with GitHub Pages enabled, every game is live at `https://dougm1966.github.io/1off-1file-games/games/<game>/`.

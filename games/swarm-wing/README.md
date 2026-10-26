@@ -1,5 +1,7 @@
 # Swarm Wing
 
+[![Swarm Wing](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/swarm-wing/)
+
 **Galaga-style swooping shooter.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/swarm-wing/](https://dougm1966.github.io/1off-1file-games/games/swarm-wing/) · or open [`index.html`](index.html) in any browser

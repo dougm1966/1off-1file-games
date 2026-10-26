@@ -1,5 +1,7 @@
 # Brick Bounce
 
+[![Brick Bounce](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/brick-bounce/)
+
 **Breakout-style brick breaker.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/brick-bounce/](https://dougm1966.github.io/1off-1file-games/games/brick-bounce/) · or open [`index.html`](index.html) in any browser

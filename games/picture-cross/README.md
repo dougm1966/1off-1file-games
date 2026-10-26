@@ -1,5 +1,7 @@
 # Picture Cross
 
+[![Picture Cross](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/picture-cross/)
+
 **Nonogram picture puzzles.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/picture-cross/](https://dougm1966.github.io/1off-1file-games/games/picture-cross/) · or open [`index.html`](index.html) in any browser

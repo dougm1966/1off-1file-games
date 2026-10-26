@@ -1,5 +1,7 @@
 # Tile Temple
 
+[![Tile Temple](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/tile-temple/)
+
 **Mahjong solitaire.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/tile-temple/](https://dougm1966.github.io/1off-1file-games/games/tile-temple/) · or open [`index.html`](index.html) in any browser

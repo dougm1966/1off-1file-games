@@ -1,5 +1,7 @@
 # Rink Rivals
 
+[![Rink Rivals](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/rink-rivals/)
+
 **Air hockey, two players on one phone or a CPU ladder.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/rink-rivals/](https://dougm1966.github.io/1off-1file-games/games/rink-rivals/) · or open [`index.html`](index.html) in any browser

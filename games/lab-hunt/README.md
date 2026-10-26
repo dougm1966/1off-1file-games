@@ -1,5 +1,7 @@
 # Lab Hunt
 
+[![Lab Hunt](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/lab-hunt/)
+
 **Lab-themed word search.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/lab-hunt/](https://dougm1966.github.io/1off-1file-games/games/lab-hunt/) · or open [`index.html`](index.html) in any browser

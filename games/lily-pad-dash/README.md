@@ -1,5 +1,7 @@
 # Lily Pad Dash
 
+[![Lily Pad Dash](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/lily-pad-dash/)
+
 **Frogger-style road and river crossing.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/lily-pad-dash/](https://dougm1966.github.io/1off-1file-games/games/lily-pad-dash/) · or open [`index.html`](index.html) in any browser

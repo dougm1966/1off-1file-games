@@ -1,5 +1,7 @@
 # Eight & Out
 
+[![Eight & Out](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/eight-and-out/)
+
 **8-ball pool, friend or CPU.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/eight-and-out/](https://dougm1966.github.io/1off-1file-games/games/eight-and-out/) · or open [`index.html`](index.html) in any browser

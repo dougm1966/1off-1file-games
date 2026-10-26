@@ -1,5 +1,7 @@
 # Night Flipper
 
+[![Night Flipper](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/night-flipper/)
+
 **Neon pinball with missions.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/night-flipper/](https://dougm1966.github.io/1off-1file-games/games/night-flipper/) · or open [`index.html`](index.html) in any browser

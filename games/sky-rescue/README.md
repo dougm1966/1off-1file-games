@@ -1,5 +1,7 @@
 # Sky Rescue
 
+[![Sky Rescue](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/sky-rescue/)
+
 **Defender-style rescue shooter.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/sky-rescue/](https://dougm1966.github.io/1off-1file-games/games/sky-rescue/) · or open [`index.html`](index.html) in any browser

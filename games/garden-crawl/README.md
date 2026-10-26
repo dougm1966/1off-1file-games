@@ -1,5 +1,7 @@
 # Garden Crawl
 
+[![Garden Crawl](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/garden-crawl/)
+
 **Centipede-style shooter.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/garden-crawl/](https://dougm1966.github.io/1off-1file-games/games/garden-crawl/) · or open [`index.html`](index.html) in any browser

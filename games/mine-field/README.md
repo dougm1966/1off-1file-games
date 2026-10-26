@@ -1,5 +1,7 @@
 # Mine Field
 
+[![Mine Field](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/mine-field/)
+
 **Minesweeper.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/mine-field/](https://dougm1966.github.io/1off-1file-games/games/mine-field/) · or open [`index.html`](index.html) in any browser

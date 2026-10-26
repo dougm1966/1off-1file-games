@@ -1,5 +1,7 @@
 # Coil
 
+[![Coil](cover.webp)](https://dougm1966.github.io/1off-1file-games/games/coil/)
+
 **Snake.**
 
 ▶ **Play:** [https://dougm1966.github.io/1off-1file-games/games/coil/](https://dougm1966.github.io/1off-1file-games/games/coil/) · or open [`index.html`](index.html) in any browser
