@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}</style>
+<title>Kart Dash</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#0c1a12;--ink:#f4fff0;--muted:#9bbfa6;--accent:#ffd23f;--f-display:"Russo One",Impact,sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2a2000;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#2a2000;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#2a2000}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#2a2000;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Kart Dash</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Hold ◀ ▶ to steer, GAS to go · hold DRIFT while turning, release to boost</div><div class="ctl" id="ctl" hidden></div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=470,FONT="'Russo One', Impact, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ---------- tracks (closed splines) ----------
+// <TRACKS>
+const HW = 56;
+const TRACKS = [
+  { name: "Sunny Loop", sc: 1, pts: [[0, 0], [300, -60], [600, -40], [780, 120], [700, 330], [450, 400], [200, 340], [-60, 260], [-130, 120]], grass: "#2f8a3a" },
+  { name: "Figure Bay", sc: 1.05, pts: [[0, 0], [260, -80], [520, 0], [640, 160], [520, 300], [300, 260], [180, 380], [-20, 420], [-180, 300], [-160, 120]], grass: "#2a8450" },
+  { name: "Pine Hairpin", sc: 1.1, pts: [[0, 0], [400, -40], [800, -20], [900, 120], [760, 200], [380, 190], [250, 260], [330, 380], [700, 420], [900, 520], [760, 640], [200, 620], [-120, 480], [-160, 200]], grass: "#25703a" },
+  { name: "Canyon Run", sc: 1.8, pts: [[0, 0], [300, -100], [600, 40], [900, -60], [1100, 100], [980, 300], [700, 240], [520, 380], [760, 520], [420, 600], [100, 520], [-100, 360], [-120, 140]], grass: "#9a7a45" },
+  { name: "Harbor Chicane", sc: 1, pts: [[0, 0], [350, 0], [500, -120], [700, -120], [800, 0], [1000, 40], [1100, 200], [950, 330], [750, 260], [600, 380], [380, 400], [200, 520], [-100, 500], [-200, 300], [-120, 100]], grass: "#3a8a8a" },
+  { name: "Peak Pass", sc: 1.8, pts: [[0, 0], [420, -80], [860, -20], [1060, 200], [900, 420], [560, 360], [420, 200], [240, 240], [200, 440], [420, 600], [80, 640], [-160, 520], [-200, 260], [-140, 60]], grass: "#6a7a5a" },
+  { name: "Neon Docks", sc: 1.2, pts: [[0, 0], [500, -40], [900, 0], [960, 200], [760, 260], [700, 380], [960, 460], [920, 640], [500, 680], [240, 600], [300, 440], [80, 380], [-160, 420], [-240, 240], [-140, 60]], grass: "#2a2a4a" },
+  { name: "Glacier Switch", sc: 1.1, pts: [[0, 0], [300, -120], [640, -100], [800, 60], [640, 200], [360, 160], [240, 300], [460, 400], [800, 380], [960, 520], [760, 660], [400, 600], [100, 680], [-180, 560], [-240, 300], [-160, 80]], grass: "#bcd8e8" },
+  { name: "Grand Circuit", sc: 1.2, pts: [[0, 0], [400, -140], [800, -100], [1100, 60], [1160, 300], [960, 440], [700, 360], [560, 500], [740, 640], [500, 780], [140, 740], [-100, 600], [-60, 420], [-300, 360], [-340, 140], [-180, -20]], grass: "#2f7a3a" }
+];
+function buildTrack(t) {
+  const P = t.pts.map((p) => [p[0] * t.sc, p[1] * t.sc]), n = P.length, dense = [];
+  for (let i = 0; i < n; i++) { const p0 = P[(i + n - 1) % n], p1 = P[i], p2 = P[(i + 1) % n], p3 = P[(i + 2) % n]; for (let k = 0; k < 30; k++) { const u = k / 30, u2 = u * u, u3 = u2 * u; dense.push([.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * u + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * u2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * u3), .5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * u + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * u2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * u3)]); } }
+  const cum = [0]; for (let i = 1; i <= dense.length; i++) { const a = dense[i - 1], b = dense[i % dense.length]; cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+  const len = cum[cum.length - 1], N = Math.round(len / 7), ds = len / N, c = []; let j = 0;
+  for (let i = 0; i < N; i++) { const s = i * ds; while (cum[j + 1] < s) j++; const a = dense[j], b = dense[(j + 1) % dense.length], u = (s - cum[j]) / ((cum[j + 1] - cum[j]) || 1); c.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]); }
+  const tan = [], nor = [], cur = [];
+  for (let i = 0; i < N; i++) { const a = c[(i + N - 2) % N], b = c[(i + 2) % N], dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || 1; tan.push([dx / d, dy / d]); nor.push([-dy / d, dx / d]); }
+  for (let i = 0; i < N; i++) { const a = tan[(i + N - 6) % N], b = tan[(i + 6) % N]; let d = Math.atan2(b[1], b[0]) - Math.atan2(a[1], a[0]); while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; cur.push(Math.abs(d)); }
+  return { name: t.name, grass: t.grass, c, tan, nor, cur, N, len, ds };
+}
+// </TRACKS>
+const CUPS = ["Nut Cup", "Gear Cup", "Star Cup"];
+const CPUN = ["Bolt", "Dax", "Mimi", "Rocket", "Zed"], KCOL = ["#ff5a4f", "#4fc3ff", "#a6e22e", "#ffd23f", "#c084fc", "#ff9f43"];
+const MAXS = 250, ACC = 175;
+const opt = (k, allowed, d) => { const v = setting(k, d); return allowed.includes(v) ? v : d; };
+const ITEMS = { nitro: { name: "NITRO", col: "#ffd23f" }, seeker: { name: "SEEKER", col: "#ff6b6b" }, goo: { name: "GOO", col: "#7bd957" } };
+const fmt = (t) => { if (!Number.isFinite(t) || t <= 0) return "--"; const m = Math.floor(t / 60), s = t - m * 60; return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1); };
+
+// ---------- state ----------
+let trk = null, trackNo = 1, karts = [], pl = null, state = "menu", clock = 0, countT = 0, laps = 3, mode = "race", cupRace = 0, cupPts = [], cupStart = 1, boxes = [], shots = [], goos = [], ghostRec = [], ghostPlay = null, ghostT = 0, finishT = 0;
+let held = { L: false, R: false, gas: false, drift: false }, dragSteer = 0, camX = 0, camY = 0, msg = null, flash = 0, wallHits = 0, usedLast = false, wasLast = false, shake = 0, hitRival = false, orange = false, lapLog = [], nowT = 0, steerAmt = 0;
+const ITEM_BTN = { x: 296, y: 6, w: 58, h: 58 };
+const dTrack = {};
+function trackOf(n) { return dTrack[n] || (dTrack[n] = buildTrack(TRACKS[n - 1])); }
+
+// ---------- race setup ----------
+function mkKart(i, tp0, lat, cpu) {
+  const k = { id: i, cpu, x: 0, y: 0, a: 0, vx: 0, vy: 0, tp: tp0, idx: 0, lap: 0, lapStart: 0, lapT: 0, best: 0, item: null, itemT: 0, boost: 0, spin: 0, drift: 0, driftT: 0, driftDir: 0, finish: 0, col: KCOL[i % 6], name: cpu ? CPUN[(i - 1) % 5] : "You", lat, stuck: 0, lane: (Math.random() - .5) * HW * .9, laneT: rnd(2, 5), prog: 0, skill: 1, goo: 0, wall: 0, bump: 0 };
+  const N = trk.N, ix = ((Math.floor(tp0) % N) + N) % N, c = trk.c[ix], nm = trk.nor[ix], tn = trk.tan[ix]; k.x = c[0] + nm[0] * lat; k.y = c[1] + nm[1] * lat; k.a = Math.atan2(tn[1], tn[0]); k.idx = ix; return k;
+}
+function startRace(n) {
+  trackNo = n; trk = trackOf(n); laps = [2, 3, 5].includes(setting("laps", 3)) ? setting("laps", 3) : 3; const diff = opt("diff", ["easy", "normal", "hard"], "normal"), sk = { easy: .8, normal: .9, hard: .98 }[diff];
+  karts = []; const slots = [0, 1, 2, 3, 4, 5], order = slots.slice().sort(() => Math.random() - .5), plSlot = 3;
+  const rows = (s) => -(14 + Math.floor(s / 2) * 14), side = (s) => (s % 2 ? .45 : -.45) * HW;
+  pl = mkKart(0, rows(plSlot), side(plSlot), null); pl.name = "You"; pl.col = KCOL[0]; karts.push(pl);
+  let ci = 1; for (const s of order) { if (s === plSlot) continue; const k = mkKart(ci, rows(s), side(s), diff); k.skill = sk * (1 + rnd(-.03, .03)); karts.push(k); ci++; }
+  boxes = []; for (const f of [.12, .4, .68, .88]) for (const l of [-.55, 0, .55]) boxes.push({ i: Math.floor(trk.N * f), lat: l * HW, t: 0 }); if (opt("items", ["on", "off"], "on") === "off") boxes = [];
+  shots = []; goos = []; parts.length = 0; clock = 0; countT = 3.2; state = "count"; held = { L: false, R: false, gas: false, drift: false }; dragSteer = 0; msg = null; flash = 0; wallHits = 0; usedLast = false; wasLast = false; hitRival = false; orange = false; lapLog = []; finishT = 0; shake = 0;
+  ghostRec = []; ghostT = 0; ghostPlay = null; const g = loadGhost(n); if (g && opt("ghost", ["off", "on"], "off") === "on") ghostPlay = g; camX = pl.x; camY = pl.y; hud(); uiSync();
+}
+function hud() { if (!pl) { stats({}); return; } const pos = rankOf(pl); stats({ Pos: pos + "/" + karts.length, Lap: clamp(pl.lap + 1, 1, laps) + "/" + laps }); }
+function rankList() { return karts.slice().sort((a, b) => (a.finish && b.finish ? a.finish - b.finish : a.finish ? -1 : b.finish ? 1 : b.tp - a.tp)); }
+function rankOf(k) { return rankList().indexOf(k) + 1; }
+
+// ---------- ghost storage (validated) ----------
+function loadGhost(n) {
+  try { const d = SAVE.data; if (!d || typeof d !== "object" || !d.g || typeof d.g !== "object") return null; const a = d.g["t" + n]; if (!Array.isArray(a) || a.length < 9 || a.length > 6000 || a.length % 3) return null; for (const v of a) if (typeof v !== "number" || !Number.isFinite(v) || Math.abs(v) > 20000) return null; return a; } catch (e) { return null; }
+}
+function saveGhost(n, rec) { SAVE.data = SAVE.data && typeof SAVE.data === "object" && !Array.isArray(SAVE.data) ? SAVE.data : {}; if (!SAVE.data.g || typeof SAVE.data.g !== "object") SAVE.data.g = {}; const a = []; for (const r of rec) a.push(Math.round(r[0]), Math.round(r[1]), Math.round(r[2] * 100)); if (a.length <= 6000) SAVE.data.g["t" + n] = a; }
+const bestLap = (n) => { const v = SAVE.best["lap" + n]; return Number.isFinite(v) && v > 0 ? v : 0; };
+
+// ---------- input ----------
+function steerInput() { if (setting("steer", "buttons") === "drag") return dragSteer; return (held.R ? 1 : 0) - (held.L ? 1 : 0); }
+let kbS = 0;
+Kit.play({
+  start(f) {
+    if (state === "menu") return;
+    if (f.x >= ITEM_BTN.x && f.x <= ITEM_BTN.x + ITEM_BTN.w && f.y >= ITEM_BTN.y && f.y <= ITEM_BTN.y + ITEM_BTN.h) { f.owner = "ui"; useItem(pl); return; }
+    if (setting("steer", "buttons") === "drag") { f.owner = "steer"; Kit.haptic(5); }
+  },
+  move(f) { if (f.owner === "steer") dragSteer = clamp((f.x - f.x0) / 38, -1, 1); },
+  end(f) { if (f.owner === "steer") { const rest = [...Kit.fingers.values()].filter((o) => o.owner === "steer" && o !== f).pop(); dragSteer = rest ? clamp((rest.x - rest.x0) / 38, -1, 1) : 0; } }
+});
+const KD = {};
+addEventListener("keydown", (e) => { const k = e.key.toLowerCase(); if (k === "p" || k === "escape") { Kit.pause(); return; } if (e.repeat) return; KD[k] = 1;
+  if (k === "e" || k === "enter") useItem(pl); kupd(); });
+addEventListener("keyup", (e) => { KD[e.key.toLowerCase()] = 0; kupd(); });
+function kupd() { held.kL = !!(KD.arrowleft || KD.a); held.kR = !!(KD.arrowright || KD.d); held.kGas = !!(KD.arrowup || KD.w); held.kBrake = !!(KD.arrowdown || KD.s || KD.shift || KD[" "]); }
+let btnL, btnR, btnGas, btnDrift;
+function showControls() {
+  const drag = setting("steer", "buttons") === "drag";
+  btnL = Kit.button(`<span class="big">◀</span>`, { down: () => { held.L = true; }, up: () => { held.L = false; }, aria: "Steer left" });
+  btnR = Kit.button(`<span class="big">▶</span>`, { down: () => { held.R = true; }, up: () => { held.R = false; }, aria: "Steer right" });
+  btnDrift = Kit.button(`<span style="font-size:12px">BRAKE<br>DRIFT</span>`, { down: () => { held.drift = true; }, up: () => { held.drift = false; }, aria: "Brake or drift" });
+  btnGas = Kit.button(`<span class="big">▲</span><span style="font-size:14px">GAS</span>`, { down: () => { held.gas = true; }, up: () => { held.gas = false; }, aria: "Gas" });
+  for (const [b, w, h] of [[btnL, 56, 64], [btnR, 56, 64], [btnDrift, 66, 64], [btnGas, 88, 80]]) { b.style.minWidth = w + "px"; b.style.width = w + "px"; b.style.height = h + "px"; b.style.padding = "0"; b.style.borderRadius = "32px"; }
+  Kit.controls(drag ? [] : [btnL, btnR], [btnDrift, btnGas]);
+}
+function uiSync() { held.L = held.R = held.gas = held.drift = false; }
+
+// ---------- items ----------
+function giveItem(k) {
+  if (k.item) return; const r = rankOf(k) / karts.length, w = r > .66 ? { nitro: 5, seeker: 4, goo: 1 } : r > .33 ? { nitro: 3, seeker: 3, goo: 3 } : { nitro: 2, seeker: 1, goo: 4 }; let t = Math.random() * 10, pickd = "nitro";
+  for (const [n, v] of Object.entries(w)) { t -= v; if (t <= 0) { pickd = n; break; } } k.item = pickd; k.itemT = 0; if (k === pl) { Kit.sfx("coin"); Kit.haptic(15); }
+}
+function useItem(k) {
+  if (!k || !k.item || state !== "race" || k.spin > 0) return; const it = k.item; k.item = null;
+  if (it === "nitro") { k.boost = Math.max(k.boost, 1.5); if (k === pl) { Kit.sfx("power"); Kit.haptic(25); flash = .15; } }
+  else if (it === "goo") { goos.push({ x: k.x - Math.cos(k.a) * 22, y: k.y - Math.sin(k.a) * 22, t: 20, owner: k.id, safe: 1 }); if (k === pl) Kit.sfx("splash"); }
+  else if (it === "seeker") {
+    const tgt = karts.filter((o) => o !== k && !o.finish).sort((a, b) => ((a.tp - k.tp + trk.N * 3) % (trk.N * 3)) - ((b.tp - k.tp + trk.N * 3) % (trk.N * 3)))[0];
+    shots.push({ x: k.x, y: k.y, a: k.a, tp: k.tp, tgt, owner: k, t: 7, lat: 0 }); if (k === pl) { Kit.sfx("shoot"); Kit.haptic(15); }
+  }
+}
+function spinOut(k, why) { if (k.spin > 0) return; k.spin = 1.1; k.drift = 0; k.boost = 0; k.vx *= .35; k.vy *= .35; burst(k.x, k.y, why === "shot" ? "#ff6b6b" : "#7bd957", 16, 120, .6); if (k === pl) { Kit.sfx("boom"); Kit.haptic(80); shake = .4; } else Kit.sfx("hit"); }
+
+// ---------- physics ----------
+const angW = (d) => { while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
+function nearest(k) {
+  const N = trk.N; let best = k.idx, bd = 1e12; const lo = -30, hi = 30;
+  for (let o = lo; o <= hi; o++) { const i = (k.idx + o + N) % N, dx = k.x - trk.c[i][0], dy = k.y - trk.c[i][1], d = dx * dx + dy * dy; if (d < bd) { bd = d; best = i; } }
+  if (bd > 90 * 90) { for (let i = 0; i < N; i++) { const dx = k.x - trk.c[i][0], dy = k.y - trk.c[i][1], d = dx * dx + dy * dy; if (d < bd) { bd = d; best = i; } } }
+  let dlt = best - k.idx; if (dlt > N / 2) dlt -= N; if (dlt < -N / 2) dlt += N; k.tp += dlt; k.idx = best; return best;
+}
+function control(k, dt) {
+  if (k === pl) {
+    const gasAuto = opt("auto", ["off", "on"], "off") === "on", st = clamp(steerInput() + (held.kR ? 1 : 0) - (held.kL ? 1 : 0), -1, 1);
+    return { steer: st, gas: held.gas || held.kGas || gasAuto, brake: (held.drift || held.kBrake), drift: held.drift || held.kBrake };
+  }
+  // AI: aim at a lane point a few samples ahead
+  const N = trk.N, sp = Math.hypot(k.vx, k.vy), look = Math.floor(9 + sp / 16), i = (k.idx + look) % N; k.laneT -= dt; if (k.laneT <= 0) { k.laneT = rnd(2, 5); k.lane = rnd(-.6, .6) * HW; }
+  const lane = clamp(k.lane, -HW * .62, HW * .62), tx = trk.c[i][0] + trk.nor[i][0] * lane, ty = trk.c[i][1] + trk.nor[i][1] * lane, want = Math.atan2(ty - k.y, tx - k.x), diff = angW(want - k.a);
+  let curv = 0; for (let o = 4; o < 40; o += 6) curv = Math.max(curv, trk.cur[(k.idx + o) % N]); const target = MAXS * k.skill * (1 - clamp(curv * 1.1, 0, .55)) * rubber(k);
+  return { steer: clamp(diff * 2.4, -1, 1), gas: sp < target, brake: sp > target + 38, drift: false };
+}
+function rubber(k) { if (!pl || k === pl) return 1; const d = (k.tp - pl.tp) / trk.N; return clamp(1 - d * 1.2, .92, 1.07); }
+function stepKart(k, dt) {
+  const N = trk.N; if (k.finish && k !== pl) { k.vx *= .98; k.vy *= .98; }
+  const inp = k.finish ? { steer: 0, gas: false, brake: false, drift: false } : control(k, dt);
+  k.boost = Math.max(0, k.boost - dt); k.bump = Math.max(0, k.bump - dt);
+  if (k.spin > 0) { k.spin -= dt; k.a += 12 * dt; k.vx *= Math.exp(-2.5 * dt); k.vy *= Math.exp(-2.5 * dt); k.x += k.vx * dt; k.y += k.vy * dt; nearest(k); wallCheck(k); return; }
+  const dx = Math.cos(k.a), dy = Math.sin(k.a), sx = -dy, sy = dx; let fwd = k.vx * dx + k.vy * dy, lat = k.vx * sx + k.vy * sy;
+  const maxS = MAXS * (k.boost > 0 ? 1.38 : 1) * (k === pl ? 1 : k.skill);
+  // drift handling (player only)
+  if (k === pl) {
+    if (inp.drift && !k.drift && Math.abs(inp.steer) > .2 && fwd > MAXS * .5) { k.drift = 1; k.driftDir = Math.sign(inp.steer); k.driftT = 0; Kit.sfx("click"); }
+    if (k.drift && !inp.drift) { const t = k.driftT; if (t >= 1.7) { k.boost = 1.1; orange = true; award("orange"); toast("Orange boost!"); Kit.sfx("power"); Kit.haptic(35); flash = .2; } else if (t >= .8) { k.boost = .55; Kit.sfx("power"); Kit.haptic(20); } k.drift = 0; k.driftT = 0; }
+    if (k.drift && fwd < MAXS * .35) { k.drift = 0; k.driftT = 0; }
+    if (k.drift) { k.driftT += dt; if (Math.random() < .5) { const col = k.driftT >= 1.7 ? "#ff9f43" : k.driftT >= .8 ? "#6bc5ff" : "#cfd8dc"; burst(k.x - dx * 9 - sx * k.driftDir * 5, k.y - dy * 9 - sy * k.driftDir * 5, col, 1, 70, .3); } }
+  }
+  if (inp.gas) fwd += ACC * dt * (k.boost > 0 ? 3.2 : Math.max(.1, 1 - fwd / maxS) * 1.3); else fwd *= Math.exp(-.7 * dt);
+  if (inp.brake && !k.drift) fwd = Math.max(0, fwd - 380 * dt); if (k.drift) fwd = Math.max(fwd, 0) * (1 - .05 * dt);
+  if (fwd > maxS) fwd = Math.max(maxS, fwd - 260 * dt); fwd = Math.max(0, fwd);
+  const speedF = clamp(.3 + .7 * fwd / MAXS, .3, 1); let turn;
+  if (k.drift) turn = k.driftDir * (1.55 + .7 * inp.steer * k.driftDir) * 1.35 * speedF; else turn = inp.steer * 2.35 * speedF;
+  if (fwd < 8) turn = 0; k.a += turn * dt;
+  lat *= Math.exp(-(k.drift ? 1.5 : 9) * dt);
+  const nx = Math.cos(k.a), ny = Math.sin(k.a), nsx = -ny, nsy = nx; k.vx = nx * fwd + nsx * lat; k.vy = ny * fwd + nsy * lat;
+  k.x += k.vx * dt; k.y += k.vy * dt; nearest(k); wallCheck(k, inp);
+  if (k.cpuStuck === undefined) k.cpuStuck = 0; if (k !== pl && Math.hypot(k.vx, k.vy) < 25 && !k.finish) { k.stuck += dt; if (k.stuck > 1.6) { const c = trk.c[k.idx], t = trk.tan[k.idx]; k.x = c[0]; k.y = c[1]; k.a = Math.atan2(t[1], t[0]); k.vx = k.vy = 0; k.stuck = 0; } } else k.stuck = 0;
+  if (k !== pl && k.item && state === "race") { k.itemT += dt; if (k.itemT > 1.2) cpuUse(k); }
+  void N;
+}
+function cpuUse(k) {
+  if (k.item === "nitro") { if (trk.cur[(k.idx + 10) % trk.N] < .25) useItem(k); } else if (k.item === "seeker") { const ahead = karts.some((o) => o !== k && !o.finish && o.tp > k.tp && o.tp - k.tp < trk.N * .3); if (ahead || k.itemT > 6) useItem(k); } else if (k.item === "goo") { const beh = karts.some((o) => o !== k && o.tp < k.tp && k.tp - o.tp < trk.N * .08); if (beh || k.itemT > 7) useItem(k); }
+}
+function wallCheck(k, inp) {
+  const i = k.idx, c = trk.c[i], nm = trk.nor[i], off = (k.x - c[0]) * nm[0] + (k.y - c[1]) * nm[1], lim = HW - 9;
+  if (Math.abs(off) > lim && !(k === pl && window.__noWall)) {
+    const s = Math.sign(off), ex = Math.abs(off) - lim; k.x -= nm[0] * s * ex; k.y -= nm[1] * s * ex; const vn = (k.vx * nm[0] + k.vy * nm[1]) * s;
+    if (vn > 0) { k.vx -= nm[0] * s * vn * 1.35; k.vy -= nm[1] * s * vn * 1.35; const sp = Math.hypot(k.vx, k.vy); k.vx *= .86; k.vy *= .86;
+      if (k === pl && vn > 25) { wallHits++; shake = Math.min(.25, vn / 600); Kit.haptic(15); if (rateL("wall", .15)) Kit.sfx("thud"); burst(k.x + nm[0] * s * 8, k.y + nm[1] * s * 8, "#ffe9a0", 5, 80, .3); } void sp; }
+    if (k.drift) { k.drift = 0; k.driftT = 0; }
+  }
+  void inp;
+}
+let _rl = {}; function rateL(k, g) { if (nowT - (_rl[k] || -9) < g) return false; _rl[k] = nowT; return true; }
+function kartCollide() {
+  for (let i = 0; i < karts.length; i++) for (let j = i + 1; j < karts.length; j++) { const a = karts[i], b = karts[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy); if (d < 20 && d > .01) { const nx = dx / d, ny = dy / d, o = (20 - d) / 2; a.x -= nx * o; a.y -= ny * o; b.x += nx * o; b.y += ny * o; const rv = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny; if (rv > 0) { a.vx -= nx * rv * .6; a.vy -= ny * rv * .6; b.vx += nx * rv * .6; b.vy += ny * rv * .6; if ((a === pl || b === pl) && rv > 30 && rateL("bump", .2)) { Kit.sfx("bounce"); Kit.haptic(12); } } } }
+}
+
+// ---------- race loop ----------
+function lapDone(k) {
+  const t = clock - k.lapStart; k.lapStart = clock; k.lap++; if (!k.best || t < k.best) k.best = t;
+  if (k === pl) {
+    lapLog.push(t); const b = bestLap(trackNo), fast = !b || t < b;
+    if (fast) { SAVE.best["lap" + trackNo] = Math.round(t * 100) / 100; saveGhost(trackNo, ghostRec); persist(); }
+    ghostRec = []; ghostT = 0; if (k.lap < laps) { msg = { t: 2, text: "LAP " + (k.lap + 1) + (fast ? "  NEW BEST " + fmt(t) : "  " + fmt(t)) }; Kit.sfx("coin"); Kit.haptic(20); } hud();
+  }
+}
+function finish(k) {
+  k.finish = clock + (karts.filter((o) => o.finish).length) * .001; if (k === pl) { finishT = 0; state = "finishing"; Kit.sfx("win"); Kit.haptic(60); msg = { t: 3, text: "FINISH!" }; }
+}
+function update(dt) {
+  nowT += dt; flash = Math.max(0, flash - dt); shake = Math.max(0, shake - dt); if (msg) { msg.t -= dt; if (msg.t <= 0) msg = null; }
+  if (!pl || state === "menu" || state === "results") return;
+  if (state === "count") { const before = Math.ceil(countT); countT -= dt; const after = Math.ceil(countT); if (after !== before && after > 0) { Kit.sfx("tick"); Kit.haptic(8); } if (countT <= 0) { state = "race"; msg = { t: 1, text: "GO!" }; Kit.sfx("power"); if (held.gas || held.kGas) { pl.boost = .7; toast("Rocket start!"); } } for (const k of karts) { nearest(k); } camFollow(dt); return; }
+  clock += dt; const steps = 2, h = dt / steps;
+  for (let s = 0; s < steps; s++) { for (const k of karts) stepKart(k, h); kartCollide(); }
+  // boxes
+  for (const b of boxes) { if (b.t > 0) { b.t -= dt; continue; } const c = trk.c[b.i], nm = trk.nor[b.i], bx = c[0] + nm[0] * b.lat, by = c[1] + nm[1] * b.lat; b.x = bx; b.y = by; for (const k of karts) if (!k.item && k.spin <= 0 && Math.hypot(k.x - bx, k.y - by) < 20) { b.t = 4; giveItem(k); burst(bx, by, "#ffd23f", 10, 100, .5); break; } }
+  for (const b of boxes) if (b.t <= 0 && b.x === undefined) { const c = trk.c[b.i], nm = trk.nor[b.i]; b.x = c[0] + nm[0] * b.lat; b.y = c[1] + nm[1] * b.lat; }
+  // goo
+  for (const g of goos) { g.t -= dt; g.safe -= dt; if (g.safe <= 0) for (const k of karts) if (k.spin <= 0 && Math.hypot(k.x - g.x, k.y - g.y) < 17) { g.t = 0; spinOut(k, "goo"); } } goos = goos.filter((g) => g.t > 0);
+  // seekers
+  for (const s of shots) { s.t -= dt; const N = trk.N; let tgt = s.tgt && !s.tgt.finish ? s.tgt : null; const v = 340;
+    if (tgt) { const dx = tgt.x - s.x, dy = tgt.y - s.y, d = Math.hypot(dx, dy), want = Math.atan2(dy, dx); if (d < 140 || s.near) { s.near = true; s.a += clamp(angW(want - s.a), -9 * dt, 9 * dt); } else { const ti = trk.c[((Math.floor(s.tp) + 14) % N + N) % N], w2 = Math.atan2(ti[1] - s.y, ti[0] - s.x); s.a += clamp(angW(w2 - s.a), -6 * dt, 6 * dt); } }
+    else { const ti = trk.c[(Math.floor(s.tp) + 14) % N], w2 = Math.atan2(ti[1] - s.y, ti[0] - s.x); s.a += clamp(angW(w2 - s.a), -6 * dt, 6 * dt); }
+    s.x += Math.cos(s.a) * v * dt; s.y += Math.sin(s.a) * v * dt; let bi = 0, bd = 1e12; for (let o = -6; o < 40; o++) { const i = ((Math.floor(s.tp) + o) % N + N) % N, d = (trk.c[i][0] - s.x) ** 2 + (trk.c[i][1] - s.y) ** 2; if (d < bd) { bd = d; bi = o; } } s.tp += bi;
+    const cc = trk.c[((Math.floor(s.tp) % N) + N) % N], nn = trk.nor[((Math.floor(s.tp) % N) + N) % N], off = (s.x - cc[0]) * nn[0] + (s.y - cc[1]) * nn[1]; if (Math.abs(off) > HW - 6) { s.x -= nn[0] * (Math.abs(off) - (HW - 6)) * Math.sign(off); s.y -= nn[1] * (Math.abs(off) - (HW - 6)) * Math.sign(off); }
+    for (const k of karts) if (k !== s.owner && k.spin <= 0 && Math.hypot(k.x - s.x, k.y - s.y) < 17) { s.t = 0; spinOut(k, "shot"); if (s.owner === pl) { hitRival = true; award("hit"); toast("Direct hit!"); } if (k === pl) toast("Hit by a Seeker!"); } }
+  shots = shots.filter((s) => s.t > 0);
+  // laps, ghost record
+  if (pl.finish === 0) { ghostT += dt; if (ghostT >= .05) { ghostT = 0; if (ghostRec.length < 1900) ghostRec.push([pl.x, pl.y, pl.a]); } }
+  for (const k of karts) { if (!k.finish) { if (k.tp >= (k.lap + 1) * trk.N) lapDone(k); if (k.lap >= laps) finish(k); } k.prog = k.tp; }
+  if (rankOf(pl) === karts.length && clock > 6) wasLast = true;
+  if (state === "race" || state === "finishing") { camFollow(dt); hud(); }
+  if (state === "finishing") { finishT += dt; if (finishT > 4.5 || karts.every((k) => k.finish)) showResults(); }
+  if (pl.finish === 0 && state === "race" && ghostPlay) { /* ghost advances with lap clock */ }
+}
+function camFollow(dt) { if (!pl) return; const tx = pl.x + pl.vx * .32, ty = pl.y + pl.vy * .32, k = Math.min(1, dt * 6); camX += (tx - camX) * k; camY += (ty - camY) * k; }
+
+// ---------- results ----------
+const PTS = [15, 12, 10, 8, 6, 4];
+function showResults() {
+  if (state === "results") return; state = "results"; const rank = rankList(), place = rank.indexOf(pl) + 1, secs = pl.finish ? pl.finish : clock; Kit.hideControls();
+  const diff = opt("diff", ["easy", "normal", "hard"], "normal"); const key = "race" + trackNo, old = SAVE.best[key]; if (!(Number.isFinite(old) && old > 0 && old <= secs)) { SAVE.best[key] = Math.round(secs * 10) / 10; }
+  if (place === 1) { award("first"); if (wasLast) award("comeback"); if (diff === "hard") award("hard"); if (!wallHits) award("clean"); } else if (!wallHits && place <= 3) award("clean");
+  const podium = place <= 3; if (podium && mode === "race") unlock(trackNo + 1); Kit.record({ win: place === 1 ? 1 : 0, score: Math.max(0, 1000 - place * 100), secs });
+  persist(); Kit.sfx(podium ? "win" : "lose"); Kit.haptic(podium ? 60 : 30);
+  const lapHtml = lapLog.length ? `<p class="sub">Laps: ${lapLog.map((t) => fmt(t)).join(" · ")}<br>Best lap ${fmt(bestLap(trackNo))}</p>` : "";
+  if (mode === "cup") {
+    cupPts = cupPts.length ? cupPts : karts.map(() => 0); const order = rank.map((k) => karts.indexOf(k)); order.forEach((ki, r) => { cupPts[ki] += PTS[r] || 0; });
+    const done = cupRace >= 2, total = karts.map((k, i) => ({ k, p: cupPts[i] })).sort((a, b) => b.p - a.p), me = total.findIndex((t) => t.k === pl) + 1;
+    const table = total.map((t, i) => `<p>${i + 1}. ${t.k === pl ? "<b>You</b>" : t.k.name} — ${t.p}</p>`).join("");
+    if (done) { if (me <= 3) { unlock(cupStart + 3); } if (me === 1) award("gold"); SAVE.best["cup" + Math.floor((cupStart - 1) / 3)] = Math.max(Number.isFinite(SAVE.best["cup" + Math.floor((cupStart - 1) / 3)]) ? SAVE.best["cup" + Math.floor((cupStart - 1) / 3)] : 0, total.find((t) => t.k === pl).p); persist(); }
+    setTimeout(() => endCard(`<h1>${done ? (me === 1 ? "Cup champion!" : "Cup over: " + me + "th") : "Race " + (cupRace + 1) + ": " + place + (place === 1 ? "st" : place === 2 ? "nd" : place === 3 ? "rd" : "th")}</h1>${lapHtml}<div>${table}</div>`, done ? "Menu" : "Next race: " + TRACKS[cupStart + cupRace].name, done ? openMenu : () => { cupRace++; showControls(); startRace(cupStart + cupRace); }, done ? [] : [["Quit cup", openMenu]]), 700); return;
+  }
+  setTimeout(() => endCard(`<h1>${place === 1 ? "Winner!" : place + (place === 2 ? "nd" : place === 3 ? "rd" : "th") + " place"}</h1><p>${trk.name} · ${fmt(secs)}</p>${lapHtml}${podium && trackNo < TRACKS.length ? `<p class="sub">Next track unlocked</p>` : !podium ? `<p class="sub">Finish on the podium (top 3) to unlock the next track.</p>` : ""}`,
+    "Race again", () => { showControls(); startRace(trackNo); }, [...(podium && trackNo < TRACKS.length ? [["Next: " + TRACKS[trackNo].name, () => { showControls(); startRace(trackNo + 1); }]] : []), ["Menu", openMenu]]), 700);
+}
+function endCard(html, main, fn, extra) {
+  card(html, main, fn); const c = document.getElementById("card");
+  for (const [lab, f] of extra || []) { const b = document.createElement("button"); b.className = "ghost"; b.textContent = lab; b.onclick = () => { document.getElementById("over").hidden = true; f(); }; c.append(b); }
+}
+
+// ---------- drawing ----------
+function tx(s, x, y, size, col, al, bold) { ctx.font = `${bold ? "700 " : ""}${size}px ${FONT}`; ctx.textAlign = al || "center"; ctx.textBaseline = "middle"; ctx.fillStyle = col; ctx.fillText(s, x, y); }
+function ringPath(edge) { const N = trk.N; ctx.beginPath(); for (let i = 0; i <= N; i++) { const j = i % N, x = trk.c[j][0] + trk.nor[j][0] * edge, y = trk.c[j][1] + trk.nor[j][1] * edge; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); }
+function drawTrack() {
+  ctx.fillStyle = trk.grass; ctx.fillRect(0, 0, LW, LH);
+  ctx.save(); ctx.translate(LW / 2 - camX, LH * .55 - camY);
+  // grass tufts anchored in the world
+  const gx0 = Math.floor((camX - 200) / 70), gy0 = Math.floor((camY - 300) / 70); ctx.fillStyle = "rgba(0,0,0,.09)"; for (let gx = gx0; gx < gx0 + 7; gx++) for (let gy = gy0; gy < gy0 + 9; gy++) { const h = Math.sin(gx * 127.1 + gy * 311.7) * 43758.5, f = h - Math.floor(h); ctx.beginPath(); ctx.arc(gx * 70 + f * 60, gy * 70 + ((f * 7) % 1) * 60, 4 + f * 4, 0, TAU); ctx.fill(); }
+  // asphalt ring (even-odd)
+  ctx.fillStyle = "rgba(0,0,0,.28)"; ringPath(HW + 12); const outer = new Path2D(); void outer;
+  ctx.fillStyle = "#3a3f46"; ctx.beginPath(); for (const e of [HW, -HW]) { const N = trk.N; for (let i = 0; i <= N; i++) { const j = i % N, x = trk.c[j][0] + trk.nor[j][0] * e, y = trk.c[j][1] + trk.nor[j][1] * e; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); } ctx.fill("evenodd");
+  // centre dashes
+  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 2; ctx.setLineDash([14, 16]); ctx.beginPath(); for (let i = 0; i <= trk.N; i++) { const j = i % trk.N; i ? ctx.lineTo(trk.c[j][0], trk.c[j][1]) : ctx.moveTo(trk.c[j][0], trk.c[j][1]); } ctx.stroke(); ctx.setLineDash([]);
+  // walls (striped kerbs)
+  for (const e of [HW, -HW]) { ctx.lineWidth = 7; ctx.strokeStyle = "#f4f4f4"; ringPath(e); ctx.stroke(); ctx.strokeStyle = "#e0343f"; ctx.setLineDash([14, 14]); ringPath(e); ctx.stroke(); ctx.setLineDash([]); }
+  // start line
+  const c0 = trk.c[0], n0 = trk.nor[0], t0 = trk.tan[0]; for (let k = -4; k < 4; k++) for (let r = 0; r < 2; r++) { ctx.fillStyle = (k + r) % 2 ? "#fff" : "#111"; const px = c0[0] + n0[0] * (k * HW / 4 + HW / 8) + t0[0] * (r * 7 - 7), py = c0[1] + n0[1] * (k * HW / 4 + HW / 8) + t0[1] * (r * 7 - 7); ctx.fillRect(px - 7, py - 7, 14, 14); }
+  // goo and boxes
+  for (const g of goos) { ctx.fillStyle = "rgba(100,220,70,.85)"; ctx.beginPath(); for (let i = 0; i < 9; i++) { const a = i / 9 * TAU, r = 13 + Math.sin(a * 3 + nowT * 3) * 2.5; ctx.lineTo(g.x + Math.cos(a) * r, g.y + Math.sin(a) * r); } ctx.fill(); ctx.fillStyle = "rgba(255,255,255,.4)"; ctx.beginPath(); ctx.arc(g.x - 4, g.y - 4, 3, 0, TAU); ctx.fill(); }
+  for (const b of boxes) { if (b.t > 0 || b.x === undefined) continue; ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(nowT * 2); ctx.fillStyle = "#ffd23f"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; rr(-9, -9, 18, 18, 4); ctx.fill(); ctx.stroke(); ctx.rotate(-nowT * 2); tx("?", 0, 1, 13, "#3a2a00", "center", true); ctx.restore(); }
+  // ghost
+  if (ghostPlay && state === "race" && pl.finish === 0) { const i = Math.floor((clock - pl.lapStart) / .05) * 3; if (i + 2 < ghostPlay.length) { ctx.globalAlpha = .45; drawKart(ghostPlay[i], ghostPlay[i + 1], ghostPlay[i + 2] / 100, "#cfe8ff", false, null); ctx.globalAlpha = 1; } }
+  // karts
+  const sorted = karts.slice().sort((a, b) => a.y - b.y); for (const k of sorted) drawKart(k.x, k.y, k.a, k.col, k === pl, k);
+  for (const s of shots) { ctx.fillStyle = "#ff4d4d"; ctx.beginPath(); ctx.arc(s.x, s.y, 7, 0, TAU); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); ctx.strokeStyle = "rgba(255,120,120,.5)"; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - Math.cos(s.a) * 18, s.y - Math.sin(s.a) * 18); ctx.stroke(); }
+  drawParts(); ctx.restore();
+}
+function drawKart(x, y, a, col, me, k) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = "rgba(0,0,0,.3)"; rr(-12, -8, 26, 18, 6); ctx.fill();
+  if (k && k.boost > 0) { ctx.fillStyle = "rgba(255,170,60,.9)"; ctx.beginPath(); ctx.moveTo(-12, -4); ctx.lineTo(-24 - Math.random() * 6, 0); ctx.lineTo(-12, 4); ctx.fill(); }
+  ctx.fillStyle = "#15151a"; for (const [wx, wy] of [[-8, -9], [8, -9], [-8, 9], [8, 9]]) { rr(wx - 4, wy - 2.5, 8, 5, 2); ctx.fill(); }
+  ctx.fillStyle = col; rr(-12, -7, 24, 14, 5); ctx.fill(); ctx.strokeStyle = "rgba(0,0,0,.55)"; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.fillRect(2, -5, 7, 3);
+  ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(-1, 0, 5, 0, TAU); ctx.fill(); ctx.fillStyle = me ? "#fff" : "#ddd"; ctx.beginPath(); ctx.arc(-1, 0, 3.4, 0, TAU); ctx.fill(); ctx.restore();
+  if (k && k.drift && k === pl) { const c = k.driftT >= 1.7 ? "#ff9f43" : k.driftT >= .8 ? "#6bc5ff" : "#cfd8dc"; ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x - Math.cos(a) * 14, y - Math.sin(a) * 14, 3 + Math.sin(nowT * 40) * 1.5, 0, TAU); ctx.fill(); }
+  if (me) { ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.moveTo(x, y - 24); ctx.lineTo(x - 5, y - 31); ctx.lineTo(x + 5, y - 31); ctx.fill(); }
+  if (k && k.spin > 0) tx("✸", x, y - 20, 16, "#fff", "center", true);
+}
+function drawHud() {
+  if (state === "menu") return; const rank = rankList(), pos = rank.indexOf(pl) + 1;
+  // minimap
+  const mm = { x: 8, y: 8, w: 70, h: 70 }, N = trk.N; let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9; for (let i = 0; i < N; i += 6) { minx = Math.min(minx, trk.c[i][0]); maxx = Math.max(maxx, trk.c[i][0]); miny = Math.min(miny, trk.c[i][1]); maxy = Math.max(maxy, trk.c[i][1]); }
+  const s = Math.min(mm.w / (maxx - minx), mm.h / (maxy - miny)), ox = mm.x + (mm.w - (maxx - minx) * s) / 2 - minx * s, oy = mm.y + (mm.h - (maxy - miny) * s) / 2 - miny * s;
+  ctx.fillStyle = "rgba(0,0,0,.45)"; rr(mm.x - 4, mm.y - 4, mm.w + 8, mm.h + 8, 8); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 3; ctx.beginPath(); for (let i = 0; i <= N; i += 4) { const j = i % N; const x = trk.c[j][0] * s + ox, y = trk.c[j][1] * s + oy; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); ctx.stroke();
+  for (const k of karts) { ctx.fillStyle = k === pl ? "#ffd23f" : k.col; ctx.beginPath(); ctx.arc(k.x * s + ox, k.y * s + oy, k === pl ? 4 : 2.8, 0, TAU); ctx.fill(); }
+  // position and laps
+  tx(pos + (pos === 1 ? "st" : pos === 2 ? "nd" : pos === 3 ? "rd" : "th"), LW / 2, 22, 28, "#ffd23f", "center", true); tx("LAP " + clamp(pl.lap + 1, 1, laps) + "/" + laps, LW / 2, 46, 13, "#f4fff0", "center", true);
+  tx(fmt(Math.max(0, clock - pl.lapStart)), LW / 2, 64, 12, "#cfe8d6", "center", true);
+  // item slot (tap to use)
+  const B = ITEM_BTN; ctx.fillStyle = "rgba(0,0,0,.5)"; rr(B.x, B.y, B.w, B.h, 12); ctx.fill(); ctx.strokeStyle = pl.item ? ITEMS[pl.item].col : "rgba(255,255,255,.35)"; ctx.lineWidth = 3; ctx.stroke();
+  if (pl.item) { const it = ITEMS[pl.item]; ctx.fillStyle = it.col; ctx.beginPath(); if (pl.item === "nitro") { ctx.moveTo(B.x + 33, B.y + 10); ctx.lineTo(B.x + 20, B.y + 32); ctx.lineTo(B.x + 30, B.y + 32); ctx.lineTo(B.x + 25, B.y + 48); ctx.lineTo(B.x + 40, B.y + 25); ctx.lineTo(B.x + 31, B.y + 25); ctx.closePath(); } else if (pl.item === "seeker") ctx.arc(B.x + 29, B.y + 25, 13, 0, TAU); else { for (let i = 0; i < 9; i++) { const a = i / 9 * TAU, r = 12 + Math.sin(a * 3) * 2; ctx.lineTo(B.x + 29 + Math.cos(a) * r, B.y + 25 + Math.sin(a) * r); } } ctx.fill(); tx("TAP " + it.name, B.x + B.w / 2, B.y + 51, 10, "#fff", "center", true); }
+  else { tx("ITEM", B.x + B.w / 2, B.y + 22, 12, "rgba(255,255,255,.55)", "center", true); tx("pick up ?", B.x + B.w / 2, B.y + 40, 10, "rgba(255,255,255,.45)", "center", false); }
+  // steering bar in drag mode
+  if (setting("steer", "buttons") === "drag" && state !== "results") { const y = LH - 24; ctx.fillStyle = "rgba(0,0,0,.45)"; rr(40, y - 12, 280, 24, 12); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.4)"; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(180 + dragSteer * 120, y, 9, 0, TAU); ctx.fill(); tx(dragSteer === 0 ? "DRAG LEFT / RIGHT ANYWHERE TO STEER" : dragSteer < 0 ? "◀ LEFT" : "RIGHT ▶", 180, y - 24, 11, "#fff", "center", true); }
+  // drift charge
+  if (pl.drift) { const t = pl.driftT, col = t >= 1.7 ? "#ff9f43" : t >= .8 ? "#6bc5ff" : "#cfd8dc"; ctx.fillStyle = "rgba(0,0,0,.5)"; rr(110, LH - 62, 140, 12, 6); ctx.fill(); ctx.fillStyle = col; rr(110, LH - 62, 140 * clamp(t / 1.7, 0, 1), 12, 6); ctx.fill(); tx(t >= 1.7 ? "ORANGE: release!" : t >= .8 ? "BLUE: release to boost" : "drift…", 180, LH - 72, 11, "#fff", "center", true); }
+  if (state === "count") { const n = Math.ceil(countT); if (n > 0 && n <= 3) tx(String(n), LW / 2, LH * .4, 80, "#ffd23f", "center", true); }
+  if (msg) { ctx.globalAlpha = clamp(msg.t * 2, 0, 1); tx(msg.text, LW / 2, LH * .3, msg.text.length > 8 ? 22 : 44, "#fff", "center", true); ctx.globalAlpha = 1; }
+  if (flash > 0) { ctx.fillStyle = `rgba(255,220,120,${flash})`; ctx.fillRect(0, 0, LW, LH); }
+}
+function draw() {
+  if (state === "menu" || !trk || !pl) { ctx.fillStyle = "#0c1a12"; ctx.fillRect(0, 0, LW, LH); return; }
+  ctx.save(); if (shake > 0) ctx.translate(rnd(-3, 3), rnd(-3, 3)); drawTrack(); ctx.restore(); drawHud();
+}
+loop((dt) => { if (!Kit.isPaused()) { update(dt); stepParts(dt); } draw(); });
+Kit.lifecycle({ pause: () => state === "race" || state === "count" || state === "finishing", resume: () => {}, menu: openMenu });
+
+function openMenu() {
+  state = "menu"; Kit.hideControls(); const rec = TRACKS.map((t, i) => `<div>${i + 1}. ${t.name}: lap ${fmt(bestLap(i + 1))}</div>`).join("");
+  Kit.menu({
+    title: "Kart Dash", hand: true, bestLabel: "Best score",
+    html: `<p class="sub">Race five CPU karts for three laps. Hold ◀ ▶ to steer and GAS to go. Hold DRIFT while turning to slide: blue sparks give a small boost, orange sparks a big one when you let go. Tap the ITEM box on screen to use what you picked up from the ? boxes.</p><details class="chal"><summary>Lap records</summary>${rec}</details>`,
+    settings: [
+      { k: "diff", label: "CPU difficulty", def: "normal", opts: [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]] },
+      { k: "mode", label: "Mode", def: "race", opts: [["race", "Single race"], ["cup", "Cup (3 races)"]] },
+      { k: "laps", label: "Laps", def: 3, opts: [[2, "2"], [3, "3"], [5, "5"]] },
+      { k: "steer", label: "Steering", def: "buttons", opts: [["buttons", "◀ ▶ buttons"], ["drag", "Drag on board"]] },
+      { k: "auto", label: "Gas", def: "off", opts: [["off", "Hold GAS"], ["on", "Auto-gas"]] },
+      { k: "items", label: "Item boxes", def: "on", opts: [["on", "On"], ["off", "Off"]] },
+      { k: "ghost", label: "Ghost of best lap", def: "off", opts: [["off", "Off"], ["on", "On"]] }
+    ],
+    levels: TRACKS.map((t, i) => t.name + " · " + CUPS[Math.floor(i / 3)]),
+    challenges: [{ id: "first", text: "Win a race" }, { id: "orange", text: "Release an orange-spark drift boost" }, { id: "hit", text: "Hit a rival with a Seeker" }, { id: "clean", text: "Finish on the podium without touching a wall" },
+      { id: "comeback", text: "Win after being in last place" }, { id: "gold", text: "Win a cup" }, { id: "hard", text: "Win a race on Hard" }],
+    play: "Race"
+  }, (lv) => { mode = opt("mode", ["race", "cup"], "race"); cupRace = 0; cupPts = []; cupStart = Math.floor((lv - 1) / 3) * 3 + 1; showControls(); startRace(mode === "cup" ? cupStart : lv); });
+}
+window.T = {
+  get state() { return state; }, get x() { return pl ? pl.x : 0; }, get y() { return pl ? pl.y : 0; }, get a() { return pl ? pl.a : 0; }, get speed() { return pl ? Math.hypot(pl.vx, pl.vy) : 0; }, get drift() { return pl ? pl.drift : 0; }, get driftT() { return pl ? pl.driftT : 0; },
+  get boost() { return pl ? pl.boost : 0; }, get lap() { return pl ? pl.lap : 0; }, get tp() { return pl ? pl.tp : 0; }, get N() { return trk ? trk.N : 0; }, get pos() { return pl ? rankOf(pl) : 0; }, get item() { return pl ? pl.item : null; }, get clock() { return clock; }, get track() { return trackNo; }, get laps() { return laps; },
+  get karts() { return karts.length; }, get steer() { return pl ? steerInput() : 0; }, get wallHits() { return wallHits; }, get best() { return bestLap(trackNo); }, get cupRace() { return cupRace; }, get mode() { return mode; }, get ghost() { return !!ghostPlay; }, get lapLog() { return JSON.stringify(lapLog); },
+  get others() { return JSON.stringify(karts.filter((k) => k !== pl).map((k) => [Math.round(k.tp), Math.round(Math.hypot(k.vx, k.vy))])); },
+  page(x, y) { const r = cv.getBoundingClientRect(); return [r.left + x * SC, r.top + y * SC]; }, tracks: () => TRACKS.length,
+  giveItem(n) { pl.item = n; }, tpTo(i, lat) { const c = trk.c[i], nm = trk.nor[i], t = trk.tan[i]; pl.x = c[0] + nm[0] * (lat || 0); pl.y = c[1] + nm[1] * (lat || 0); pl.a = Math.atan2(t[1], t[0]); pl.vx = pl.vy = 0; pl.idx = i; pl.tp = Math.floor(pl.tp / trk.N) * trk.N + i; },
+  sim(sec) { for (let i = 0; i < sec * 20; i++) { update(.05); stepParts(.05); } }, finishNow() { for (const k of karts) { if (k !== pl) { k.tp = trk.N * laps - 5; } } pl.tp = trk.N * laps + 1; }, placeNow(n) { karts.forEach((k, i) => { k.tp = k === pl ? trk.N * (laps + 1) - n * 3 : trk.N * (laps + 1) - (i + 1) * 3 - 20 * (i >= n ? 1 : 0); }); },
+  noWall(v) { window.__noWall = !!v; }, warp(sec) { const old = Kit.isPaused; void old; for (let i = 0; i < sec * 20; i++) { update(.05); } }
+};
+fit(); openMenu();
+
+})();
+</script>
+
+</html>

@@ -1,6 +1,6 @@
 # 1 Off 1 File Games
 
-**53 browser games, each one a single self-contained HTML file, built to be played on a phone.**
+**55 browser games, each one a single self-contained HTML file, built to be played on a phone.**
 
 Arcade classics reworked for touch, thinking puzzles, two-player games meant to be passed back and forth on one phone, and a set of clinical-lab games (trivia, microscope identification, specimen sorting) made for a hospital lab tech.
 
@@ -19,7 +19,7 @@ Arcade classics reworked for touch, thinking puzzles, two-player games meant to 
 
 ## The games
 
-### Two players (14)
+### Two players (15)
 
 Pass-and-play on one phone, most with a CPU opponent too.
 
@@ -39,6 +39,7 @@ Pass-and-play on one phone, most with a CPU opponent too.
 | [Rack & Run](games/rack-and-run/) | 9-ball pool with real rules, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/rack-and-run/) |
 | [Rink Rivals](games/rink-rivals/) | Air hockey, two players on one phone or a CPU ladder | [Play](https://dougm1966.github.io/1off-1file-games/games/rink-rivals/) |
 | [Roll Call](games/roll-call/) | Five-dice scorecard game for 1–4 or vs CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/roll-call/) |
+| [Strike Lane](games/strike-lane/) | Ten-pin bowling, 1–4 players or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/strike-lane/) |
 
 ### Lab (7)
 
@@ -54,7 +55,7 @@ Built for a hospital lab tech: trivia, microscope ID, specimen sorting and word 
 | [Sort It Out](games/sort-it-out/) | Speed-sort tubes, organisms and blood cells | [Play](https://dougm1966.github.io/1off-1file-games/games/sort-it-out/) |
 | [Under the Scope](games/under-the-scope/) | Identify blood smears, Gram stains and urine sediment | [Play](https://dougm1966.github.io/1off-1file-games/games/under-the-scope/) |
 
-### Arcade (20)
+### Arcade (21)
 
 Classic arcade action reworked for touch screens, with original characters.
 
@@ -67,6 +68,7 @@ Classic arcade action reworked for touch screens, with original characters.
 | [Deep Delve](games/deep-delve/) | Turn-based dungeon crawler with a daily dungeon | [Play](https://dougm1966.github.io/1off-1file-games/games/deep-delve/) |
 | [Deep Dig](games/deep-dig/) | Tunnel digging and monster popping | [Play](https://dougm1966.github.io/1off-1file-games/games/deep-dig/) |
 | [Garden Crawl](games/garden-crawl/) | Centipede-style shooter | [Play](https://dougm1966.github.io/1off-1file-games/games/garden-crawl/) |
+| [Kart Dash](games/kart-dash/) | Kart racing with drift boosts and items | [Play](https://dougm1966.github.io/1off-1file-games/games/kart-dash/) |
 | [Last Call](games/last-call/) | Tapper-style bar rush | [Play](https://dougm1966.github.io/1off-1file-games/games/last-call/) |
 | [Last Line](games/last-line/) | Missile Command-style city defense | [Play](https://dougm1966.github.io/1off-1file-games/games/last-line/) |
 | [Lily Pad Dash](games/lily-pad-dash/) | Frogger-style road and river crossing | [Play](https://dougm1966.github.io/1off-1file-games/games/lily-pad-dash/) |
