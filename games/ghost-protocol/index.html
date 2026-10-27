@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}</style>
+<title>Ghost Protocol</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#081014;--ink:#e4f2ee;--muted:#80a29c;--accent:#3fe0b5;--f-display:"Chakra Petch","Trebuchet MS",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#032018;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#032018;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#032018}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#032018;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Ghost Protocol</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Light push = sneak (silent) · push past the ring = run (noisy)</div><div class="ctl" id="ctl" hidden></div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=480,FONT="'Chakra Petch', 'Trebuchet MS', sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ---------- constants and level data ----------
+const TS = 30, COLS = 12, ROWS = 16;
+const opt = (k, allowed, d) => { const v = setting(k, d); return allowed.includes(v) ? v : d; };
+// map legend: # wall . floor S start X exit I intel terminal s camera switch r/b keycards R/B locked doors d door h hiding locker
+// guards: path of [col,row] waypoints (loop or ping-pong), spd tiles/s, fov radians, range tiles
+const LEVELS = [
+  { name: "First Night", hint: "Get the data, then reach the exit.", par: 50, map: [
+    "############", "#S.........#", "#..........#", "#####.######", "#..........#", "#..........#", "#..h.......#", "######.#####", "#..........#", "#.I.....h..#", "#..........#", "#####.######", "#..........#", "#.........X#", "#..........#", "############"],
+    guards: [{ path: [[2, 5], [9, 5]], spd: 1.0 }, { path: [[2, 13], [8, 13]], spd: 1.0 }], cams: [] },
+  { name: "Loading Dock", hint: "Red card opens the red door.", par: 70, map: [
+    "############", "#S.........#", "#..........#", "#...####...#", "#...#r.#...#", "#...#..#...#", "#...##d#...#", "#..........#", "#..........#", "####R#######", "#..........#", "#.I....h...#", "#..........#", "######.#####", "#X.........#", "############"],
+    guards: [{ path: [[2, 2], [9, 2], [9, 1], [2, 1]], spd: 1.1, loop: 1 }, { path: [[1, 7], [10, 8]], spd: 1.1 }], cams: [{ c: 10, r: 10, a0: Math.PI, amp: .75, spd: .8 }] },
+  { name: "Server Farm", hint: "Racks block sight. Find the red card.", par: 90, map: [
+    "############", "#S.........#", "#..#.#.#.#.#", "#..#.#.#.#.#", "#..........#", "#.#.#.#.#..#", "#.#.#.#.#..#", "#..........#", "####d#######", "#....#.....#", "#.I..#..h..#", "#....d.....#", "#....#...r.#", "###R########", "#X.........#", "############"],
+    guards: [{ path: [[1, 4], [10, 4]], spd: 1.2 }, { path: [[10, 7], [1, 7]], spd: 1.2 }, { path: [[7, 10], [9, 12], [7, 12], [9, 10]], spd: 1.0, loop: 1 }], cams: [] },
+  { name: "Atrium", hint: "Open ground. Use the lockers.", par: 80, map: [
+    "######X#####", "#..........#", "#.##....##.#", "#.#......#.#", "#.#..h...#.#", "#....##....#", "#....##....#", "#..h....h..#", "#....##....#", "#....##....#", "#.#......#.#", "#.#...I..#.#", "#.##....##.#", "#..........#", "#.....S....#", "############"],
+    guards: [{ path: [[1, 13], [1, 1], [10, 1], [10, 13]], spd: 1.3, loop: 1 }, { path: [[3, 7], [8, 7]], spd: 1.1 }], cams: [{ c: 6, r: 3, a0: Math.PI / 2, amp: .7, spd: .7 }] },
+  { name: "Cell Block", hint: "Closed doors block vision.", par: 90, map: [
+    "############", "#S.........#", "#..........#", "#d##d##d##d#", "#.##.##.##.#", "#h##.##.##.#", "#.##.##.##h#", "#..........#", "#..........#", "#d##d##d##d#", "#.##.##.##.#", "#.##.##.##I#", "#.##.##.##.#", "#..........#", "#X.........#", "############"],
+    guards: [{ path: [[1, 7], [10, 8]], spd: 1.2 }, { path: [[1, 13], [10, 13]], spd: 1.3 }, { path: [[2, 2], [9, 1]], spd: 1.0 }], cams: [{ c: 5, r: 8, a0: 0, amp: .6, spd: .6 }] },
+  { name: "Control Room", hint: "Hold USE at the switch: cameras off.", par: 100, map: [
+    "############", "#S.........#", "#..........#", "#.########.#", "#.#......#.#", "#.#..s...#.#", "#.#......#.#", "#.###d####.#", "#..........#", "#..........#", "#.###d####.#", "#.#......#.#", "#.#..I...#.#", "#.#......#.#", "#X.........#", "############"],
+    guards: [{ path: [[10, 2], [10, 13]], spd: 1.3 }, { path: [[2, 8], [9, 9]], spd: 1.2 }], cams: [{ c: 6, r: 8, a0: 0, amp: 1.0, spd: .7 }, { c: 1, r: 5, a0: Math.PI / 2, amp: .4, spd: .9 }, { c: 6, r: 13, a0: -Math.PI / 2, amp: .8, spd: .7 }] },
+  { name: "Shelf Maze", hint: "Intel is in the middle. Watch both rings.", par: 110, map: [
+    "############", "#S.........#", "#.####.###.#", "#.#......#.#", "#.#.####.#.#", "#.#.#..#.#.#", "#....I.#...#", "#.#.#..#.#.#", "#.#.####.#.#", "#.#......#.#", "#.###.####.#", "#....h.....#", "#.##.##.##.#", "#..........#", "#X.........#", "############"],
+    guards: [{ path: [[1, 1], [10, 1], [10, 11], [1, 11]], spd: 1.4, loop: 1 }, { path: [[3, 3], [8, 3], [8, 9], [3, 9]], spd: 1.2, loop: 1 }, { path: [[1, 13], [10, 13]], spd: 1.3 }], cams: [] },
+  { name: "The Vault", hint: "Blue card, red card, then the vault.", par: 120, map: [
+    "############", "#S....#....#", "#.....#....#", "#.....d..b.#", "#.....#....#", "###.########", "#..........#", "#..h.......#", "######B#####", "#..........#", "#....r.....#", "#####R######", "#..........#", "#.I........#", "#.........X#", "############"],
+    guards: [{ path: [[1, 1], [5, 1], [5, 4], [1, 4]], spd: 1.1, loop: 1 }, { path: [[1, 6], [10, 7]], spd: 1.2 }, { path: [[1, 9], [10, 10]], spd: 1.2 }], cams: [{ c: 10, r: 12, a0: Math.PI * .75, amp: .5, spd: .9 }] },
+  { name: "Rooftop", hint: "Cameras everywhere. Time your moves.", par: 100, map: [
+    "############", "#S.........#", "#..........#", "#.##....##.#", "#.##....##.#", "#..........#", "#....hh....#", "#..........#", "#.##....##.#", "#.##..I.##.#", "#..........#", "#.h......h.#", "#..........#", "#....##....#", "#X...##....#", "############"],
+    guards: [{ path: [[1, 5], [10, 5], [10, 10], [1, 10]], spd: 1.5, loop: 1 }, { path: [[1, 12], [10, 12]], spd: 1.4 }], cams: [{ c: 10, r: 1, a0: Math.PI * .75, amp: .5, spd: .8 }, { c: 1, r: 8, a0: 0, amp: .6, spd: .9 }, { c: 10, r: 10, a0: Math.PI, amp: .6, spd: .7 }, { c: 4, r: 13, a0: -Math.PI / 2, amp: .7, spd: 1.0 }] },
+  { name: "Ghost Protocol", hint: "Everything at once. Leave no trace.", par: 150, map: [
+    "############", "#S.....#...#", "#......#.s.#", "#......d...#", "####.###.###", "#....#.....#", "#.r..d..h..#", "#....#.....#", "###.####.###", "#....#.....#", "#....B..I..#", "#.b..#.....#", "#....#.....#", "##########R#", "#X.........#", "############"],
+    guards: [{ path: [[1, 1], [5, 1], [5, 3], [1, 3]], spd: 1.1, loop: 1 }, { path: [[1, 5], [4, 7]], spd: 1.0 }, { path: [[7, 5], [10, 7], [7, 7], [10, 5]], spd: 1.2, loop: 1 }, { path: [[7, 10], [10, 12]], spd: 1.1 }], cams: [{ c: 10, r: 9, a0: Math.PI * .75, amp: .5, spd: .8 }, { c: 6, r: 12, a0: 0, amp: .8, spd: .8 }, { c: 9, r: 5, a0: Math.PI / 2, amp: .6, spd: .8 }] }
+];
+const SNEAK_MAX = 1.5, RUN_MIN = 2.6, RUN_MAX = 3.6, RING = .78;
+const ALERT = { relaxed: { det: .7, hear: .75, rng: .9 }, normal: { det: 1, hear: 1, rng: 1 }, sharp: { det: 1.4, hear: 1.3, rng: 1.12 } };
+const al = () => ALERT[opt("alert", ["relaxed", "normal", "sharp"], "normal")];
+
+// ---------- state ----------
+let grid, items = [], guards = [], cams = [], bodies = [], noises = [], rings = [], state = "menu", level = 1, p, hidden, hideSpot, hasKey, intel, spotted, takedowns, runT, camsOff, alarmT, ending, used, useHeld, hackProg, hackTgt, fields = {};
+let stickEl, tdBtn, useBtn, stickK = { x: 0, y: 0 }, lastSec = -1, ranEver, hidWhileChased, flash = 0, hintShown = 0, tdCount = 0;
+const kdir = { x: 0, y: 0 };
+
+// ---------- level loading ----------
+function tileAt(c, r) { return c < 0 || r < 0 || c >= COLS || r >= ROWS ? "#" : grid[r][c]; }
+const locked = (ch) => ch === "R" || ch === "B";
+const solidP = (c, r) => { const ch = tileAt(c, r); return ch === "#" || locked(ch); };
+function load(lv) {
+  const L = LEVELS[lv - 1]; grid = []; items = []; guards = []; cams = []; bodies = []; noises = []; rings = []; fields = {};
+  L.map.forEach((row, r) => { grid.push([...row].map((ch, c) => { if ("SXIrbhs".includes(ch)) { if (ch === "S") p = { x: c + .5, y: r + .5, dir: 0 }; else items.push({ k: ch, c, r, x: c + .5, y: r + .5, done: false, prog: 0 }); return "."; } return ch; })); });
+  L.guards.forEach((g, i) => { const w = g.path.map(([c, r]) => [c + .5, r + .5]); guards.push({ id: i, x: w[0][0], y: w[0][1], dir: 0, path: w, wp: 1, dirn: 1, loop: !!g.loop, spd: g.spd, fov: g.fov || 1.15, range: g.range || 4.3, state: "patrol", meter: 0, wait: 0, down: false, tx: 0, ty: 0, lastX: 0, lastY: 0, lossT: 0, searchT: 0, invT: 0, look: 0, ph: i * 1.7 });
+    const d = Math.atan2(w[1][1] - w[0][1], w[1][0] - w[0][0]); guards[i].dir = d; });
+  (L.cams || []).forEach((c, i) => cams.push({ x: c.c + .5, y: c.r + .5, a0: c.a0, amp: c.amp, spd: c.spd, ang: c.a0, range: 6.5, fov: .75, meter: 0, cool: 0, ph: i * 2.1 }));
+}
+function startLevel(lv) {
+  level = lv; load(lv); setExit(); used = {}; hidden = false; hideSpot = null; hasKey = {}; intel = false; spotted = false; takedowns = 0; runT = 0; camsOff = 0; alarmT = 0; ending = 0; useHeld = false; hackProg = 0; hackTgt = null; ranEver = false; hidWhileChased = 0; flash = 0; tdCount = 0; lastSec = -1;
+  parts.length = 0; Kit.stickReset && Kit.stickReset(); state = "play"; hud(); toast(LEVELS[lv - 1].hint); document.getElementById("over").hidden = true;
+}
+function hud() { const t = Math.floor(runT); stats({ Time: t + "s", Intel: intel ? "✓" : "–" }); }
+
+// ---------- guard pathing ----------
+function fieldFor(c, r) {
+  const key = c + "," + r; if (fields[key]) return fields[key]; const d = new Int16Array(COLS * ROWS).fill(-1), q = [[c, r]]; d[r * COLS + c] = 0;
+  for (let i = 0; i < q.length; i++) { const [a, b] = q[i]; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = a + dx, y = b + dy, ch = tileAt(x, y); if (ch === "#" || locked(ch) || d[y * COLS + x] >= 0) continue; d[y * COLS + x] = d[b * COLS + a] + 1; q.push([x, y]); } }
+  return fields[key] = d;
+}
+function stepTo(g, tx, ty, sp, dt) {
+  const gc = Math.floor(g.x), gr = Math.floor(g.y), tc = Math.floor(tx), tr = Math.floor(ty); let ax = tx, ay = ty;
+  if (gc !== tc || gr !== tr) {
+    const f = fieldFor(tc, tr); let best = f[gr * COLS + gc], bc = gc, br = gr; if (best < 0) { return true; }
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const v = f[(gr + dy) * COLS + gc + dx]; if (v >= 0 && v < best && tileAt(gc + dx, gr + dy) !== "#") { best = v; bc = gc + dx; br = gr + dy; } }
+    ax = bc + .5; ay = br + .5;
+  }
+  const dx = ax - g.x, dy = ay - g.y, d = Math.hypot(dx, dy), st = sp * dt;
+  if (d <= st) { g.x = ax; g.y = ay; } else { g.x += dx / d * st; g.y += dy / d * st; }
+  if (d > .01) g.mdir = Math.atan2(dy, dx);
+  return Math.hypot(tx - g.x, ty - g.y) < .12;
+}
+function turn(g, to, rate, dt) { let d = to - g.dir; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; const s = rate * dt; g.dir += Math.abs(d) < s ? d : Math.sign(d) * s; }
+const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return Math.abs(d); };
+
+// ---------- sight ----------
+let doorOpen = new Set();
+function blocksLOS(c, r) { const ch = tileAt(c, r); return ch === "#" || locked(ch) || ch === "d" && !doorOpen.has(r * COLS + c); }
+function los(x0, y0, x1, y1) { const d = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.ceil(d / .12)); for (let i = 1; i < n; i++) { const t = i / n; if (blocksLOS(Math.floor(x0 + (x1 - x0) * t), Math.floor(y0 + (y1 - y0) * t))) return false; } return true; }
+function pushNow() { return Math.hypot(stickK.x, stickK.y); }
+const running = () => state === "play" && !hidden && stickMag() > RING && !capped();
+function stickMag() { return Math.min(1, Math.hypot(stickK.x, stickK.y)); }
+function capped() {
+  const m = opt("assist", ["off", "near", "always"], "off"); if (m === "always") return true; if (m === "off") return false;
+  for (const g of guards) if (!g.down && Math.hypot(g.x - p.x, g.y - p.y) < 6) return true; for (const c of cams) if (!camsOff && Math.hypot(c.x - p.x, c.y - p.y) < 7) return true; return false;
+}
+function sees(src, ang, fov, range, tx, ty, prox) {
+  const dx = tx - src.x, dy = ty - src.y, d = Math.hypot(dx, dy); if (d > range) return false;
+  if (!(prox && d < .95) && angDiff(Math.atan2(dy, dx), ang) > fov / 2) return false; return los(src.x, src.y, tx, ty);
+}
+function cone(src, ang, fov, range) {
+  const pts = [[src.x, src.y]], n = 22; for (let i = 0; i <= n; i++) { const a = ang - fov / 2 + fov * i / n; let d = .2; while (d < range) { const x = src.x + Math.cos(a) * d, y = src.y + Math.sin(a) * d; if (blocksLOS(Math.floor(x), Math.floor(y))) break; d += .12; } pts.push([src.x + Math.cos(a) * d, src.y + Math.sin(a) * d]); }
+  return pts;
+}
+
+// ---------- events ----------
+function noise(x, y, r) { noises.push({ x, y, r }); rings.push({ x, y, r, t: .5, m: .5 }); }
+function raiseAlarm(x, y, why) {
+  spotted = true; alarmT = 8; flash = .4; toast(why); Kit.sfx("boom"); Kit.haptic(80);
+  for (const g of guards) if (!g.down && g.state !== "alert") { g.state = "search"; g.tx = x; g.ty = y; g.searchT = 8; g.meter = Math.max(g.meter, .5); g.invT = 0; }
+  hud();
+}
+function becomeAlert(g) {
+  if (g.state === "alert") return; g.state = "alert"; g.lossT = 0; g.meter = 1; spotted = true; flash = .35; Kit.sfx("lose"); Kit.haptic(70); toast("Spotted!");
+  for (const o of guards) if (o !== g && !o.down && o.state !== "alert" && Math.hypot(o.x - g.x, o.y - g.y) < 7) { o.state = "search"; o.tx = p.x; o.ty = p.y; o.searchT = 7; o.invT = 0; o.meter = Math.max(o.meter, .5); }
+  hud();
+}
+function updateGuard(g, dt) {
+  const A = al(), asleep = g.down; if (asleep) return;
+  const seen = !hidden && sees(g, g.dir, g.fov, g.range * A.rng * (stickMag() > .05 && !running() ? .85 : 1) * (running() ? 1.1 : 1), p.x, p.y, true);
+  const d = Math.hypot(p.x - g.x, p.y - g.y);
+  if (seen) { if (g.state !== "alert") g.meter += 1.2 * A.det * (1.3 - .7 * d / g.range) * (running() ? 1.3 : 1) * (g.state === "search" ? 1.4 : 1) * dt; g.lastX = p.x; g.lastY = p.y; g.lossT = 0; }
+  else if (g.state !== "alert") g.meter = Math.max(0, g.meter - .3 * dt);
+  if (g.meter >= 1 && g.state !== "alert") { becomeAlert(g); }
+  else if (g.state === "patrol" && g.meter > .25) { g.state = "sus"; g.tx = g.lastX || p.x; g.ty = g.lastY || p.y; g.invT = 0; }
+  // behaviours
+  if (g.state === "patrol") {
+    const w = g.path[g.wp]; if (g.hold) return;
+    if (g.wait > 0) { g.wait -= dt; g.look = Math.sin(runT * 2 + g.ph) * .6; turn(g, (g.mdir || g.dir) + g.look, 2, dt); }
+    else {
+      if (stepTo(g, w[0], w[1], g.spd, dt)) { g.wait = .8; if (g.loop) g.wp = (g.wp + 1) % g.path.length; else { g.wp += g.dirn; if (g.wp >= g.path.length || g.wp < 0) { g.dirn *= -1; g.wp += g.dirn * 2; } } }
+      if (g.mdir !== undefined) turn(g, g.mdir, 5, dt);
+    }
+  } else if (g.state === "sus") {
+    const toP = Math.atan2(g.ty - g.y, g.tx - g.x); if (seen) turn(g, Math.atan2(p.y - g.y, p.x - g.x), 5, dt);
+    if (g.meter < .25 && !seen) { g.invT += dt; }
+    const arrived = stepTo(g, g.tx, g.ty, g.spd * 1.25, dt); if (g.mdir !== undefined && !seen) turn(g, g.mdir, 5, dt);
+    if (arrived) { g.invT += dt; g.look = Math.sin(runT * 3 + g.ph) * .9; turn(g, toP + g.look, 4, dt); }
+    if (g.invT > 2.2 && g.meter < .25) { g.state = "patrol"; g.wp = nearestWp(g); g.invT = 0; }
+  } else if (g.state === "alert") {
+    const tx = seen ? p.x : g.lastX, ty = seen ? p.y : g.lastY; stepTo(g, tx, ty, g.spd * 2.1, dt); if (g.mdir !== undefined) turn(g, g.mdir, 8, dt);
+    if (!seen) { g.lossT += dt; if (g.lossT > 3.5) { g.state = "search"; g.tx = g.lastX; g.ty = g.lastY; g.searchT = 7; g.meter = .6; g.invT = 0; if (hidden) hidWhileChased = 1; } } else g.lossT = 0;
+    if (!hidden && d < .7 && state === "play") caught();
+  } else if (g.state === "search") {
+    g.searchT -= dt; const arrived = stepTo(g, g.tx, g.ty, g.spd * 1.4, dt); if (g.mdir !== undefined && !arrived) turn(g, g.mdir, 5, dt); else { g.look = Math.sin(runT * 2.5 + g.ph) * 1.2; turn(g, (g.mdir || g.dir) + g.look, 4, dt); }
+    if (hidden && hideSpot && Math.hypot(g.x - hideSpot.x, g.y - hideSpot.y) < 1.0) { unhide(); becomeAlert(g); }
+    if (g.searchT <= 0) { g.state = "patrol"; g.wp = nearestWp(g); g.meter = 0; if (hidWhileChased) { award("shake"); hidWhileChased = 0; } }
+  }
+  // bodies
+  for (const b of bodies) if (!b.found && sees(g, g.dir, g.fov, g.range * A.rng, b.x, b.y, true)) { b.found = true; toast("Body found! Guards are searching."); Kit.sfx("boom"); for (const o of guards) if (!o.down && o.state !== "alert" && Math.hypot(o.x - g.x, o.y - g.y) < 9) { o.state = "search"; o.tx = b.x; o.ty = b.y; o.searchT = 9; o.invT = 0; } }
+}
+function nearestWp(g) { let bi = 0, bd = 1e9; g.path.forEach((w, i) => { const d = Math.hypot(w[0] - g.x, w[1] - g.y); if (d < bd) { bd = d; bi = i; } }); return bi; }
+function updateCam(c, dt) {
+  c.ang = c.a0 + c.amp * Math.sin(runT * c.spd + c.ph); if (camsOff > 0) { c.meter = 0; return; } c.cool -= dt;
+  const seen = !hidden && sees(c, c.ang, c.fov, c.range, p.x, p.y, false);
+  if (seen) { c.meter += (running() ? 1.6 : 1.1) * al().det * dt; if (c.meter >= 1 && c.cool <= 0) { c.meter = .4; c.cool = 6; raiseAlarm(p.x, p.y, "Camera spotted you!"); } } else c.meter = Math.max(0, c.meter - .6 * dt);
+}
+function caught() { if (state !== "play") return; state = "over"; Kit.sfx("lose"); Kit.haptic(150); flash = .6; Kit.record({ score: 0 });
+  setTimeout(() => endCard(`<h1>Caught!</h1><p>${LEVELS[level - 1].name}</p><p class="sub">A guard got you after ${Math.floor(runT)}s.</p>`, "Retry", () => startLevel(level), [["Menu", openMenu]]), 700); }
+function endCard(html, main, fn, extra) {
+  card(html, main, fn); const c = document.getElementById("card");
+  for (const [lab, f] of extra || []) { const b = document.createElement("button"); b.className = "ghost"; b.textContent = lab; b.onclick = () => { document.getElementById("over").hidden = true; f(); }; c.append(b); }
+}
+function win() {
+  if (state !== "play") return; state = "between"; const t = runT, L = LEVELS[level - 1], sT = t <= L.par, sU = !spotted, sN = takedowns === 0, st = (sT ? 1 : 0) + (sU ? 1 : 0) + (sN ? 1 : 0);
+  Kit.sfx("win"); Kit.haptic(60); unlock(level + 1); Kit.record({ win: 1, score: 1000 * st + Math.max(0, Math.round((L.par - t) * 10)) });
+  const kt = "t" + level, ks = "s" + level; SAVE.best[kt] = Number.isFinite(SAVE.best[kt]) && SAVE.best[kt] > 0 ? Math.min(SAVE.best[kt], Math.round(t * 10) / 10) : Math.round(t * 10) / 10; SAVE.best[ks] = Math.max(Number.isFinite(SAVE.best[ks]) ? clamp(SAVE.best[ks], 0, 3) : 0, st); persist();
+  if (sU) award("unseen"); if (sT) award("speed"); if (takedowns >= 3) award("down3"); if (!ranEver) award("silent"); if (level >= 10) award("l10");
+  const last = level >= 10; spotted = spotted; hud();
+  setTimeout(() => endCard(`<h1>${last ? "Ghost achieved" : "Clean exit"}</h1><p>${L.name} · ${"★".repeat(st)}${"☆".repeat(3 - st)}</p><p class="sub">${sT ? "✓" : "✗"} Time ${t.toFixed(1)}s (par ${L.par}s)<br>${sU ? "✓" : "✗"} Never seen<br>${sN ? "✓" : "✗"} No takedowns</p>`,
+    last ? "Menu" : "Next: " + LEVELS[level].name, last ? openMenu : () => startLevel(level + 1), [["Replay", () => startLevel(level)], ...(last ? [] : [["Menu", openMenu]])]), 600);
+}
+
+// ---------- player actions ----------
+function unhide() { hidden = false; if (hideSpot) { p.x = hideSpot.x; p.y = hideSpot.y; } hideSpot = null; Kit.sfx("click"); }
+function takedownTarget() {
+  const assist = opt("tdassist", ["on", "off"], "on") === "on", reach = assist ? 1.45 : 1.0, need = assist ? 1.35 : 1.9; let best = null, bd = 1e9;
+  for (const g of guards) { if (g.down) continue; const d = Math.hypot(g.x - p.x, g.y - p.y); if (d > reach) continue; const toP = Math.atan2(p.y - g.y, p.x - g.x); if (angDiff(toP, g.dir) < need) continue; if (d < bd) { bd = d; best = g; } }
+  return best;
+}
+function takedown() {
+  if (state !== "play" || hidden) return; const g = takedownTarget();
+  if (!g) { Kit.sfx("hit"); toast("Get behind a guard first"); return; }
+  g.down = true; g.state = "down"; takedowns++; tdCount++; bodies.push({ x: g.x, y: g.y, found: false, ang: g.dir }); Kit.sfx("thud"); Kit.haptic(40); burst(g.x * TS, g.y * TS, "#9fffe6", 14, 90, .5); noise(g.x, g.y, 1.6 * al().hear);
+  for (const o of guards) if (!o.down && o !== g && o.state === "patrol" && Math.hypot(o.x - g.x, o.y - g.y) < 1.6) { o.state = "sus"; o.tx = g.x; o.ty = g.y; o.meter = .4; o.invT = 0; }
+  hud();
+}
+function useDown() {
+  if (state !== "play") return; useHeld = true;
+  if (hidden) { unhide(); return; }
+  let h = null, hd = .95; for (const it of items) if (it.k === "h") { const d = Math.hypot(it.x - p.x, it.y - p.y); if (d < hd) { hd = d; h = it; } }
+  if (h) { hidden = true; hideSpot = h; p.x = h.x; p.y = h.y; Kit.sfx("whoosh"); Kit.haptic(15); for (const g of guards) if (g.state === "alert" && !g.down) { /* guards saw you go in */ g.lastX = h.x; g.lastY = h.y; } return; }
+}
+function useUp() { useHeld = false; hackProg = 0; hackTgt = null; }
+function nearTerm() { let t = null, td = .95; for (const it of items) if ((it.k === "I" || it.k === "s") && !it.done) { const d = Math.hypot(it.x - p.x, it.y - p.y); if (d < td) { td = d; t = it; } } return t; }
+function nearHide() { for (const it of items) if (it.k === "h" && Math.hypot(it.x - p.x, it.y - p.y) < .95) return it; return null; }
+
+// ---------- update ----------
+function movePlayer(dt) {
+  let sx = stickK.x + kdir.x, sy = stickK.y + kdir.y; const m0 = Math.hypot(sx, sy); if (m0 > 1) { sx /= m0; sy /= m0; }
+  const push = Math.min(1, Math.hypot(sx, sy)); p.push = push;
+  if (hidden || push < .08) { p.run = false; p.speed = 0; return; }
+  const cap = capped(), run = push > RING && !cap; let sp;
+  if (run) sp = RUN_MIN + (push - RING) / (1 - RING) * (RUN_MAX - RUN_MIN); else sp = .35 + Math.min(1, push / RING) * (SNEAK_MAX - .35);
+  p.run = run; p.speed = sp; const ux = sx / push, uy = sy / push; p.dir = Math.atan2(uy, ux);
+  const R = .27, tryMove = (nx, ny) => { for (const [ox, oy] of [[-R, -R], [R, -R], [-R, R], [R, R]]) if (solidP(Math.floor(nx + ox), Math.floor(ny + oy))) return false; return true; };
+  const nx = p.x + ux * sp * dt, ny = p.y + uy * sp * dt; if (tryMove(nx, p.y)) p.x = nx; if (tryMove(p.x, ny)) p.y = ny;
+  if (run) { ranEver = true; p.nt = (p.nt || 0) - dt; if (p.nt <= 0) { p.nt = .3; noise(p.x, p.y, 3.6 * al().hear); for (const g of guards) if (!g.down && g.state !== "alert" && Math.hypot(g.x - p.x, g.y - p.y) < 3.6 * al().hear) { g.tx = p.x; g.ty = p.y; g.meter = Math.max(g.meter, .45); if (g.state === "patrol") { g.state = "sus"; g.invT = 0; } } } }
+}
+function update(dt) {
+  if (state !== "play") { for (const r of rings) r.t -= dt; rings = rings.filter((r) => r.t > 0); return; }
+  runT += dt; flash = Math.max(0, flash - dt); camsOff = Math.max(0, camsOff - dt); alarmT = Math.max(0, alarmT - dt);
+  doorOpen = new Set(); const actors = [p, ...guards.filter((g) => !g.down)];
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (grid[r][c] === "d") for (const a of actors) if (Math.hypot(a.x - c - .5, a.y - r - .5) < 1.0) { doorOpen.add(r * COLS + c); break; }
+  movePlayer(dt);
+  for (const g of guards) updateGuard(g, dt); for (const c of cams) updateCam(c, dt);
+  for (const r of rings) r.t -= dt; rings = rings.filter((r) => r.t > 0); noises.length = 0;
+  // pickups and doors
+  for (const it of items) { if (it.done || (it.k !== "r" && it.k !== "b")) continue; if (!hidden && Math.hypot(it.x - p.x, it.y - p.y) < .55) { it.done = true; hasKey[it.k] = 1; Kit.sfx("coin"); Kit.haptic(20); toast(it.k === "r" ? "Red keycard" : "Blue keycard"); burst(it.x * TS, it.y * TS, it.k === "r" ? "#ff6b6b" : "#6bb5ff", 12, 80, .5); } }
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const ch = grid[r][c]; if (locked(ch) && Math.hypot(p.x - c - .5, p.y - r - .5) < 1.05) { const need = ch === "R" ? "r" : "b"; if (hasKey[need]) { grid[r][c] = "d"; Kit.sfx("power"); Kit.haptic(20); } else if (!used["w" + ch]) { used["w" + ch] = 1; toast((ch === "R" ? "Red" : "Blue") + " door: find the card"); } } }
+  // terminals
+  const tm = nearTerm();
+  if (useHeld && tm && !hidden) { if (hackTgt !== tm) { hackTgt = tm; hackProg = 0; } hackProg += dt / (tm.k === "I" ? 1.6 : 1.1); if (hackProg >= 1) { tm.done = true; hackProg = 0; hackTgt = null; if (tm.k === "I") { intel = true; toast("Intel downloaded. Reach the exit!"); Kit.sfx("win"); } else { camsOff = 14; award("hack"); toast("Cameras offline for 14s"); Kit.sfx("power"); } Kit.haptic(40); hud(); } } else { hackProg = 0; hackTgt = null; }
+  // exit
+  const ex = items.find((i) => i.k === "X"); void ex;
+  if (exitTile && Math.hypot(exitTile.x - p.x, exitTile.y - p.y) < .6 && !hidden) { if (intel) { win(); return; } if (!used.x) { used.x = 1; toast("Download the intel first"); } }
+  const sec = Math.floor(runT); if (sec !== lastSec) { lastSec = sec; hud(); }
+  const can = takedownTarget(); if (tdBtn) tdBtn.style.boxShadow = can ? "0 0 0 3px #3fe0b5, 0 0 14px #3fe0b5" : "";
+  const hot = (nearTerm() || nearHide() || hidden); if (useBtn) useBtn.style.boxShadow = hot ? "0 0 0 3px #3fe0b5, 0 0 14px #3fe0b5" : "";
+}
+let exitTile = null;
+
+// ---------- input ----------
+function showControls() {
+  stickEl = Kit.stick({ move: (x, y) => { stickK.x = x; stickK.y = y; } });
+  tdBtn = Kit.button(`<span class="big">⚔</span><span style="font-size:10px">TAKEDOWN</span>`, { down: takedown, aria: "Takedown" });
+  useBtn = Kit.button(`<span class="big">✋</span><span style="font-size:11px">HIDE/USE</span>`, { down: useDown, up: useUp, aria: "Hide or use" });
+  for (const b of [tdBtn, useBtn]) { b.style.minWidth = "74px"; b.style.height = "74px"; b.style.padding = "0 2px"; }
+  Kit.controls([stickEl], [tdBtn, useBtn]);
+}
+const keyDown = {};
+addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase(); if (e.repeat) return;
+  if (k === "p" || k === "escape") { Kit.pause(); return; }
+  keyDown[k] = 1; kupd();
+  if (k === " ") takedown(); if (k === "e" || k === "enter") useDown();
+});
+addEventListener("keyup", (e) => { const k = e.key.toLowerCase(); keyDown[k] = 0; kupd(); if (k === "e" || k === "enter") useUp(); });
+function kupd() { const run = keyDown.shift ? 1 : .6; kdir.x = ((keyDown.arrowright || keyDown.d) ? 1 : 0) - ((keyDown.arrowleft || keyDown.a) ? 1 : 0); kdir.y = ((keyDown.arrowdown || keyDown.s) ? 1 : 0) - ((keyDown.arrowup || keyDown.w) ? 1 : 0); const m = Math.hypot(kdir.x, kdir.y); if (m) { kdir.x *= run / m; kdir.y *= run / m; } }
+
+// ---------- drawing ----------
+function tx(s, x, y, size, col, al2, bold) { ctx.font = `${bold ? "700 " : ""}${size}px ${FONT}`; ctx.textAlign = al2 || "center"; ctx.textBaseline = "middle"; ctx.fillStyle = col; ctx.fillText(s, x, y); }
+function drawMap() {
+  ctx.fillStyle = "#101c22"; ctx.fillRect(0, 0, LW, LH);
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const ch = grid[r][c], x = c * TS, y = r * TS;
+    if (ch === "#") { ctx.fillStyle = "#2a3a42"; ctx.fillRect(x, y, TS, TS); ctx.fillStyle = "#374a54"; ctx.fillRect(x, y, TS, 3); ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(x, y + TS - 3, TS, 3); }
+    else { ctx.fillStyle = (r + c) % 2 ? "#14232a" : "#162830"; ctx.fillRect(x, y, TS, TS); }
+    if (ch === "d") { const open = doorOpen.has(r * COLS + c); ctx.fillStyle = open ? "#4a3a1c" : "#c99a3c"; ctx.fillRect(x + 2, y + 2, TS - 4, TS - 4); if (!open) { ctx.fillStyle = "#7a5a1c"; ctx.fillRect(x + TS / 2 - 1, y + 3, 2, TS - 6); } }
+    if (locked(ch)) { const col = ch === "R" ? "#e0485a" : "#4a90e8"; ctx.fillStyle = col; ctx.fillRect(x + 1, y + 1, TS - 2, TS - 2); ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(x + TS / 2 - 4, y + TS / 2 - 1, 8, 7); ctx.strokeStyle = "rgba(0,0,0,.45)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x + TS / 2, y + TS / 2 - 1, 4, Math.PI, 0); ctx.stroke(); }
+  }
+  const pulse = .5 + .5 * Math.sin(runT * 4);
+  for (const it of items) {
+    const x = it.x * TS, y = it.y * TS;
+    if (it.k === "X") { ctx.fillStyle = intel ? `rgba(63,224,181,${.35 + pulse * .3})` : "rgba(120,130,130,.3)"; ctx.fillRect(it.c * TS + 2, it.r * TS + 2, TS - 4, TS - 4); tx("EXIT", x, y, 11, intel ? "#baffee" : "#8a9a98", "center", true); }
+    else if (it.k === "I") { ctx.fillStyle = it.done ? "#1c3a40" : "#1c5a66"; rr(x - 11, y - 10, 22, 20, 4); ctx.fill(); ctx.strokeStyle = it.done ? "#3a6a70" : `rgba(120,240,255,${.6 + pulse * .4})`; ctx.lineWidth = 2; ctx.stroke(); tx(it.done ? "✓" : "DATA", x, y, it.done ? 14 : 9, "#9ff", "center", true); }
+    else if (it.k === "s") { ctx.fillStyle = it.done ? "#3a2a18" : "#7a4a18"; rr(x - 10, y - 10, 20, 20, 4); ctx.fill(); ctx.strokeStyle = it.done ? "#6a5a3a" : "#ffb347"; ctx.lineWidth = 2; ctx.stroke(); tx(it.done ? "off" : "CAM", x, y, 9, "#ffd9a0", "center", true); }
+    else if (it.k === "h") { ctx.fillStyle = "#1f4a3a"; rr(x - 11, y - 12, 22, 24, 3); ctx.fill(); ctx.strokeStyle = "#3fe0b5"; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = "rgba(63,224,181,.5)"; ctx.fillRect(x - 6, y - 7, 12, 2); ctx.fillRect(x - 6, y - 3, 12, 2); ctx.fillRect(x - 6, y + 1, 12, 2); tx("HIDE", x, y + 18, 9, "rgba(150,240,210,.8)", "center", true); }
+    else if ((it.k === "r" || it.k === "b") && !it.done) { const by = y + Math.sin(runT * 3) * 2; ctx.fillStyle = it.k === "r" ? "#ff5a6e" : "#5aa5ff"; rr(x - 9, by - 6, 18, 12, 2); ctx.fill(); ctx.fillStyle = "#fff"; ctx.fillRect(x - 6, by - 3, 6, 4); ctx.fillRect(x - 6, by + 2, 12, 1.5); }
+  }
+}
+function drawCone(src, ang, fov, range, col) { const pts = cone(src, ang, fov, range); ctx.fillStyle = col; ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x * TS, y * TS) : ctx.moveTo(x * TS, y * TS)); ctx.closePath(); ctx.fill(); return pts; }
+function drawCones() {
+  const mode = opt("cones", ["full", "soft", "edge"], "full"), A = al();
+  const fillA = mode === "full" ? .3 : mode === "soft" ? .14 : 0;
+  const paint = (src, ang, fov, range, rgb, alertness) => {
+    const a = fillA * (1 + alertness * .8), pts = cone(src, ang, fov, range);
+    if (a > 0) { ctx.fillStyle = `rgba(${rgb},${a})`; ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x * TS, y * TS) : ctx.moveTo(x * TS, y * TS)); ctx.closePath(); ctx.fill(); }
+    ctx.strokeStyle = `rgba(${rgb},${mode === "edge" ? .95 : .55})`; ctx.lineWidth = 1.5; ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x * TS, y * TS) : ctx.moveTo(x * TS, y * TS)); ctx.closePath(); ctx.stroke();
+  };
+  for (const g of guards) { if (g.down) continue; const rgb = g.state === "alert" ? "255,70,80" : g.state === "sus" || g.state === "search" ? "255,160,60" : "255,225,90"; paint(g, g.dir, g.fov, g.range * A.rng, rgb, g.meter); }
+  for (const c of cams) { if (camsOff > 0) continue; paint(c, c.ang, c.fov, c.range, c.meter > .3 ? "255,90,200" : "120,200,255", c.meter); }
+}
+function drawGuard(g) {
+  const x = g.x * TS, y = g.y * TS;
+  if (g.down) { ctx.save(); ctx.translate(x, y); ctx.rotate(g.dir + .5); ctx.fillStyle = "#4a5a66"; rr(-10, -6, 20, 12, 5); ctx.fill(); ctx.fillStyle = "#c9a07a"; ctx.beginPath(); ctx.arc(10, 0, 5, 0, TAU); ctx.fill(); ctx.restore(); tx("z", x + 8, y - 12 - Math.sin(runT * 3) * 2, 12, "#9fffe6", "center", true); return; }
+  ctx.save(); ctx.translate(x, y); ctx.rotate(g.dir);
+  ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(1, 2, 11, 9, 0, 0, TAU); ctx.fill();
+  const body = g.state === "alert" ? "#c8354a" : "#4b6a86"; ctx.fillStyle = body; ctx.beginPath(); ctx.ellipse(0, 0, 10, 11, 0, 0, TAU); ctx.fill(); ctx.strokeStyle = "#1a2a38"; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = "#1d2b38"; ctx.beginPath(); ctx.arc(2, 0, 6.5, 0, TAU); ctx.fill(); ctx.fillStyle = "#ffd96a"; ctx.fillRect(5, -3, 4, 6); ctx.fillStyle = "#6a8aa6"; ctx.fillRect(7, 6, 9, 3);
+  ctx.restore();
+  if (g.state === "sus" || g.state === "search") tx("?", x, y - 19, 18, "#ffb347", "center", true); else if (g.state === "alert") tx("!", x, y - 19, 20, "#ff5a6a", "center", true);
+  else if (g.meter > .05) { ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(x - 10, y - 20, 20, 4); ctx.fillStyle = "#ffe15a"; ctx.fillRect(x - 10, y - 20, 20 * clamp(g.meter, 0, 1), 4); }
+}
+function drawPlayer() {
+  if (hidden) { const x = p.x * TS, y = p.y * TS; ctx.strokeStyle = "rgba(63,224,181,.9)"; ctx.lineWidth = 2; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(x, y, 15, 0, TAU); ctx.stroke(); ctx.setLineDash([]); tx("hidden", x, y + 24, 11, "#9fffe6", "center", true); return; }
+  const x = p.x * TS, y = p.y * TS, run = p.run, mv = p.speed > 0;
+  if (opt("rings", ["on", "off"], "on") === "on" && run) { ctx.strokeStyle = `rgba(255,130,90,${.35 + .2 * Math.sin(runT * 12)})`; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(x, y, 3.6 * al().hear * TS, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+  ctx.save(); ctx.translate(x, y); ctx.rotate(p.dir || 0); ctx.fillStyle = "rgba(0,0,0,.4)"; ctx.beginPath(); ctx.ellipse(1, 3, 9, 8, 0, 0, TAU); ctx.fill();
+  if (run && mv) { ctx.fillStyle = "rgba(63,224,181,.25)"; ctx.beginPath(); ctx.ellipse(-12, 0, 9, 6, 0, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = "#e8fff9"; ctx.beginPath(); ctx.ellipse(0, 0, 8.5, 9.5, 0, 0, TAU); ctx.fill(); ctx.fillStyle = "#3fe0b5"; ctx.beginPath(); ctx.arc(-1, 0, 7, Math.PI * .6, Math.PI * 1.4); ctx.lineTo(-1, 0); ctx.fill(); ctx.fillStyle = "#06201a"; ctx.beginPath(); ctx.arc(4, 0, 4, 0, TAU); ctx.fill(); ctx.fillStyle = "#9fffe6"; ctx.fillRect(4, -2.5, 3, 2); ctx.fillRect(4, .5, 3, 2); ctx.restore();
+  if (!mv) { ctx.fillStyle = "rgba(63,224,181,.0)"; }
+}
+function drawHints() {
+  if (state !== "play") return; const x = p.x * TS, y = p.y * TS;
+  const t = nearTerm(); let msg = null;
+  if (hidden) msg = "HIDE/USE to leave"; else if (t) msg = (t.k === "I" ? "HOLD USE: download " : "HOLD USE: blind cameras ") + (hackTgt === t ? Math.floor(hackProg * 100) + "%" : ""); else if (nearHide()) msg = "USE: hide here";
+  else if (takedownTarget()) msg = "TAKEDOWN!";
+  if (msg) { const w = ctx.measureText(msg).width + 14; ctx.font = `700 11px ${FONT}`; const ww = ctx.measureText(msg).width + 14; ctx.fillStyle = "rgba(4,16,20,.85)"; rr(clamp(x - ww / 2, 2, LW - ww - 2), y - 38, ww, 17, 8); ctx.fill(); tx(msg, clamp(x, ww / 2 + 2, LW - ww / 2 - 2), y - 29.5, 11, "#baffee", "center", true); void w; }
+  if (hackTgt) { ctx.strokeStyle = "#3fe0b5"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, 17, -Math.PI / 2, -Math.PI / 2 + TAU * hackProg); ctx.stroke(); }
+}
+function draw() {
+  if (state === "menu") { ctx.fillStyle = "#081014"; ctx.fillRect(0, 0, LW, LH); return; }
+  drawMap(); drawCones();
+  for (const c of cams) { const x = c.x * TS, y = c.y * TS; ctx.fillStyle = camsOff > 0 ? "#44525a" : c.meter > .3 ? "#ff5ac8" : "#7ac8ff"; ctx.beginPath(); ctx.arc(x, y, 6, 0, TAU); ctx.fill(); ctx.strokeStyle = "#0b1a22"; ctx.lineWidth = 2; ctx.stroke(); ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(c.ang) * 11, y + Math.sin(c.ang) * 11); ctx.stroke(); if (c.meter > .05 && camsOff <= 0) { ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(x - 10, y - 16, 20, 4); ctx.fillStyle = "#ff5ac8"; ctx.fillRect(x - 10, y - 16, 20 * clamp(c.meter, 0, 1), 4); } }
+  for (const g of guards) if (g.down) drawGuard(g); for (const g of guards) if (!g.down) drawGuard(g);
+  for (const r of rings) { ctx.strokeStyle = `rgba(255,150,100,${r.t / r.m * .6})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(r.x * TS, r.y * TS, r.r * TS * (1 - r.t / r.m * .5), 0, TAU); ctx.stroke(); }
+  drawPlayer(); drawParts(); drawHints();
+  if (flash > 0) { ctx.fillStyle = `rgba(255,50,70,${flash * .5})`; ctx.fillRect(0, 0, LW, LH); }
+  let alert = guards.some((g) => g.state === "alert" && !g.down); if (alert || alarmT > 0) { ctx.strokeStyle = `rgba(255,70,90,${.5 + .3 * Math.sin(runT * 10)})`; ctx.lineWidth = 4; ctx.strokeRect(2, 2, LW - 4, LH - 4); }
+  const obj = !intel ? "Objective: download the intel (HOLD USE at the DATA terminal)" : "Intel secured: reach the EXIT";
+  ctx.fillStyle = "rgba(4,12,16,.8)"; ctx.fillRect(0, LH - TS, LW, TS); tx(obj, LW / 2, LH - TS / 2, 11, "#bfe8de", "center", true);
+  const mv = state === "play" && p.speed > 0 ? (p.run ? "RUN · noisy" : "SNEAK · silent") : "STILL"; tx(mv, 6, 12, 11, p.run ? "#ff9a6a" : "#7fe8c8", "left", true);
+  if (spotted) tx("SEEN", LW / 2, 12, 11, "#ff8a96", "center", true);
+  if (camsOff > 0) tx("Cameras off " + Math.ceil(camsOff) + "s", LW - 6, 12, 11, "#ffd9a0", "right", true);
+}
+loop((dt) => { if (!Kit.isPaused()) { update(dt); stepParts(dt); } draw(); });
+Kit.lifecycle({ pause: () => state === "play", resume: () => {}, menu: openMenu });
+
+function openMenu() {
+  state = "menu"; Kit.hideControls(); stickEl = tdBtn = useBtn = null; stickK.x = stickK.y = 0;
+  const stars = LEVELS.reduce((a, _, i) => { const v = SAVE.best["s" + (i + 1)]; return a + (Number.isFinite(v) ? clamp(Math.floor(v), 0, 3) : 0); }, 0);
+  Kit.menu({
+    title: "Ghost Protocol", hand: true, bestLabel: "Best score",
+    html: `<p class="sub">Slip past the guards, download the intel, and reach the exit. Push the stick lightly (inside the dashed ring) to sneak silently; push past the ring to run, which makes noise. TAKEDOWN works only from behind. HIDE/USE hides in lockers and hacks terminals (hold). Stars ${stars}/30.</p>`,
+    settings: [
+      { k: "alert", label: "Guard alertness", def: "normal", opts: [["relaxed", "Relaxed"], ["normal", "Normal"], ["sharp", "Sharp"]] },
+      { k: "cones", label: "Vision cones", def: "full", opts: [["full", "Bright"], ["soft", "Soft"], ["edge", "Outline"]] },
+      { k: "assist", label: "Sneak assist", def: "off", opts: [["off", "Off"], ["near", "Near guards"], ["always", "Always sneak"]] },
+      { k: "tdassist", label: "Takedown aim assist", def: "on", opts: [["on", "On"], ["off", "Off"]] },
+      { k: "rings", label: "Noise ring when running", def: "on", opts: [["on", "On"], ["off", "Off"]] }
+    ],
+    levels: LEVELS.map((l) => l.name),
+    challenges: [{ id: "unseen", text: "Clear a level without ever being spotted" }, { id: "speed", text: "Clear a level under its par time" }, { id: "down3", text: "Take down 3 guards in one level" },
+      { id: "shake", text: "Hide and shake off a guard who was chasing you" }, { id: "hack", text: "Blind the cameras at a switch" }, { id: "silent", text: "Clear a level without ever running" }, { id: "l10", text: "Clear Ghost Protocol (level 10)" }],
+    play: "Infiltrate"
+  }, (lv) => { showControls(); used = {}; startLevel(lv); });
+}
+function setExit() { exitTile = null; for (const it of items) if (it.k === "X") exitTile = it; }
+window.T = {
+  get state() { return state; }, get x() { return p ? p.x : 0; }, get y() { return p ? p.y : 0; }, get run() { return p && p.run; }, get speed() { return p ? p.speed || 0 : 0; }, get hidden() { return hidden; }, get intel() { return intel; }, get spotted() { return spotted; },
+  get takedowns() { return takedowns; }, get time() { return runT; }, get level() { return level; }, get camsOff() { return camsOff; }, get hasKey() { return JSON.stringify(hasKey); }, get rings() { return rings.length; },
+  get guards() { return guards.map((g) => ({ x: g.x, y: g.y, s: g.state, down: g.down, m: g.meter })); }, get cams() { return cams.length; },
+  tile: (c, r) => tileAt(c, r), tp(x, y) { p.x = x; p.y = y; }, setGuard(i, x, y, dir, spd) { const g = guards[i]; g.x = x; g.y = y; g.dir = dir; g.mdir = dir; if (spd !== undefined) g.spd = spd; },
+  page(x, y) { const r = cv.getBoundingClientRect(); return [r.left + x * TS * SC, r.top + y * TS * SC]; }, gotoLevel(n) { used = {}; startLevel(n); },
+  winNow() { intel = true; const e = exitTile; p.x = e.x; p.y = e.y; }, caughtNow() { caught(); }, giveKeys() { hasKey = { r: 1, b: 1 }; }, freeze(on) { for (const g of guards) g.hold = !!on; }
+};
+fit(); openMenu();
+
+})();
+</script>
+
+</html>

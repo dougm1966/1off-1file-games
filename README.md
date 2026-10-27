@@ -1,6 +1,6 @@
 # 1 Off 1 File Games
 
-**55 browser games, each one a single self-contained HTML file, built to be played on a phone.**
+**58 browser games, each one a single self-contained HTML file, built to be played on a phone.**
 
 Arcade classics reworked for touch, thinking puzzles, two-player games meant to be passed back and forth on one phone, and a set of clinical-lab games (trivia, microscope identification, specimen sorting) made for a hospital lab tech.
 
@@ -19,7 +19,7 @@ Arcade classics reworked for touch, thinking puzzles, two-player games meant to 
 
 ## The games
 
-### Two players (15)
+### Two players (16)
 
 Pass-and-play on one phone, most with a CPU opponent too.
 
@@ -27,6 +27,7 @@ Pass-and-play on one phone, most with a CPU opponent too.
 |---|---|---|
 | [Artillery Duel](games/artillery-duel/) | Tank artillery, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/artillery-duel/) |
 | [Box Out](games/box-out/) | Dots and Boxes, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/box-out/) |
+| [Curl & Shuffle](games/curling-and-shuffleboard/) | Curling and table shuffleboard, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/curling-and-shuffleboard/) |
 | [Drop Four](games/drop-four/) | Connect Four, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/drop-four/) |
 | [Eight & Out](games/eight-and-out/) | 8-ball pool, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/eight-and-out/) |
 | [Fleet Duel](games/fleet-duel/) | Battleship, pass-and-play or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/fleet-duel/) |
@@ -41,13 +42,14 @@ Pass-and-play on one phone, most with a CPU opponent too.
 | [Roll Call](games/roll-call/) | Five-dice scorecard game for 1–4 or vs CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/roll-call/) |
 | [Strike Lane](games/strike-lane/) | Ten-pin bowling, 1–4 players or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/strike-lane/) |
 
-### Lab (7)
+### Lab (8)
 
 Built for a hospital lab tech: trivia, microscope ID, specimen sorting and word games.
 
 | Game | What it is | |
 |---|---|---|
 | [Bench Rounds](games/bench-rounds/) | Clinical lab trivia, solo or pass-and-play | [Play](https://dougm1966.github.io/1off-1file-games/games/bench-rounds/) |
+| [Immune Response](games/immune-response/) | Immune-system tower defense | [Play](https://dougm1966.github.io/1off-1file-games/games/immune-response/) |
 | [Lab Hunt](games/lab-hunt/) | Lab-themed word search | [Play](https://dougm1966.github.io/1off-1file-games/games/lab-hunt/) |
 | [Lab Letters](games/lab-letters/) | Five-letter word guessing with lab words or partner-set words | [Play](https://dougm1966.github.io/1off-1file-games/games/lab-letters/) |
 | [Lab Shift](games/lab-shift/) | Clinical-lab shift simulator | [Play](https://dougm1966.github.io/1off-1file-games/games/lab-shift/) |
@@ -55,7 +57,7 @@ Built for a hospital lab tech: trivia, microscope ID, specimen sorting and word 
 | [Sort It Out](games/sort-it-out/) | Speed-sort tubes, organisms and blood cells | [Play](https://dougm1966.github.io/1off-1file-games/games/sort-it-out/) |
 | [Under the Scope](games/under-the-scope/) | Identify blood smears, Gram stains and urine sediment | [Play](https://dougm1966.github.io/1off-1file-games/games/under-the-scope/) |
 
-### Arcade (21)
+### Arcade (22)
 
 Classic arcade action reworked for touch screens, with original characters.
 
@@ -68,6 +70,7 @@ Classic arcade action reworked for touch screens, with original characters.
 | [Deep Delve](games/deep-delve/) | Turn-based dungeon crawler with a daily dungeon | [Play](https://dougm1966.github.io/1off-1file-games/games/deep-delve/) |
 | [Deep Dig](games/deep-dig/) | Tunnel digging and monster popping | [Play](https://dougm1966.github.io/1off-1file-games/games/deep-dig/) |
 | [Garden Crawl](games/garden-crawl/) | Centipede-style shooter | [Play](https://dougm1966.github.io/1off-1file-games/games/garden-crawl/) |
+| [Ghost Protocol](games/ghost-protocol/) | Top-down stealth infiltration | [Play](https://dougm1966.github.io/1off-1file-games/games/ghost-protocol/) |
 | [Kart Dash](games/kart-dash/) | Kart racing with drift boosts and items | [Play](https://dougm1966.github.io/1off-1file-games/games/kart-dash/) |
 | [Last Call](games/last-call/) | Tapper-style bar rush | [Play](https://dougm1966.github.io/1off-1file-games/games/last-call/) |
 | [Last Line](games/last-line/) | Missile Command-style city defense | [Play](https://dougm1966.github.io/1off-1file-games/games/last-line/) |

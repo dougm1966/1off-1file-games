@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}</style>
+<title>Curl & Shuffle</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#0a1b2b;--ink:#eaf6ff;--muted:#8fb0c8;--accent:#5ad1ff;--f-display:"Bungee",Impact,sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#04202e;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#04202e;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#04202e}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#04202e;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Curl & Shuffle</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Curling: drag back from the hack and release, then hold SWEEP · Shuffleboard: flick a puck up the table</div><div class="ctl" id="ctl" hidden></div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=520,FONT="'Bungee', Impact, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ---------- constants ----------
+const GAMES = ["curl", "shuf"], MODES = ["2p", "cpu"], ICES = ["slow", "normal", "fast"], SKILLS = ["easy", "normal", "hard"];
+const TEAMC = ["#e5484d", "#f5c518"], TEAMD = ["#8c1f27", "#a6820a"];
+// curling sheet
+const SL = 95, SR = 265, SX = 180, BTN_Y = 115, HOUSE = 60, SR_R = 9, HOG = 300, BACK = 55, HACK_Y = 440, HACKZ = 400, DRAGMAX = 85;
+// shuffleboard table
+const TL = 70, TR = 290, TY = 50, PR = 12, PUCK_Y = 455, FLICKY = 415;
+const opt = (k, d, allowed) => { const v = setting(k, d); return allowed.includes(v) ? v : d; };
+let game = "curl", mode = "cpu", ice = "normal", skill = "normal", ends = 4, per = 8, target = 15;
+let state = "menu", tot = [0, 0], endNo = 1, hammer = 1, first = 0, n = 0, thrown = [0, 0], stones = [], cur = null;
+let curlSel = 0, sweepHeld = false, keySweep = false, aimF = null, kb = { on: false, ang: 0, pow: .5, x: 180 };
+let cpuT = 0, plan = null, settleT = 0, acc = 0, TS = 1, AUTO = false, last = { dist: 0, y: 0, swept: 0 }, sweepBtn = null, inBtn = null, outBtn = null;
+let runT = 0, hist = [], msg = "", lastScoreTxt = "", matchT = 0, pxHist = 0;
+const tn = (t) => (mode === "cpu" ? (t === 0 ? "You" : "CPU") : (t === 0 ? "Red" : "Yellow"));
+const tcol = (t) => (t === 0 ? "Red" : "Yellow");
+const isCpu = (t) => AUTO || (mode === "cpu" && t === 1);
+const teamNow = () => (n % 2 === 0 ? first : 1 - first);
+const iceF = () => ({ slow: 1.3, normal: 1, fast: .75 })[ice];
+const NOISE = () => ({ easy: [.05, .09], normal: [.025, .045], hard: [.01, .015] })[skill];
+const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / .75;
+
+// ---------- shared physics ----------
+function collide(a, b, e) {
+  const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), m = a.r + b.r;
+  if (d >= m || d === 0) return 0;
+  const nx = dx / d, ny = dy / d, ov = (m - d) / 2;
+  a.x -= nx * ov; a.y -= ny * ov; b.x += nx * ov; b.y += ny * ov;
+  const vn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+  if (vn <= 0) return 0;
+  const j = (1 + e) / 2 * vn;
+  a.vx -= j * nx; a.vy -= j * ny; b.vx += j * nx; b.vy += j * ny;
+  return vn;
+}
+const spd = (s) => Math.hypot(s.vx, s.vy);
+const anyMoving = (L) => L.some((s) => s.vx !== 0 || s.vy !== 0);
+const FIX = 1 / 60;
+
+// ---------- curling physics ----------
+const CURL_A = () => 40 * iceF();
+function stepCurl(L, cb) {
+  const A = CURL_A();
+  for (const s of L) {
+    if (s.out || (s.vx === 0 && s.vy === 0)) continue;
+    let v = spd(s);
+    const f = s.sw ? .62 : 1;
+    v -= A * f * FIX;
+    if (v < 3) { s.vx = s.vy = 0; continue; }
+    // rotate heading: curl grows as the stone slows; sweeping straightens it
+    const sc = v / Math.max(1, spd(s));
+    s.vx *= sc; s.vy *= sc;
+    const rate = 5 * (.3 + .7 * Math.max(0, 1 - v / s.v0)) * (s.sw ? .22 : 1) * s.cd / Math.max(v, 30);
+    const c = Math.cos(rate * FIX), sn = Math.sin(rate * FIX), nx = s.vx * c - s.vy * sn, ny = s.vx * sn + s.vy * c;
+    s.vx = nx; s.vy = ny;
+    s.x += s.vx * FIX; s.y += s.vy * FIX; s.dist += v * FIX;
+    if (s.sw) s.swt += FIX;
+  }
+  for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+    const a = L[i], b = L[j]; if (a.out || b.out) continue;
+    if ((a.vx === 0 && a.vy === 0 && b.vx === 0 && b.vy === 0)) continue;
+    const imp = collide(a, b, .92);
+    if (imp) { a.hitBy = b.team; b.hitBy = a.team; a.hit = b.hit = 1; cb && cb(a, b, imp); }
+  }
+  for (const s of L) if (!s.out && (s.x - s.r < SL || s.x + s.r > SR || s.y < BACK - s.r)) { s.out = true; s.vx = s.vy = 0; }
+}
+function mkStone(team, ang, v, curl) {
+  return { x: SX, y: HACK_Y, vx: v * Math.sin(ang), vy: -v * Math.cos(ang), r: SR_R, team, cd: curl ? 1 : -1, v0: v, dist: 0, swt: 0, sw: false, hit: 0, hitBy: -1, out: false, id: Math.random() };
+}
+const cloneS = (s) => ({ ...s });
+function curlScore(L) {
+  const ins = L.filter((s) => !s.out).map((s) => ({ t: s.team, d: Math.hypot(s.x - SX, s.y - BTN_Y) })).filter((o) => o.d <= HOUSE + SR_R).sort((a, b) => a.d - b.d);
+  if (!ins.length) return { team: -1, pts: 0, ins };
+  const t = ins[0].t, other = ins.find((o) => o.t !== t), lim = other ? other.d : Infinity;
+  const pts = ins.filter((o) => o.t === t && o.d < lim).length;
+  return { team: pts ? t : -1, pts, ins };
+}
+function simCurl(base, s0, maxSteps = 1600) {
+  const L = base.map(cloneS); const s = cloneS(s0); L.push(s);
+  let k = 0; while (anyMoving(L) && k++ < maxSteps) stepCurl(L);
+  return { L, s };
+}
+function evalCurl(L, s, team) {
+  const sc = curlScore(L), base = sc.team === team ? sc.pts : sc.team === -1 ? 0 : -sc.pts;
+  let v = base * 10;
+  const mine = sc.ins.find((o) => o.t === team), opp = sc.ins.find((o) => o.t !== team);
+  if (mine) v += (HOUSE + SR_R - mine.d) / 69 * 3;
+  if (opp) v -= (HOUSE + SR_R - opp.d) / 69 * 3;
+  if (!s.out && !s.hit && s.y > HOG - 1) v -= 6; // hogged
+  if (s.out && !s.hit) v -= 4;
+  return v + Math.random() * .3;
+}
+function planCurl(team) {
+  const base = stones.filter((s) => !s.out);
+  const cands = [];
+  for (const curl of [0, 1]) for (let a = -.2; a <= .2001; a += .02) for (let v = 100; v <= 236; v += 12) {
+    const r = simCurl(base, mkStone(team, a, v, curl));
+    if (r.s.out && !r.s.hit) continue;
+    cands.push({ a, v, curl, val: evalCurl(r.L, r.s, team), draw: !r.s.hit, ty: r.s.y });
+  }
+  cands.sort((x, y) => y.val - x.val);
+  const top = ({ easy: 6, normal: 3, hard: 1 })[skill];
+  const c = cands.length ? cands[Math.floor(Math.random() * Math.min(top, cands.length))] : { a: 0, v: 160, curl: 0, draw: true, ty: BTN_Y, val: 0 };
+  const [na, nv] = NOISE();
+  return { a: c.a + gauss() * na * .5, v: c.v * (1 + gauss() * nv * .5), curl: c.curl, draw: c.draw, ty: c.ty };
+}
+function predictY(s) { const r = simCurl([], { ...s, sw: false, swt: 0 }); return r.s.y; }
+
+// ---------- shuffleboard physics ----------
+const SH_A = () => 130 * iceF();
+function stepShuf(L, cb) {
+  const A = SH_A();
+  for (const p of L) {
+    if (p.out || (p.vx === 0 && p.vy === 0)) continue;
+    const v = spd(p) - A * FIX;
+    if (v < 4) { p.vx = p.vy = 0; continue; }
+    const sc = v / spd(p); p.vx *= sc; p.vy *= sc; p.x += p.vx * FIX; p.y += p.vy * FIX;
+  }
+  for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+    const a = L[i], b = L[j]; if (a.out || b.out) continue;
+    if (a.vx === 0 && a.vy === 0 && b.vx === 0 && b.vy === 0) continue;
+    const imp = collide(a, b, .88);
+    if (imp) { a.hitBy = b.team; b.hitBy = a.team; a.hit = b.hit = 1; cb && cb(a, b, imp); }
+  }
+  for (const p of L) if (!p.out && (p.x < TL || p.x > TR || p.y < TY)) { p.out = true; p.vx = p.vy = 0; p.fell = 1; }
+}
+const pval = (p) => (p.y < TY + PR ? 4 : p.y < 95 ? 3 : p.y < 145 ? 2 : p.y < 205 ? 1 : 0);
+function shufScore(L) {
+  const A = L.filter((p) => !p.out); const best = [Infinity, Infinity];
+  for (const p of A) best[p.team] = Math.min(best[p.team], p.y);
+  if (best[0] === best[1]) return { team: -1, pts: 0 };
+  const t = best[0] < best[1] ? 0 : 1, lim = best[1 - t];
+  const pts = A.filter((p) => p.team === t && p.y < lim).reduce((a, p) => a + pval(p), 0);
+  return { team: pts ? t : -1, pts };
+}
+function mkPuck(team, x, ang, v) { return { x, y: PUCK_Y, vx: v * Math.sin(ang), vy: -v * Math.cos(ang), r: PR, team, out: false, hit: 0, hitBy: -1, id: Math.random() }; }
+function simShuf(base, p0) { const L = base.map(cloneS); const p = cloneS(p0); L.push(p); let k = 0; while (anyMoving(L) && k++ < 1500) stepShuf(L); return { L, p }; }
+function planShuf(team) {
+  const base = stones.filter((p) => !p.out), cands = [];
+  for (let x = TL + 30; x <= TR - 30; x += 32) for (let a = -.12; a <= .1201; a += .06) for (let v = 150; v <= 540; v += 20) {
+    const { L, p } = simShuf(base, mkPuck(team, x, a, v));
+    const sc = shufScore(L); let val = (sc.team === team ? sc.pts : sc.team === -1 ? 0 : -sc.pts) * 10;
+    if (p.out) val -= 3; else val += pval(p) * 1.5;
+    for (const q of L) if (q.out && q.team !== team && q.id !== p.id) val += 4;
+    for (const q of L) if (q.out && q.team === team && q.id !== p.id) val -= 5;
+    cands.push({ x, a, v, val: val + Math.random() * .5 });
+  }
+  cands.sort((x, y) => y.val - x.val);
+  const c = cands[Math.floor(Math.random() * Math.min(({ easy: 8, normal: 3, hard: 1 })[skill], cands.length))];
+  const [na, nv] = NOISE();
+  return { x: c.x, a: c.a + gauss() * na * .5, v: c.v * (1 + gauss() * nv * .5) };
+}
+
+// ---------- match flow ----------
+function hud() {
+  if (game === "curl") stats({ [tn(0)]: tot[0], [tn(1)]: tot[1], End: endNo + "/" + ends });
+  else stats({ [tn(0)]: tot[0], [tn(1)]: tot[1], Rd: endNo });
+}
+function startMatch() {
+  game = opt("game", "curl", GAMES); mode = opt("mode", "cpu", MODES); ice = opt("ice", "normal", ICES); skill = opt("cpu", "normal", SKILLS);
+  ends = opt("ends", 4, [2, 4, 6]); per = opt("stones", 8, [4, 8]); target = opt("target", 15, [11, 15, 21]);
+  tot = [0, 0]; endNo = 1; hammer = 1; curlSel = 0; sweepHeld = keySweep = false; aimF = null; matchT = 0; runT = 0; parts.length = 0;
+  if (game === "curl") showControls(); else Kit.hideControls();
+  beginEnd();
+}
+function beginEnd() {
+  stones = []; cur = null; thrown = [0, 0]; n = 0; first = game === "curl" ? 1 - hammer : (endNo % 2 ? 0 : 1); if (game === "shuf") hammer = -1;
+  kb = { on: false, ang: 0, pow: .5, x: SX }; hud(); showTurn();
+}
+const perNow = () => (game === "curl" ? per : 4);
+function showTurn() {
+  cur = null; aimF = null; const t = teamNow(); hud(); plan = null;
+  if (isCpu(t)) { state = "cpu"; cpuT = .9; return; }
+  if (mode === "2p") {
+    state = "pass";
+    card(`<h1>Pass to ${tcol(t)}</h1><p class="sub"><b style="color:${TEAMC[t]}">${tcol(t)}</b>: ${game === "curl" ? "stone" : "puck"} ${thrown[t] + 1} of ${perNow()}</p>`, "Ready", () => { state = "aim"; Kit.sfx("click"); });
+  } else state = "aim";
+}
+function release(team, a, v, curl, x) {
+  if (game === "curl") { cur = mkStone(team, a, v, curl); }
+  else { cur = mkPuck(team, x, a, v); }
+  cur.thrownT = team; stones.forEach((s) => { s.hitBy = -1; s.hit = 0; });
+  stones.push(cur); thrown[team]++; n++; state = "fly"; last = { dist: 0, y: 0, swept: 0 }; Kit.sfx("whoosh"); Kit.haptic(14); aimF = null; kb.on = false;
+}
+function afterThrow() {
+  // remove hogged stones, run challenge checks, move on
+  const t = cur.team;
+  if (game === "curl") {
+    for (const s of stones) if (!s.out && s.y > HOG) { s.out = true; if (s === cur) toast("Hogged: stone did not clear the hog line"); }
+    if (!cur.out && !isCpu(t)) {
+      const d = Math.hypot(cur.x - SX, cur.y - BTN_Y);
+      if (d <= 16) award("button");
+      if (d <= HOUSE + SR_R && cur.swt >= .8) award("sweep");
+    }
+    if (!isCpu(t) && stones.some((s) => s.out && s.hitBy === t && s.team !== t && s !== cur)) award("takeout");
+  } else if (!cur.out && !isCpu(t) && cur.y < TY + PR && cur.y >= TY) award("hanger");
+  stones = stones.filter((s) => !s.out);
+  if (thrown[0] + thrown[1] >= 2 * perNow()) endRound(); else showTurn();
+}
+function endRound() {
+  state = "endcard";
+  if (game === "curl") {
+    const sc = curlScore(stones); let line;
+    if (sc.pts) { tot[sc.team] += sc.pts; line = `<b style="color:${TEAMC[sc.team]}">${tn(sc.team)}</b> scores ${sc.pts}`; if (sc.pts >= 2 && (mode === "2p" || sc.team === 0)) award("end2"); hammer = 1 - sc.team; }
+    else line = "Blank end. The hammer stays.";
+    hud(); Kit.sfx(sc.pts ? "win" : "click");
+    const over = endNo >= ends && tot[0] !== tot[1];
+    if (over) return gameOver(line);
+    card(`<h1>End ${endNo} done</h1><p class="sub">${line}</p><p class="sub">${tn(0)} ${tot[0]} · ${tn(1)} ${tot[1]}${endNo >= ends ? "<br>Tied. Extra end!" : ""}</p>`, "Next end", () => { endNo++; beginEnd(); });
+  } else {
+    const sc = shufScore(stones); let line;
+    if (sc.pts) { tot[sc.team] += sc.pts; line = `<b style="color:${TEAMC[sc.team]}">${tn(sc.team)}</b> scores ${sc.pts}`; } else line = "No score this round.";
+    hud(); Kit.sfx(sc.pts ? "win" : "click");
+    const a = tot[0] >= target, b = tot[1] >= target;
+    if ((a || b) && tot[0] !== tot[1]) return gameOver(line);
+    card(`<h1>Round ${endNo} done</h1><p class="sub">${line}</p><p class="sub">${tn(0)} ${tot[0]} · ${tn(1)} ${tot[1]} (first to ${target})</p>`, "Next round", () => { endNo++; beginEnd(); });
+  }
+}
+function gameOver(line) {
+  state = "over"; const w = tot[0] > tot[1] ? 0 : 1;
+  if (mode === "cpu" && w === 0) award(game === "curl" ? "curlwin" : "shufwin");
+  Kit.record({ win: mode === "cpu" ? w === 0 : true, score: tot[0], secs: Math.round(matchT) });
+  Kit.sfx("win"); burst(180, 200, TEAMC[w], 40, 200, 1.2);
+  card(`<h1>${mode === "cpu" ? (w === 0 ? "You win!" : "CPU wins") : tcol(w) + " wins!"}</h1><p class="sub">${line}</p><p class="sub">Final: ${tn(0)} ${tot[0]} · ${tn(1)} ${tot[1]}</p>`, "Play again", () => startMatch());
+  const b = document.createElement("button"); b.className = "ghost"; b.textContent = "Menu";
+  b.onclick = () => { document.getElementById("over").hidden = true; openMenu(); }; document.getElementById("card").append(b);
+}
+
+// ---------- input ----------
+function powFromDrag(len) { return 90 + (clamp(len, 14, DRAGMAX) - 14) / (DRAGMAX - 14) * 150; }
+function curlAim(f) { // returns {ang, v, len} from a finger drag back from the hack
+  const dx = f.x - f.x0, dy = f.y - f.y0, len = Math.min(DRAGMAX, Math.hypot(dx, dy));
+  const ang = clamp(Math.atan2(-dx, Math.max(dy, 1)), -.6, .6);
+  return { ang, len, v: powFromDrag(len), ok: len >= 14 && dy >= 6 };
+}
+function flickAim(f) {
+  const t = performance.now(), h = (f.hist || []).filter((q) => t - q.t < 140 || q === f.hist[f.hist.length - 1]);
+  let fx = f.x - f.x0, fy = f.y - f.y0, len = Math.hypot(fx, fy), sp;
+  if (h.length >= 2) { const a = h[0], b = h[h.length - 1], dt = Math.max(.05, (b.t - a.t) / 1000); sp = Math.hypot(b.x - a.x, b.y - a.y) / dt; } else sp = len / Math.max(.06, (f.dt || 100) / 1000);
+  if (len < 20 && h.length >= 2) { const a = h[0], b = h[h.length - 1]; fx = b.x - a.x; fy = b.y - a.y; }
+  const ang = clamp(Math.atan2(fx, -Math.min(fy, -1)), -.6, .6);
+  return { ang, v: clamp(sp * .6, 110, 540), ok: fy < -12 && Math.hypot(fx, fy) >= 18, x: clamp(f.x0, TL + PR + 4, TR - PR - 4) };
+}
+Kit.play({
+  start(f) {
+    if (state !== "aim" || aimF) return;
+    if (game === "curl" ? (f.y >= HACKZ && f.x > SL - 20 && f.x < SR + 20) : f.y >= FLICKY) {
+      aimF = f; f.owner = "aim"; f.hist = [{ x: f.x, y: f.y, t: performance.now() }]; kb.on = false; Kit.sfx("tick");
+    }
+  },
+  move(f) { if (f === aimF) { f.hist.push({ x: f.x, y: f.y, t: performance.now() }); if (f.hist.length > 12) f.hist.shift(); } },
+  end(f) {
+    if (f !== aimF) return; aimF = null;
+    if (state !== "aim") return;
+    f.hist.push({ x: f.x, y: f.y, t: performance.now() });
+    if (game === "curl") { const a = curlAim(f); if (a.ok) release(teamNow(), a.ang, a.v, curlSel, SX); else toast("Drag further back to throw"); }
+    else { const a = flickAim(f); if (a.ok) release(teamNow(), a.ang, a.v, 0, a.x); else toast("Flick up faster"); }
+  }
+});
+addEventListener("keydown", (e) => {
+  const k = e.key;
+  if (k === "p" || k === "P" || k === "Escape") { Kit.pause(); return; }
+  if (state === "fly" && game === "curl" && (k === " " || k === "s" || k === "S")) { keySweep = true; return; }
+  if (state !== "aim") return;
+  kb.on = true;
+  if (k === "ArrowLeft" || k === "a") { kb.ang = clamp(kb.ang - .03, -.5, .5); kb.x = clamp(kb.x - 8, TL + 16, TR - 16); }
+  else if (k === "ArrowRight" || k === "d") { kb.ang = clamp(kb.ang + .03, -.5, .5); kb.x = clamp(kb.x + 8, TL + 16, TR - 16); }
+  else if (k === "ArrowUp" || k === "w") kb.pow = clamp(kb.pow + .04, 0, 1);
+  else if (k === "ArrowDown") kb.pow = clamp(kb.pow - .04, 0, 1);
+  else if ((k === "i" || k === "o" || k === "c") && game === "curl") setCurl(k === "i" ? 0 : k === "o" ? 1 : 1 - curlSel);
+  else if (k === "Enter" || k === " ") {
+    if (game === "curl") release(teamNow(), kb.ang, 90 + kb.pow * 150, curlSel, SX); else release(teamNow(), kb.ang, 110 + kb.pow * 430, 0, kb.x);
+  }
+});
+addEventListener("keyup", (e) => { if (e.key === " " || e.key === "s" || e.key === "S") keySweep = false; });
+function setCurl(v) { curlSel = v; paintSel(); Kit.sfx("click"); }
+function paintSel() {
+  if (!inBtn) return;
+  for (const [b, on] of [[inBtn, curlSel === 0], [outBtn, curlSel === 1]]) { b.style.outline = on ? "3px solid #5ad1ff" : "none"; b.style.background = on ? "#1b4a66" : ""; b.style.opacity = on ? "1" : ".7"; }
+}
+function showControls() {
+  inBtn = Kit.button(`<span class="big">↶</span>IN`, { down: () => setCurl(0), cls: "sm", aria: "In turn, curls left" });
+  outBtn = Kit.button(`<span class="big">↷</span>OUT`, { down: () => setCurl(1), cls: "sm", aria: "Out turn, curls right" });
+  sweepBtn = Kit.button(`<span class="big">≋</span>SWEEP`, { down: () => { sweepHeld = true; }, up: () => { sweepHeld = false; }, cls: "wide", aria: "Sweep, hold while the stone moves" });
+  sweepBtn.style.minWidth = "150px"; sweepBtn.style.height = "96px";
+  Kit.controls([inBtn, outBtn], [sweepBtn]); paintSel();
+}
+
+// ---------- update ----------
+function cpuThrow() {
+  const t = teamNow();
+  if (game === "curl") { plan = planCurl(t); release(t, plan.a, plan.v, plan.curl, SX); }
+  else { plan = planShuf(t); release(t, plan.a, plan.v, 0, plan.x); }
+}
+function cbHit(a, b, imp) { if (imp > 15) { Kit.sfx("hit"); Kit.haptic(imp > 60 ? 30 : 12); burst((a.x + b.x) / 2, (a.y + b.y) / 2, "#dff4ff", Math.min(14, 4 + (imp / 12 | 0)), 90, .5); } }
+function update(dt) {
+  runT += dt; if (state === "aim" || state === "fly" || state === "cpu") matchT += dt;
+  if (state === "cpu") { cpuT -= dt * TS; if (cpuT <= 0) cpuThrow(); return; }
+  if (state === "fly") {
+    acc += dt * TS;
+    let guard = 0;
+    while (acc >= FIX && guard++ < 200) {
+      acc -= FIX;
+      if (game === "curl") {
+        if (isCpu(cur.team)) {
+          if (plan && plan.draw && !cur.out) cur.sw = predictY({ ...cur }) > plan.ty + 10;
+          else cur.sw = false;
+        } else cur.sw = sweepHeld || keySweep;
+        stepCurl(stones, cbHit);
+        if (cur.sw && (cur.vx || cur.vy) && Math.random() < .5) burst(cur.x + rnd(-8, 8), cur.y - 12, "#ffffff", 1, 40, .4);
+      } else stepShuf(stones, cbHit);
+      if (!anyMoving(stones)) { acc = 0; state = "settle"; settleT = .45; last = { dist: cur.dist || 0, y: cur.y, swept: cur.swt || 0 }; break; }
+    }
+    for (const s of stones) if (s.out && !s.puff) { s.puff = 1; Kit.sfx(s.fell ? "splash" : "thud"); burst(clamp(s.x, 20, 340), clamp(s.y, 30, 480), "#bfe7ff", 12, 110, .6); }
+    if (state === "fly") last = { dist: cur.dist || 0, y: cur.y, swept: cur.swt || 0 };
+    return;
+  }
+  if (state === "settle") { settleT -= dt; if (settleT <= 0) afterThrow(); }
+}
+
+// ---------- drawing ----------
+function drawStone(s, a = 1) {
+  ctx.globalAlpha = a;
+  ctx.fillStyle = "rgba(0,0,0,.28)"; ctx.beginPath(); ctx.arc(s.x + 2, s.y + 3, s.r, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#9aa3ad"; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#c9d0d8"; ctx.beginPath(); ctx.arc(s.x, s.y, s.r - 1.5, 0, TAU); ctx.fill();
+  ctx.fillStyle = TEAMC[s.team]; ctx.beginPath(); ctx.arc(s.x, s.y, s.r - 3.5, 0, TAU); ctx.fill();
+  ctx.fillStyle = TEAMD[s.team]; ctx.fillRect(s.x - 1.5, s.y - (s.r - 3.5), 3, (s.r - 3.5) * 2);
+  ctx.globalAlpha = 1;
+}
+function drawPuck(p, a = 1) {
+  ctx.globalAlpha = a;
+  ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.beginPath(); ctx.arc(p.x + 2, p.y + 3, PR, 0, TAU); ctx.fill();
+  ctx.fillStyle = TEAMD[p.team]; ctx.beginPath(); ctx.arc(p.x, p.y, PR, 0, TAU); ctx.fill();
+  ctx.fillStyle = TEAMC[p.team]; ctx.beginPath(); ctx.arc(p.x, p.y, PR - 2, 0, TAU); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, PR - 5, 0, TAU); ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+function panel(t, x) { // curling side panel
+  const tm = teamNow(), act = (state === "aim" || state === "fly" || state === "cpu" || state === "pass") && tm === t;
+  ctx.fillStyle = act ? "rgba(90,209,255,.14)" : "rgba(255,255,255,.04)"; rr(x + 4, 30, 80, 250, 10); ctx.fill();
+  text(tn(t).toUpperCase(), x + 44, 48, 13, TEAMC[t]); text(String(tot[t]), x + 44, 80, 32, "#eaf6ff");
+  text(game === "curl" ? "stones left" : "pucks left", x + 44, 108, 11, "#8fb0c8");
+  const left = perNow() - thrown[t];
+  for (let i = 0; i < perNow(); i++) { const cx = x + 24 + (i % 2) * 40, cy = 130 + Math.floor(i / 2) * 22; ctx.globalAlpha = i < left ? 1 : .2; drawStone({ x: cx, y: cy, r: 8, team: t }); }
+  ctx.globalAlpha = 1;
+  if (game === "curl" && hammer === t) text("HAMMER", x + 44, 244, 12, "#5ad1ff");
+  if (act) text(state === "cpu" ? "thinking" : "throwing", x + 44, 264, 11, "#eaf6ff");
+}
+function ptxt(t, x, y, size, col) { ctx.font = `${size}px ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = col; ctx.fillText(t, x, y); }
+function drawCurl() {
+  ctx.fillStyle = "#0a1b2b"; ctx.fillRect(0, 0, LW, LH);
+  const g = ctx.createLinearGradient(0, 0, 0, LH); g.addColorStop(0, "#dff2ff"); g.addColorStop(1, "#bfe3f7");
+  ctx.fillStyle = g; ctx.fillRect(SL, 24, SR - SL, 480);
+  ctx.fillStyle = "rgba(255,255,255,.35)"; for (let i = 0; i < 60; i++) ctx.fillRect(SL + ((i * 37) % 170), 24 + ((i * 91) % 470), 2, 2);
+  ctx.strokeStyle = "#5b7a90"; ctx.lineWidth = 3; ctx.strokeRect(SL, 24, SR - SL, 480);
+  // house
+  for (const [r, c] of [[HOUSE, "#2d6cdf"], [40, "#f2f8ff"], [20, "#e5484d"], [7, "#f2f8ff"]]) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(SX, BTN_Y, r, 0, TAU); ctx.fill(); }
+  ctx.strokeStyle = "rgba(20,40,60,.45)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(SX, 24); ctx.lineTo(SX, 504); ctx.moveTo(SL, BTN_Y); ctx.lineTo(SR, BTN_Y); ctx.stroke();
+  ctx.strokeStyle = "#c0352f"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(SL, HOG); ctx.lineTo(SR, HOG); ctx.stroke();
+  ptxt("HOG LINE", SX, HOG + 12, 11, "#c0352f"); ctx.strokeStyle = "#1b2a3a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(SL, BACK); ctx.lineTo(SR, BACK); ctx.stroke();
+  // hack zone
+  const hz = state === "aim"; ctx.fillStyle = hz ? "rgba(90,209,255,.28)" : "rgba(20,40,60,.12)"; ctx.fillRect(SL, HACKZ, SR - SL, 104);
+  ctx.strokeStyle = hz ? "#0f7fb0" : "#7aa0b8"; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.strokeRect(SL + 1, HACKZ + 1, SR - SL - 2, 102); ctx.setLineDash([]);
+  ctx.fillStyle = "#5b4a3a"; rr(SX - 22, HACK_Y + 14, 44, 8, 3); ctx.fill();
+  ptxt("HACK ZONE", SX, HACKZ + 12, 11, "#0b3a55");
+  if (hz && !aimF && !kb.on) ptxt("drag back from here, release to throw", SX, HACKZ + 92, 11, "#0b3a55");
+  for (const s of stones) if (!s.out) drawStone(s);
+  panel(0, 0); panel(1, 276);
+  // aim visuals
+  if (state === "aim") {
+    const t = teamNow(); let a = null;
+    if (aimF) { a = curlAim(aimF); drawStone({ x: SX, y: HACK_Y, r: SR_R, team: t });
+      ctx.strokeStyle = "rgba(10,27,43,.55)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(SX, HACK_Y); ctx.lineTo(aimF.x, aimF.y); ctx.stroke();
+      ctx.fillStyle = "#0a1b2b"; ctx.beginPath(); ctx.arc(aimF.x, aimF.y, 7, 0, TAU); ctx.fill(); }
+    else if (kb.on) a = { ang: kb.ang, len: 14 + kb.pow * 71, v: 90 + kb.pow * 150, ok: true };
+    if (!aimF) drawStone({ x: SX, y: HACK_Y, r: SR_R, team: t });
+    if (a && (aimF || kb.on)) {
+      const L = 70 + a.len; ctx.strokeStyle = a.ok ? "#0a1b2b" : "rgba(10,27,43,.3)"; ctx.lineWidth = 3; ctx.setLineDash([9, 7]);
+      ctx.beginPath(); ctx.moveTo(SX, HACK_Y); ctx.lineTo(SX + Math.sin(a.ang) * L * 1.6, HACK_Y - Math.cos(a.ang) * L * 1.6); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(10,27,43,.6)"; rr(120, 494, 120, 8, 4); ctx.fill(); ctx.fillStyle = a.ok ? "#e5484d" : "#789"; rr(120, 494, 120 * (a.len - 14) / 71, 8, 4); ctx.fill();
+      ptxt("WEIGHT", 180, 483, 11, "#0b3a55");
+    }
+    text(`${tn(t).toUpperCase()} · stone ${thrown[t] + 1}/${per} · ${curlSel ? "OUT ↷ curls right" : "IN ↶ curls left"}`, SX, 12, 12, TEAMC[t]);
+  } else if (state === "fly" || state === "settle") {
+    const t = cur ? cur.team : 0;
+    text(cur && cur.sw ? "SWEEPING!" : isCpu(t) ? "CPU is sweeping as needed" : "Hold SWEEP to carry it further", SX, 12, 12, cur && cur.sw ? "#ffffff" : "#8fb0c8");
+    if (cur && cur.sw) { ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.lineWidth = 3; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(cur.x + i * 7 - 3, cur.y - 14 - ((runT * 40) % 8)); ctx.lineTo(cur.x + i * 7 + 3, cur.y - 22 - ((runT * 40) % 8)); ctx.stroke(); } }
+  } else if (state === "cpu") text("CPU is lining up its throw...", SX, 12, 12, "#8fb0c8");
+}
+function drawShuf() {
+  ctx.fillStyle = "#0a1b2b"; ctx.fillRect(0, 0, LW, LH);
+  // scoreboard bar
+  text(`${tn(0).toUpperCase()} ${tot[0]}`, 12, 20, 16, TEAMC[0], "left"); text(`${tn(1).toUpperCase()} ${tot[1]}`, 348, 20, 16, TEAMC[1], "right");
+  text(`Round ${endNo} · first to ${target}`, SX, 20, 12, "#8fb0c8");
+  const t = teamNow();
+  // gutters
+  ctx.fillStyle = "#13293c"; ctx.fillRect(TL - 14, TY - 14, TR - TL + 28, 470);
+  const g = ctx.createLinearGradient(TL, 0, TR, 0); g.addColorStop(0, "#c98f4f"); g.addColorStop(.5, "#e0a966"); g.addColorStop(1, "#c98f4f");
+  ctx.fillStyle = g; ctx.fillRect(TL, TY, TR - TL, 440);
+  ctx.strokeStyle = "rgba(120,70,20,.25)"; ctx.lineWidth = 1; for (let x = TL + 22; x < TR; x += 22) { ctx.beginPath(); ctx.moveTo(x, TY); ctx.lineTo(x, TY + 440); ctx.stroke(); }
+  const zones = [[TY, 95, "3", "#5ad1ff"], [95, 145, "2", "#fff"], [145, 205, "1", "#fff"]];
+  for (const [a, b, l] of zones) { ctx.strokeStyle = "rgba(60,30,5,.7)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(TL, b); ctx.lineTo(TR, b); ctx.stroke(); ctx.font = `26px ${FONT}`; text(l, 96, (a + b) / 2 + (a === TY ? 6 : 0), 26, "rgba(255,255,255,.9)"); text(l, 264, (a + b) / 2 + (a === TY ? 6 : 0), 26, "rgba(255,255,255,.9)"); }
+  ctx.strokeStyle = "#e5484d"; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(TL, TY + PR); ctx.lineTo(TR, TY + PR); ctx.stroke(); ctx.setLineDash([]);
+  ptxt("HANGER = 4", SX, TY + 5, 11, "#5a1212"); text("EDGE", SX, TY - 8, 11, "#8fb0c8");
+  // flick band
+  const fb = state === "aim"; ctx.fillStyle = fb ? "rgba(90,209,255,.22)" : "rgba(255,255,255,.06)"; ctx.fillRect(0, FLICKY, LW, LH - FLICKY);
+  ctx.strokeStyle = fb ? "#5ad1ff" : "#4a6479"; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(0, FLICKY); ctx.lineTo(LW, FLICKY); ctx.stroke(); ctx.setLineDash([]);
+  text("FLICK ZONE: touch here, then flick UP", SX, FLICKY + 14, 12, fb ? "#eaf6ff" : "#8fb0c8");
+  for (const tm of [0, 1]) { const left = 4 - thrown[tm]; for (let i = 0; i < 4; i++) { ctx.globalAlpha = i < left ? 1 : .18; drawPuck({ x: tm ? 325 : 35, y: 90 + i * 34, team: tm }); } ctx.globalAlpha = 1; text("left", tm ? 325 : 35, 70, 11, "#8fb0c8"); }
+  for (const p of stones) if (!p.out) drawPuck(p);
+  if (state === "aim") {
+    let x = kb.on ? kb.x : SX, a = null;
+    if (aimF) { a = flickAim(aimF); x = a.x; }
+    else if (kb.on) a = { ang: kb.ang, v: 110 + kb.pow * 430, ok: true };
+    drawPuck({ x, y: PUCK_Y, team: t });
+    if (a) { const L = 40 + (a.v - 110) / 430 * 120; ctx.strokeStyle = a.ok ? "#fff" : "rgba(255,255,255,.35)"; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(x, PUCK_Y); ctx.lineTo(x + Math.sin(a.ang) * L * 2, PUCK_Y - Math.cos(a.ang) * L * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(0,0,0,.5)"; rr(120, 478, 120, 8, 4); ctx.fill(); ctx.fillStyle = "#5ad1ff"; rr(120, 478, 120 * (a.v - 110) / 430, 8, 4); ctx.fill(); text("POWER", SX, 497, 11, "#eaf6ff"); }
+    text(`${tn(t).toUpperCase()} · puck ${thrown[t] + 1}/4`, SX, 511, 12, TEAMC[t]);
+  } else if (state === "cpu") text("CPU is lining up its shot...", SX, FLICKY + 40, 12, "#8fb0c8");
+}
+function draw() {
+  if (state === "menu") { ctx.fillStyle = "#0a1b2b"; ctx.fillRect(0, 0, LW, LH); return; }
+  if (game === "curl") drawCurl(); else drawShuf();
+  drawParts();
+}
+
+// ---------- boot ----------
+loop((dt) => { if (!Kit.isPaused()) { update(dt); stepParts(dt); } draw(); });
+Kit.lifecycle({ pause: () => state === "aim" || state === "fly" || state === "cpu", resume: () => {}, menu: openMenu });
+function openMenu() {
+  state = "menu"; Kit.hideControls(); aimF = null; sweepHeld = keySweep = false;
+  Kit.menu({
+    title: "Curling & Shuffleboard", hand: true, bestLabel: "Best score",
+    html: `<p class="sub">Two games, one phone. <b>Curling:</b> drag back from the hack zone and release (angle sets the line, length sets the weight), pick IN or OUT curl, then hold SWEEP while the stone slides. <b>Shuffleboard:</b> flick a puck up the table. Play a friend, passing the phone, or the CPU.</p>`,
+    settings: [
+      { k: "game", label: "Game", def: "curl", opts: [["curl", "Curling"], ["shuf", "Shuffleboard"]] },
+      { k: "mode", label: "Mode", def: "cpu", opts: [["cpu", "vs CPU"], ["2p", "2 players"]] },
+      { k: "ends", label: "Curling: ends", def: 4, opts: [[2, "2"], [4, "4"], [6, "6"]] },
+      { k: "stones", label: "Curling: stones each", def: 8, opts: [[4, "4 (short)"], [8, "8 (full)"]] },
+      { k: "target", label: "Shuffleboard: target score", def: 15, opts: [[11, "11"], [15, "15"], [21, "21"]] },
+      { k: "ice", label: "Ice / table speed", def: "normal", opts: [["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]] },
+      { k: "cpu", label: "CPU skill", def: "normal", opts: [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]] }
+    ],
+    levels: null,
+    challenges: [
+      { id: "sweep", text: "Sweep a stone into the house" }, { id: "button", text: "Land a stone on the button" },
+      { id: "takeout", text: "Knock an opposing stone out of play" }, { id: "end2", text: "Score 2 or more in one curling end" },
+      { id: "curlwin", text: "Win a curling match against the CPU" }, { id: "hanger", text: "Land a hanger in shuffleboard" },
+      { id: "shufwin", text: "Win a shuffleboard match against the CPU" }
+    ],
+    play: "Play"
+  }, () => startMatch());
+}
+window.T = {
+  get state() { return state; }, get game() { return game; }, get mode() { return mode; }, get team() { return teamNow(); }, get tot() { return tot; },
+  get thrown() { return thrown; }, get count() { return stones.filter((s) => !s.out).length; }, get curlSel() { return curlSel; }, get last() { return last; },
+  get sweeping() { return !!(cur && cur.sw); }, get endNo() { return endNo; }, get per() { return perNow(); }, get n() { return n; }, get paused() { return Kit.isPaused(); },
+  get cur() { return cur; }, get stones() { return stones; }, get hammer() { return hammer; },
+  set ts(v) { TS = clamp(+v || 1, 1, 12); }, set auto(v) { AUTO = !!v; },
+  probeCpu(g) { const t0 = performance.now(); if (g === 'curl') planCurl(1); else planShuf(1); return performance.now() - t0; }, get tsv() { return TS; }, get runT() { return runT; },
+  probe(sweep) { const s = mkStone(0, 0, 130, 0); s.sw = !!sweep; let k = 0; const L = [s]; while (anyMoving(L) && k++ < 3000) stepCurl(L); return { y: s.y, x: s.x, dist: s.dist }; }
+};
+fit(); openMenu();
+
+})();
+</script>
+
+</html>

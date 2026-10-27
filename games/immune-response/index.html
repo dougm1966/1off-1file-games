@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}</style>
+<title>Immune Response</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#1b0a12;--ink:#ffeef2;--muted:#c8a0ac;--accent:#ff7a93;--f-display:"Baloo 2","Trebuchet MS",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2b0712;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#2b0712;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#2b0712}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#2b0712;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Immune Response</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Tap a glowing spot to build a cell · tap a cell to upgrade or sell · NEXT WAVE sends the germs</div><div class="ctl" id="ctl" hidden></div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=560,FONT="'Baloo 2', 'Trebuchet MS', sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ---------- data ----------
+const W = LW, H = LH;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const opt = (k, allowed, d) => { const v = setting(k, d); return allowed.includes(v) ? v : d; };
+const LEVELS = ["Paper Cut", "Sore Throat", "Gut Instinct", "Flu Season", "Kidney Stand", "Thrush", "Lung Siege", "Liver Gate", "Brain Barrier", "Sepsis Storm"];
+const ORGANS = [["tissue", "Finger"], ["tissue", "Throat"], ["coil", "Intestine"], ["lung", "Lungs"], ["bean", "Kidney"], ["tooth", "Mouth"], ["lung", "Lungs"], ["liver", "Liver"], ["brain", "Brain"], ["heart", "Heart"]];
+const MAPS = [
+  [[[-20, 90], [300, 90], [300, 200], [60, 200], [60, 320], [300, 320], [300, 440], [180, 440], [180, 505]]],
+  [[[60, -20], [60, 150], [300, 150], [300, 300], [60, 300], [60, 430], [240, 430], [240, 505]]],
+  [[[-20, 60], [330, 60], [330, 500], [30, 500], [30, 150], [250, 150], [250, 400], [120, 400], [120, 260], [180, 260]]],
+  [[[-20, 80], [120, 80], [120, 260], [180, 260], [180, 510]], [[380, 80], [240, 80], [240, 260], [180, 260], [180, 510]]],
+  [[[-20, 500], [310, 500], [310, 350], [50, 350], [50, 200], [310, 200], [310, 90], [180, 90]]],
+  [[[-20, 70], [100, 70], [100, 300], [180, 300]], [[380, 70], [260, 70], [260, 300], [180, 300]], [[180, 580], [180, 300]]],
+  [[[-20, 60], [320, 60], [320, 140], [40, 140], [40, 220], [320, 220], [320, 300], [40, 300], [40, 380], [320, 380], [320, 460], [180, 460], [180, 515]]],
+  [[[40, -20], [40, 120], [320, 400], [320, 510], [180, 510]], [[320, -20], [320, 120], [40, 400], [40, 510], [180, 510]]],
+  [[[60, -20], [60, 500], [140, 500], [140, 100], [220, 100], [220, 500], [300, 500], [300, 200]]],
+  [[[-20, 60], [320, 60], [320, 200], [40, 200], [40, 330], [180, 330]], [[380, 520], [40, 520], [40, 420], [320, 420], [320, 330], [180, 330]]]
+];
+const SPOTS_N = [9, 10, 11, 11, 11, 12, 12, 12, 12, 13];
+// defenders. ups: multipliers (dmg, rate, range, splash, mark) and additive extras (amp, slow, bRate, bDmg)
+const CELL_ORDER = ["neutro", "macro", "nk", "bcell", "thelp"];
+const CELLS = {
+  neutro: { name: "Neutrophil", cost: 50, col: "#e6d2ff", desc: "Rapid enzyme fire · best vs bacteria", range: 72, rate: .38, dmg: 5, mult: { bacteria: 1, fungus: .8, virus: .5 },
+    ups: [{ c: 45, d: "+45% damage", dmg: 1.45 }, { c: 75, d: "NETs: hits slow 25%", slow: .25 }, { c: 120, d: "Primed: +40% fire rate", rate: .71 }], fact: "Most common white cell; first on the scene." },
+  macro: { name: "Macrophage", cost: 90, col: "#ffd9b8", desc: "Engulfs: splash damage · bacteria, fungi", range: 64, rate: 1.25, dmg: 15, splash: 36, mult: { bacteria: 1, fungus: 1.1, virus: .6 },
+    ups: [{ c: 70, d: "+40% damage", dmg: 1.4 }, { c: 100, d: "Wider engulf area", splash: 1.35 }, { c: 150, d: "Activated: +35% dmg, faster", dmg: 1.35, rate: .8 }], fact: "Big eater; swallows germs whole." },
+  nk: { name: "NK Cell", cost: 120, col: "#ff9fb0", desc: "Heavy single hits · best vs viruses", range: 88, rate: 1.7, dmg: 42, mult: { bacteria: .8, fungus: 1, virus: 1.6 },
+    ups: [{ c: 90, d: "+40% damage", dmg: 1.4 }, { c: 120, d: "+15% range, faster", range: 1.15, rate: .85 }, { c: 170, d: "Granzyme surge: +50% dmg", dmg: 1.5 }], fact: "Perforin and granzymes kill infected cells." },
+  bcell: { name: "B Cell", cost: 80, col: "#9ccdff", desc: "Antibodies mark and slow the target", range: 92, rate: 1.1, dmg: 2, mark: 2.5, amp: .25, slow: .35, mult: { bacteria: 1, fungus: 1, virus: 1 },
+    ups: [{ c: 60, d: "Antibodies last longer", mark: 1.5 }, { c: 90, d: "Marked take +15% more dmg", amp: .15 }, { c: 130, d: "Plasma cell: faster, +range", rate: .7, range: 1.12 }], fact: "Makes antibodies that tag germs for killing." },
+  thelp: { name: "T Helper", cost: 100, col: "#8ff0c6", desc: "Cytokines boost nearby cells' speed/damage", range: 84, rate: 1, dmg: 0, bRate: .22, bDmg: .1, mult: {},
+    ups: [{ c: 80, d: "Stronger signals: +speed", bRate: .12 }, { c: 110, d: "+15% range, +dmg boost", range: 1.15, bDmg: .1 }, { c: 150, d: "Master regulator", bRate: .16, bDmg: .1, range: 1.1 }], fact: "Coordinates the immune response with cytokines." }
+};
+const TARGETS = [["first", "First"], ["strong", "Strongest"], ["weak", "Weakest"], ["last", "Last"]];
+const ENEMIES = {
+  staph: { name: "Staph", kind: "bacteria", hp: 30, sp: 40, rw: 5, dmg: 1, r: 8, armor: 0, draw: "staph", s: 1, cost: 10, fact: "Staph: round bacteria in grape-like clusters" },
+  ecoli: { name: "E. coli", kind: "bacteria", hp: 22, sp: 64, rw: 5, dmg: 1, r: 9, armor: 0, draw: "ecoli", s: 1, cost: 12, fact: "E. coli: fast rod bacteria with flagella" },
+  flu: { name: "Influenza", kind: "virus", hp: 16, sp: 58, rw: 3, dmg: 1, r: 6, armor: 0, draw: "flu", s: 1, cost: 7, fact: "Influenza: spiky virus. NK cells excel here" },
+  strep: { name: "Strep", kind: "bacteria", hp: 36, sp: 42, rw: 7, dmg: 1, r: 11, armor: 0, draw: "strep", s: 1, cost: 16, split: ["strep2", 2], fact: "Strep: chain bacteria that break apart" },
+  strep2: { name: "Strep link", kind: "bacteria", hp: 16, sp: 54, rw: 2, dmg: 1, r: 7, armor: 0, draw: "strep", s: .7, cost: 0, fact: "A broken-off Strep chain link" },
+  candida: { name: "Candida", kind: "fungus", hp: 120, sp: 26, rw: 14, dmg: 2, r: 10, armor: 0, draw: "candida", s: 1.3, cost: 26, split: ["bud", 3], fact: "Candida: yeast that multiplies by budding" },
+  bud: { name: "Yeast bud", kind: "fungus", hp: 24, sp: 50, rw: 2, dmg: 1, r: 6, armor: 0, draw: "candida", s: .8, cost: 0, fact: "A new yeast bud" },
+  tb: { name: "TB", kind: "bacteria", hp: 110, sp: 30, rw: 14, dmg: 2, r: 10, armor: 3, draw: "tb", s: 1, cost: 30, fact: "TB: waxy wall shrugs off weak hits" },
+  mrsa: { name: "MRSA", kind: "bacteria", hp: 320, sp: 30, rw: 40, dmg: 4, r: 13, armor: 2, draw: "mrsa", s: 1.5, cost: 0, fact: "MRSA: Staph that resists antibiotics" },
+  mold: { name: "Aspergillus", kind: "fungus", hp: 950, sp: 20, rw: 120, dmg: 8, r: 16, armor: 2, draw: "mold", s: 1.4, cost: 0, split: ["bud", 5], fact: "Aspergillus: mold with branching hyphae" }
+};
+const UNLOCK = { staph: 0, ecoli: 1, flu: 2, strep: 3, candida: 4, tb: 5.2 };
+const DIFF = { easy: { atp: 260, hp: 25, hpm: .8, rw: 1.15 }, normal: { atp: 200, hp: 20, hpm: 1, rw: 1 }, hard: { atp: 170, hp: 14, hpm: 1.3, rw: .9 } };
+const dif = () => DIFF[opt("diff", ["easy", "normal", "hard"], "normal")];
+const nWaves = (lv) => 8 + (lv >> 1);
+
+// ---------- state ----------
+let state = "menu", level = 1, mode = "campaign", paths = [], spots = [], organ = [0, 0], towers = [], enemies = [], bullets = [], floats = [], beams = [], spawnQ = [];
+let clock = 0, wave = 0, energy = 0, hp = 0, maxHp = 0, lostHp = 0, speed = 1, fever = { t: 0, cd: 0 }, ui = null, press = null, score = 0, kills = 0, markKills = 0;
+let usedAdaptive = false, bonusPaid = 0, autoT = 0, nextLock = 0, flash = 0, runT = 0, sfxT = {}, hudKey = "", feverBtn, speedBtn, nextBtn, bgSeed = [];
+
+// ---------- paths and spots ----------
+function mkPath(pts) { const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return { pts, cum, len: cum[cum.length - 1] }; }
+function posAt(P, d) {
+  d = clamp(d, 0, P.len); let i = 1; while (i < P.cum.length - 1 && P.cum[i] < d) i++;
+  const a = P.pts[i - 1], b = P.pts[i], k = (d - P.cum[i - 1]) / ((P.cum[i] - P.cum[i - 1]) || 1);
+  return { x: a[0] + (b[0] - a[0]) * k, y: a[1] + (b[1] - a[1]) * k, a: Math.atan2(b[1] - a[1], b[0] - a[0]) };
+}
+function genSpots(n) {
+  const samples = []; for (const P of paths) for (let d = 0; d <= P.len; d += 12) samples.push(posAt(P, d));
+  const c = []; let id = 0;
+  for (const P of paths) for (let d = 16; d < P.len - 10; d += 10) {
+    const p = posAt(P, d);
+    for (const s of [-1, 1]) for (const off of [40, 50]) {
+      const x = p.x - Math.sin(p.a) * off * s, y = p.y + Math.cos(p.a) * off * s;
+      if (x < 26 || x > W - 26 || y < 50 || y > H - 22 || Math.hypot(x - organ[0], y - organ[1]) < 46) continue;
+      let md = 1e9, cov = 0; for (const q of samples) { const dd = Math.hypot(q.x - x, q.y - y); if (dd < md) md = dd; if (dd < 76) cov++; }
+      if (md >= 33) c.push({ x: Math.round(x), y: Math.round(y), cov, id: id++ });
+    }
+  }
+  c.sort((a, b) => b.cov - a.cov || a.id - b.id);
+  const out = []; for (const q of c) { if (out.length >= n) break; if (out.every((o) => Math.hypot(o.x - q.x, o.y - q.y) >= 54)) out.push({ x: q.x, y: q.y, tw: null }); }
+  return out;
+}
+
+// ---------- waves ----------
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function waveDef(lv, w) {
+  const r = rng(lv * 977 + w * 31 + 7), prog = (lv - 1) * .6 + w * .35, avail = Object.keys(UNLOCK).filter((k) => UNLOCK[k] <= prog);
+  const N = nWaves(lv), last = mode === "campaign" && w === N;
+  const B = (24 + w * 15) * (1 + (lv - 1) * .09) * [1, .8, .6][MAPS[lv - 1].length - 1] * (w > 12 ? 1 + (w - 12) * .05 : 1);
+  const newest = avail.reduce((a, k) => (UNLOCK[k] > UNLOCK[a] ? k : a), avail[0]);
+  const groups = [], nG = 1 + (w > 3 ? 1 : 0) + (w > 8 ? 1 : 0), chosen = [];
+  if (w > 1 && prog - UNLOCK[newest] < .9 && newest !== "staph") chosen.push(newest);
+  while (chosen.length < nG) { const k = avail[Math.floor(r() * avail.length)]; if (!chosen.includes(k)) chosen.push(k); else if (avail.length <= chosen.length) break; }
+  let t = 0;
+  for (const k of chosen) {
+    const d = ENEMIES[k], cnt = Math.max(2, Math.round(B / chosen.length / d.cost)), gap = k === "flu" ? .45 : k === "ecoli" ? .7 : k === "candida" || k === "tb" ? 1.5 : 1;
+    groups.push({ type: k, count: cnt, gap, t0: t }); t += cnt * gap * .55;
+  }
+  if (last || (mode === "endless" && w % 10 === 0)) groups.push({ type: lv >= 6 || w > 10 ? "mold" : "mrsa", count: mode === "endless" ? 1 + Math.floor(w / 10) : 1, gap: 4, t0: t + 2 });
+  return groups;
+}
+function startWave() {
+  if (state !== "play" || clock < nextLock) return false;
+  if (mode === "campaign" && wave >= nWaves(level)) return false;
+  nextLock = clock + .5; wave++;
+  const early = spawnQ.length === 0 && enemies.length > 0 ? 12 : 0; if (early) { energy += early; flt(W / 2, 60, "+" + early + " early", "#ffd479"); }
+  const groups = waveDef(level, wave), d = dif(), base = clock + .6, items = [];
+  for (const g of groups) for (let i = 0; i < g.count; i++) items.push({ t: base + g.t0 + i * g.gap, type: g.type, path: items.length % paths.length });
+  items.sort((a, b) => a.t - b.t); spawnQ.push(...items); spawnQ.sort((a, b) => a.t - b.t);
+  autoT = 0; Kit.sfx("whoosh"); Kit.haptic(12); hud(); return true;
+}
+function mkEnemy(type, pathIdx, d, hpScale) {
+  const def = ENEMIES[type], P = paths[pathIdx], pos = posAt(P, d);
+  return { type, def, path: pathIdx, d, hp: def.hp * hpScale, mhp: def.hp * hpScale, x: pos.x, y: pos.y, a: pos.a, mark: 0, amp: 0, mslow: 0, slowT: 0, slow: 0, dead: false, sc: hpScale };
+}
+function hpScale() { return (1 + .1 * (wave - 1) + .05 * (level - 1)) * dif().hpm * (mode === "endless" && wave > 12 ? 1 + (wave - 12) * .08 : 1); }
+
+// ---------- building ----------
+function cstats(tw) {
+  const c = CELLS[tw.type], s = { dmg: c.dmg || 0, rate: c.rate, range: c.range, splash: c.splash || 0, slow: c.slow || 0, mark: c.mark || 0, amp: c.amp || 0, bRate: c.bRate || 0, bDmg: c.bDmg || 0 };
+  for (let i = 0; i < tw.lv - 1; i++) { const u = c.ups[i]; s.dmg *= u.dmg || 1; s.rate *= u.rate || 1; s.range *= u.range || 1; s.splash *= u.splash || 1; s.mark *= u.mark || 1; s.amp += u.amp || 0; s.slow = Math.max(s.slow, u.slow || 0); s.bRate += u.bRate || 0; s.bDmg += u.bDmg || 0; }
+  return s;
+}
+function build(si, type) {
+  const sp = spots[si], c = CELLS[type]; if (!sp || sp.tw || !c) return false;
+  if (energy < c.cost) { toast("Not enough ATP for a " + c.name); Kit.sfx("hit"); return false; }
+  energy -= c.cost; const tw = { type, lv: 1, cd: .3, x: sp.x, y: sp.y, spent: c.cost, target: opt("tgt", ["first", "strong", "weak", "last"], "first"), buff: { r: 0, d: 0 }, ang: 0, pop: .25 };
+  sp.tw = tw; towers.push(tw); if (type === "bcell" || type === "thelp") usedAdaptive = true;
+  Kit.sfx("coin"); Kit.haptic(15); burst(sp.x, sp.y, c.col, 14, 90, .5); hud(); return true;
+}
+function upgrade(tw) {
+  const c = CELLS[tw.type], u = c.ups[tw.lv - 1]; if (!u) return false;
+  if (energy < u.c) { toast("Need " + u.c + " ATP"); Kit.sfx("hit"); return false; }
+  energy -= u.c; tw.spent += u.c; tw.lv++; tw.pop = .3; Kit.sfx("power"); Kit.haptic(20); burst(tw.x, tw.y, c.col, 16, 110, .6); hud(); return true;
+}
+function sell(tw) {
+  const sp = spots.find((s) => s.tw === tw), v = Math.floor(tw.spent * .7); energy += v; if (sp) sp.tw = null; towers.splice(towers.indexOf(tw), 1);
+  Kit.sfx("coin"); flt(tw.x, tw.y, "+" + v, "#ffd479"); burst(tw.x, tw.y, "#ffffff", 10, 70, .4); hud();
+}
+function computeBuffs() {
+  for (const t of towers) { t.buff.r = 0; t.buff.d = 0; t.nbuff = 0; }
+  for (const h of towers) if (h.type === "thelp") {
+    const s = cstats(h);
+    for (const t of towers) if (t !== h && t.type !== "thelp" && Math.hypot(t.x - h.x, t.y - h.y) <= s.range) { t.buff.r = Math.max(t.buff.r, s.bRate); t.buff.d = Math.max(t.buff.d, s.bDmg); h.nbuff++; }
+    if (h.nbuff >= 3) award("combo");
+  }
+}
+
+// ---------- combat ----------
+function hurt(e, raw, mult) {
+  if (e.dead) return; let d = raw * (mult && mult[e.def.kind] != null ? mult[e.def.kind] : 1);
+  if (e.mark > 0) d *= 1 + e.amp; d = Math.max(.5, d - e.def.armor); e.hp -= d; e.flash = .08;
+  if (d >= 8 && setting("nums", "on") === "on") flt(e.x, e.y - 10, Math.round(d), "#ffe9a8");
+  if (e.hp <= 0) killEnemy(e);
+}
+function killEnemy(e) {
+  if (e.dead) return; e.dead = true; kills++; const rw = Math.round(e.def.rw * dif().rw * (1 + .02 * wave)); energy += rw; score += e.def.rw;
+  if (e.mark > 0) { markKills++; if (markKills >= 40) award("marked"); }
+  burst(e.x, e.y, e.def.kind === "virus" ? "#b9a8ff" : e.def.kind === "fungus" ? "#d8f08a" : "#ffe27a", 8, 70, .45); if (rate("kill", .05)) Kit.sfx("tick");
+  if (e.def.split) { const [ct, n] = e.def.split; for (let i = 0; i < n; i++) { const c = mkEnemy(ct, e.path, Math.max(0, e.d - 8 + (i - (n - 1) / 2) * 7), Math.max(1, e.sc * .8)); c.mark = e.mark * .5; c.amp = e.amp; enemies.push(c); } }
+  hud();
+}
+function rate(k, gap) { if (runT - (sfxT[k] || -9) < gap) return false; sfxT[k] = runT; return true; }
+function pickTarget(tw, s) {
+  let best = null, bv = 0; const unmarked = tw.type === "bcell";
+  for (const e of enemies) {
+    if (e.dead) continue; if (Math.hypot(e.x - tw.x, e.y - tw.y) > s.range + e.def.r) continue;
+    let v; switch (tw.target) { case "strong": v = e.hp; break; case "weak": v = 1e5 - e.hp; break; case "last": v = 1e5 - e.d; break; default: v = e.d; }
+    if (unmarked && e.mark <= 0) v += 1e6; if (!best || v > bv) { best = e; bv = v; }
+  }
+  return best;
+}
+function fire(tw, s, e) {
+  const c = CELLS[tw.type], dm = s.dmg * (1 + tw.buff.d); tw.ang = Math.atan2(e.y - tw.y, e.x - tw.x); tw.recoil = .12;
+  if (tw.type === "nk") { hurt(e, dm, c.mult); beams.push({ x1: tw.x, y1: tw.y, x2: e.x, y2: e.y, t: .14 }); if (rate("nk", .1)) Kit.sfx("shoot"); burst(e.x, e.y, "#ff9fb0", 6, 80, .3); return; }
+  bullets.push({ x: tw.x, y: tw.y, tgt: e, tx: e.x, ty: e.y, type: tw.type, dmg: dm, splash: s.splash, slow: s.slow, mark: s.mark, amp: s.amp, mult: c.mult, sp: tw.type === "macro" ? 170 : 250, col: c.col });
+  if (tw.type === "neutro" ? rate("n", .08) : rate(tw.type, .1)) Kit.sfx(tw.type === "macro" ? "bounce" : "shoot");
+}
+function landBullet(b) {
+  const e = b.tgt && !b.tgt.dead ? b.tgt : null;
+  if (b.type === "macro") {
+    burst(b.tx, b.ty, "#ffd9b8", 10, 70, .4); beams.push({ ring: 1, x1: b.tx, y1: b.ty, r: b.splash, t: .22 });
+    for (const q of enemies) if (!q.dead && Math.hypot(q.x - b.tx, q.y - b.ty) <= b.splash + q.def.r) hurt(q, b.dmg, b.mult);
+    if (rate("mh", .08)) Kit.sfx("thud"); return;
+  }
+  if (!e) return;
+  if (b.type === "bcell") { e.mark = Math.max(e.mark, b.mark); e.amp = Math.max(e.amp, b.amp); e.mslow = Math.max(e.mslow, b.slow); hurt(e, b.dmg, b.mult); burst(e.x, e.y, "#9ccdff", 4, 50, .3); return; }
+  if (b.slow) { e.slowT = 1.2; e.slow = Math.max(e.slow, b.slow); }
+  hurt(e, b.dmg, b.mult);
+}
+function leak(e) {
+  e.dead = true; const dm = e.def.dmg; hp -= dm; lostHp += dm; flash = .35; Kit.sfx("hit"); Kit.haptic(40); burst(organ[0], organ[1], "#ff4d6d", 14, 110, .5); flt(organ[0], organ[1] - 28, "-" + dm, "#ff6b6b"); hud();
+  if (hp <= 0) lose();
+}
+function useFever() {
+  if (state !== "play" || fever.cd > 0) { if (state === "play") Kit.sfx("hit"); return; }
+  const n = enemies.filter((e) => !e.dead).length; fever.t = 8; fever.cd = 40; if (n >= 10) award("fever");
+  Kit.sfx("power"); Kit.haptic(25); toast("Fever! Germs slow down"); flash = .2;
+}
+function flt(x, y, s, col) { floats.push({ x, y, s: String(s), col, t: .9 }); if (floats.length > 40) floats.shift(); }
+
+// ---------- game flow ----------
+function hud() {
+  const k = energy + "|" + hp + "|" + wave + "|" + level + "|" + mode; if (k === hudKey) return; hudKey = k;
+  stats({ ATP: Math.floor(energy), HP: Math.max(0, hp) });
+}
+function newGame(lv) {
+  level = lv; mode = opt("mode", ["campaign", "endless"], "campaign"); buildMap(); const d = dif();
+  towers = []; enemies = []; bullets = []; floats = []; beams = []; spawnQ = []; parts.length = 0; clock = 0; runT = 0; wave = 0; energy = d.atp + 25 * (level - 1); hp = maxHp = d.hp; lostHp = 0; fever = { t: 0, cd: 0 }; ui = null; press = null;
+  score = 0; kills = 0; markKills = 0; usedAdaptive = false; bonusPaid = 0; autoT = 0; nextLock = 0; flash = 0; speed = opt("spd", ["1", "2"], "1") === "2" ? 2 : 1; hudKey = ""; state = "play"; hud(); uiBtns();
+}
+function buildMap() {
+  paths = MAPS[level - 1].map(mkPath); const e = paths[0].pts[paths[0].pts.length - 1]; organ = [e[0], e[1]]; spots = genSpots(SPOTS_N[level - 1]);
+  const r = rng(level * 13 + 5); bgSeed = []; for (let i = 0; i < 46; i++) bgSeed.push([r() * W, r() * H, 6 + r() * 16, r()]);
+}
+function stars() { return lostHp === 0 ? 3 : lostHp <= maxHp * .35 ? 2 : 1; }
+function endCard(html, main, fn, extra) {
+  card(html, main, fn); const c = document.getElementById("card");
+  for (const [lab, f] of extra || []) { const b = document.createElement("button"); b.className = "ghost"; b.textContent = lab; b.onclick = () => { document.getElementById("over").hidden = true; f(); }; c.append(b); }
+}
+function win() {
+  if (state !== "play") return; state = "between"; ui = null; const st = stars(), d = opt("diff", ["easy", "normal", "hard"], "normal");
+  score += hp * 50 + Math.floor(energy / 4); Kit.sfx("win"); Kit.haptic(60); Kit.record({ win: 1, score }); unlock(level + 1);
+  const key = "star" + level; SAVE.best[key] = Math.max(Number.isFinite(SAVE.best[key]) ? clamp(SAVE.best[key], 0, 3) : 0, st); persist();
+  if (lostHp === 0) award("perfect"); if (!usedAdaptive) award("innate"); if (d === "hard" && level >= 5) award("hard5"); if (level >= 10) award("l10");
+  const last = level >= 10;
+  setTimeout(() => endCard(`<h1>${last ? "Infection cleared!" : "Organ protected!"}</h1><p>${LEVELS[level - 1]} · ${"★".repeat(st)}${"☆".repeat(3 - st)}</p><p class="sub">Lost ${lostHp} organ health · score ${score}</p>`,
+    last ? "Menu" : "Next: " + LEVELS[level], last ? openMenu : () => { level++; newGame(level); }, [["Replay", () => newGame(level)], ...(last ? [] : [["Menu", openMenu]])]), 600);
+}
+function lose() {
+  if (state !== "play") return; state = "over"; ui = null; Kit.sfx("lose"); Kit.haptic(120);
+  if (mode === "endless") { score += wave * 100; const b = Number.isFinite(SAVE.best.endless) ? clamp(SAVE.best.endless, 0, 9999) : 0; SAVE.best.endless = Math.max(b, wave); persist(); }
+  Kit.record({ score });
+  setTimeout(() => endCard(`<h1>Overwhelmed</h1><p>${LEVELS[level - 1]} · reached wave ${wave}${mode === "campaign" ? "/" + nWaves(level) : ""}</p><p class="sub">Score ${score}</p>`, "Retry", () => newGame(level), [["Menu", openMenu]]), 700);
+}
+
+// ---------- input ----------
+const SHEET_ROW = 44;
+function sheetLayout() {
+  if (!ui) return null; const sp = spots[ui.si], tw = sp.tw, rows = []; let head;
+  if (!tw) { head = 28; for (const k of CELL_ORDER) rows.push({ a: "build", k }); }
+  else { head = 46; const c = CELLS[tw.type]; if (tw.lv < 4) rows.push({ a: "up" }); if (tw.type !== "thelp") rows.push({ a: "tgt" }); rows.push({ a: "sell" }); }
+  const h = head + rows.length * (SHEET_ROW + 2) + 6, y0 = sp.y > 290 ? 36 : H - h - 6;
+  rows.forEach((r, i) => { r.x = 12; r.w = W - 24; r.y = y0 + head + i * (SHEET_ROW + 2); r.h = SHEET_ROW; });
+  return { x: 6, y: y0, w: W - 12, h, rows, head, sp, tw };
+}
+function rowAt(x, y) { const L = sheetLayout(); if (!L) return null; for (const r of L.rows) if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return r; return null; }
+function inSheet(x, y) { const L = sheetLayout(); return L && x >= L.x && x <= L.x + L.w && y >= L.y && y <= L.y + L.h; }
+function spotAt(x, y) { let bi = -1, bd = 27; spots.forEach((s, i) => { const d = Math.hypot(s.x - x, s.y - y); if (d < bd) { bd = d; bi = i; } }); return bi; }
+function enemyAt(x, y) { let be = null, bd = 22; for (const e of enemies) { const d = Math.hypot(e.x - x, e.y - y); if (!e.dead && d < bd) { bd = d; be = e; } } return be; }
+function openSheet(si) { ui = { si }; Kit.sfx("click"); }
+function activate(r) {
+  const L = sheetLayout(); if (!L) return;
+  if (r.a === "build") { if (build(ui.si, r.k)) ui = null; }
+  else if (r.a === "up") { upgrade(L.tw); if (L.tw.lv >= 4) Kit.sfx("win"); }
+  else if (r.a === "tgt") { const i = TARGETS.findIndex((t) => t[0] === L.tw.target); L.tw.target = TARGETS[(i + 1) % TARGETS.length][0]; Kit.sfx("click"); }
+  else if (r.a === "sell") { sell(L.tw); ui = null; }
+}
+function tap(x, y) {
+  if (ui) { const r = rowAt(x, y); if (r) { activate(r); return; } const si = spotAt(x, y); if (si >= 0 && !inSheet(x, y)) { openSheet(si); return; } if (inSheet(x, y)) return; ui = null; return; }
+  const si = spotAt(x, y); if (si >= 0) { openSheet(si); return; }
+  const e = enemyAt(x, y); if (e) { toast(e.def.fact); Kit.sfx("click"); }
+}
+Kit.play({
+  start(f) { if (state !== "play") return; const r = rowAt(f.x, f.y); const si = r ? -1 : spotAt(f.x, f.y); press = { id: f.id, row: r, spot: si }; if (r || si >= 0) { Kit.haptic(6); Kit.sfx("tick"); } },
+  end(f) { if (press && press.id === f.id) press = null; if (state !== "play") return; if (Math.hypot(f.x - f.x0, f.y - f.y0) < 14) tap(f.x, f.y); }
+});
+let selKey = 0;
+addEventListener("keydown", (e) => {
+  if (e.repeat) return; const k = e.key;
+  if (k === "p" || k === "P" || k === "Escape" && !ui) { Kit.pause(); return; }
+  if (state !== "play" || Kit.isPaused()) return;
+  if (k === "n" || k === "N" || k === " ") startWave(); else if (k === "f" || k === "F") useFever(); else if (k === "x" || k === "X") toggleSpeed();
+  else if (k === "ArrowRight" || k === "ArrowDown" || k === "d" || k === "s") { selKey = (selKey + 1) % spots.length; openSheet(selKey); }
+  else if (k === "ArrowLeft" || k === "ArrowUp" || k === "a" || k === "w") { selKey = (selKey + spots.length - 1) % spots.length; openSheet(selKey); }
+  else if (k === "Escape") ui = null;
+  else if (ui && /^[1-5]$/.test(k)) { const sp = spots[ui.si]; if (!sp.tw) { if (build(ui.si, CELL_ORDER[+k - 1])) ui = null; } else if (k === "1") upgrade(sp.tw); else if (k === "2" && sp.tw.type !== "thelp") activate({ a: "tgt" }); else if (k === "3") { sell(sp.tw); ui = null; } }
+  else if (k === "Enter" && ui && spots[ui.si].tw) upgrade(spots[ui.si].tw);
+});
+function toggleSpeed() { speed = speed === 1 ? 2 : 1; uiBtns(); Kit.sfx("click"); }
+function setBtn(b, big, lbl, op) {
+  if (!b.firstChild) { b.innerHTML = `<span class="big"></span><span class="lbl"></span>`; }
+  const [x, y] = b.children; if (x.textContent !== big) x.textContent = big; if (y.textContent !== lbl) y.textContent = lbl; b.style.opacity = op;
+}
+function uiBtns() {
+  if (!speedBtn) return;
+  setBtn(speedBtn, speed + "×", "SPEED", 1);
+  setBtn(feverBtn, fever.cd > 0 ? String(Math.ceil(fever.cd)) : "🌡", "FEVER", fever.cd > 0 ? .55 : 1);
+  const left = mode === "campaign" && wave >= nWaves(level);
+  setBtn(nextBtn, left ? "…" : "⏩", left ? "FINAL" : "NEXT WAVE", left ? .55 : 1);
+}
+function showControls() {
+  speedBtn = Kit.button("", { down: toggleSpeed, aria: "Toggle game speed" });
+  feverBtn = Kit.button("", { down: useFever, aria: "Fever: slow all germs" });
+  nextBtn = Kit.button("", { down: () => { startWave(); }, aria: "Send next wave" });
+  for (const b of [speedBtn, feverBtn, nextBtn]) b.style.borderRadius = "38px"; Kit.controls([speedBtn, feverBtn], [nextBtn]); uiBtns();
+}
+
+// ---------- update ----------
+function update(dt) {
+  if (state !== "play") return; clock += dt; runT += dt; flash = Math.max(0, flash - dt);
+  if (fever.t > 0) fever.t -= dt; if (fever.cd > 0) { fever.cd -= dt; if (fever.cd <= 0) uiBtns(); }
+  while (spawnQ.length && spawnQ[0].t <= clock) { const q = spawnQ.shift(); enemies.push(mkEnemy(q.type, q.path, 0, hpScale())); }
+  for (const e of enemies) {
+    if (e.dead) continue; e.mark -= dt; e.slowT -= dt; e.flash = Math.max(0, (e.flash || 0) - dt); if (e.slowT <= 0) e.slow = 0; if (e.mark <= 0) e.mslow = 0;
+    const m = (1 - Math.max(e.mslow, e.slow) * (e.mark > 0 || e.slowT > 0 ? 1 : 0)) * (fever.t > 0 ? .6 : 1);
+    e.d += e.def.sp * Math.max(.2, m) * dt; const P = paths[e.path]; if (e.d >= P.len) { leak(e); continue; }
+    const p = posAt(P, e.d); e.x = p.x; e.y = p.y; e.a = p.a;
+  }
+  computeBuffs();
+  for (const t of towers) {
+    t.pop = Math.max(0, (t.pop || 0) - dt); t.recoil = Math.max(0, (t.recoil || 0) - dt); if (t.type === "thelp") continue; t.cd -= dt; if (t.cd > 0) continue;
+    const s = cstats(t), e = pickTarget(t, s); if (e) { fire(t, s, e); t.cd = s.rate / (1 + t.buff.r); } else t.cd = 0;
+  }
+  for (const b of bullets) {
+    if (b.tgt && !b.tgt.dead) { b.tx = b.tgt.x; b.ty = b.tgt.y; }
+    const dx = b.tx - b.x, dy = b.ty - b.y, d = Math.hypot(dx, dy), st = b.sp * dt;
+    if (d <= st + 2) { b.done = true; landBullet(b); } else { b.x += dx / d * st; b.y += dy / d * st; }
+  }
+  bullets = bullets.filter((b) => !b.done); enemies = enemies.filter((e) => !e.dead);
+  for (const b of beams) b.t -= dt; beams = beams.filter((b) => b.t > 0); for (const f of floats) { f.t -= dt; f.y -= 22 * dt; } floats = floats.filter((f) => f.t > 0);
+  if (spawnQ.length === 0 && enemies.length === 0 && wave > bonusPaid) {
+    const n = wave - bonusPaid; bonusPaid = wave; const b = Math.round((18 + 3 * wave) * dif().rw); energy += b; flt(W / 2, H / 2 - 40, "Wave cleared +" + b + " ATP", "#9bffb8"); Kit.sfx("coin"); hud();
+    if (mode === "campaign" && wave >= nWaves(level)) { win(); return; }
+    if (opt("auto", ["off", "on"], "off") === "on") autoT = 4;
+  }
+  if (autoT > 0 && spawnQ.length === 0) { autoT -= dt; if (autoT <= 0) startWave(); }
+  hud();
+}
+
+// ---------- drawing ----------
+function tx(s, x, y, size, col, al, bold) { ctx.font = `${bold ? "700 " : ""}${size}px ${FONT}`; ctx.textAlign = al || "center"; ctx.textBaseline = "middle"; ctx.fillStyle = col; ctx.fillText(s, x, y); }
+function drawBg() {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#3a1220"); g.addColorStop(1, "#2a0c18"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  for (const [x, y, r, k] of bgSeed) { ctx.fillStyle = `rgba(255,${120 + k * 60 | 0},${140 + k * 40 | 0},.05)`; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); ctx.strokeStyle = "rgba(255,150,170,.06)"; ctx.lineWidth = 1; ctx.stroke(); }
+}
+function drawVessel() {
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  for (const [w, c] of [[36, "#7a2335"], [28, "#a93049"], [20, "#c4455d"]]) { ctx.strokeStyle = c; ctx.lineWidth = w; for (const P of paths) { ctx.beginPath(); P.pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); } }
+  ctx.strokeStyle = "rgba(255,255,255,.12)"; ctx.lineWidth = 2; ctx.setLineDash([8, 16]); ctx.lineDashOffset = -runT * 30; for (const P of paths) { ctx.beginPath(); P.pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); } ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(235,60,80,.9)"; for (const P of paths) { const n = Math.floor(P.len / 56); for (let i = 0; i < n; i++) { const p = posAt(P, (i * 56 + runT * 26) % P.len), o = Math.sin(i * 2.3) * 5; ctx.save(); ctx.translate(p.x - Math.sin(p.a) * o, p.y + Math.cos(p.a) * o); ctx.rotate(p.a + i); ctx.beginPath(); ctx.ellipse(0, 0, 4.5, 3, 0, 0, TAU); ctx.fill(); ctx.restore(); } }
+}
+function drawOrgan() {
+  const [x, y] = organ, kind = ORGANS[level - 1][0]; ctx.save(); ctx.translate(x, y);
+  const g = ctx.createRadialGradient(0, 0, 4, 0, 0, 40); g.addColorStop(0, "rgba(255,200,210,.5)"); g.addColorStop(1, "rgba(255,200,210,0)"); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 40, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#f08a9a"; ctx.strokeStyle = "#ffd0d8"; ctx.lineWidth = 2;
+  if (kind === "heart") { ctx.beginPath(); ctx.moveTo(0, 16); ctx.bezierCurveTo(-26, -2, -16, -22, 0, -9); ctx.bezierCurveTo(16, -22, 26, -2, 0, 16); ctx.fill(); ctx.stroke(); }
+  else if (kind === "lung") { for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * 11, 2, 10, 17, s * .15, 0, TAU); ctx.fill(); ctx.stroke(); } ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(0, 4); ctx.stroke(); }
+  else if (kind === "brain") { ctx.beginPath(); ctx.ellipse(0, 0, 22, 16, 0, 0, TAU); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -15); ctx.quadraticCurveTo(-5, 0, 0, 15); ctx.moveTo(-14, -6); ctx.quadraticCurveTo(-8, -2, -14, 4); ctx.moveTo(14, -6); ctx.quadraticCurveTo(8, -2, 14, 4); ctx.stroke(); }
+  else if (kind === "bean") { ctx.beginPath(); ctx.ellipse(0, 0, 14, 21, .5, 0, TAU); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#7a2335"; ctx.beginPath(); ctx.arc(-9, 2, 6, 0, TAU); ctx.fill(); }
+  else if (kind === "tooth") { ctx.fillStyle = "#fff3f0"; ctx.beginPath(); ctx.moveTo(-14, -14); ctx.quadraticCurveTo(0, -22, 14, -14); ctx.quadraticCurveTo(18, 4, 8, 20); ctx.quadraticCurveTo(3, 6, 0, 14); ctx.quadraticCurveTo(-3, 6, -8, 20); ctx.quadraticCurveTo(-18, 4, -14, -14); ctx.fill(); ctx.stroke(); }
+  else if (kind === "coil") { ctx.lineWidth = 7; ctx.strokeStyle = "#f08a9a"; ctx.beginPath(); ctx.moveTo(-16, -12); ctx.quadraticCurveTo(16, -22, 16, -6); ctx.quadraticCurveTo(16, 6, -16, 4); ctx.quadraticCurveTo(-22, 8, 0, 18); ctx.stroke(); }
+  else if (kind === "liver") { ctx.beginPath(); ctx.moveTo(-22, -8); ctx.quadraticCurveTo(0, -22, 22, -4); ctx.quadraticCurveTo(14, 16, -8, 14); ctx.quadraticCurveTo(-22, 10, -22, -8); ctx.fill(); ctx.stroke(); }
+  else { ctx.beginPath(); ctx.arc(0, 0, 18, 0, TAU); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#fff"; ctx.fillRect(-9, -3, 18, 6); ctx.fillRect(-3, -9, 6, 18); }
+  ctx.restore();
+  ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,.4)"; ctx.beginPath(); ctx.arc(x, y, 30, 0, TAU); ctx.stroke(); const k = clamp(hp / maxHp, 0, 1);
+  ctx.strokeStyle = k > .5 ? "#8dff9e" : k > .25 ? "#ffd166" : "#ff5d6c"; ctx.beginPath(); ctx.arc(x, y, 30, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke();
+  tx(ORGANS[level - 1][1], x, y + (y > 470 ? -43 : 44), 12, "#ffe3e8", "center", true);
+}
+function drawGerm(kind, x, y, a, s, t, big) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.scale(s, s);
+  if (kind === "staph" || kind === "mrsa") {
+    ctx.fillStyle = "#e9c43a"; ctx.strokeStyle = "#a8841a"; ctx.lineWidth = 1; for (const [px, py] of [[0, 0], [-5, -4], [5, -4], [-5, 4], [5, 4]]) { ctx.beginPath(); ctx.arc(px, py, 4.6, 0, TAU); ctx.fill(); ctx.stroke(); }
+    if (kind === "mrsa") { ctx.strokeStyle = "#cfd8dc"; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.arc(0, 0, 11, 0, TAU); ctx.stroke(); }
+  } else if (kind === "ecoli") {
+    ctx.strokeStyle = "#7fe08a"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-10, 0); for (let i = 1; i <= 6; i++) ctx.lineTo(-10 - i * 3, Math.sin(t * 12 + i) * 3); ctx.stroke();
+    ctx.fillStyle = "#4cbf5e"; rr(-10, -4.5, 20, 9, 4.5); ctx.fill(); ctx.strokeStyle = "#237a35"; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = "rgba(255,255,255,.3)"; ctx.fillRect(-6, -2.5, 8, 2);
+  } else if (kind === "strep") {
+    for (let i = 0; i < 4; i++) { const yy = Math.sin(t * 5 + i) * 1.5; ctx.fillStyle = i % 2 ? "#ff9a52" : "#ff7f3a"; ctx.beginPath(); ctx.arc(-9 + i * 6, yy, 4.3, 0, TAU); ctx.fill(); }
+  } else if (kind === "tb") {
+    ctx.fillStyle = "#d8c9a0"; ctx.strokeStyle = "#8a7440"; ctx.lineWidth = 2.4; rr(-11, -5, 22, 10, 5); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#8a7440"; for (const px of [-5, 0, 5]) ctx.fillRect(px - 1, -1, 2, 2);
+  } else if (kind === "flu") {
+    ctx.strokeStyle = "#c9b8ff"; ctx.lineWidth = 1.4; for (let i = 0; i < 9; i++) { const an = i / 9 * TAU + t * 1.5; ctx.beginPath(); ctx.moveTo(Math.cos(an) * 5, Math.sin(an) * 5); ctx.lineTo(Math.cos(an) * 8.5, Math.sin(an) * 8.5); ctx.stroke(); ctx.fillStyle = "#c9b8ff"; ctx.beginPath(); ctx.arc(Math.cos(an) * 9, Math.sin(an) * 9, 1.4, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = "#8f7bff"; ctx.beginPath(); ctx.arc(0, 0, 5.8, 0, TAU); ctx.fill();
+  } else if (kind === "candida") {
+    ctx.fillStyle = "#eef6b8"; ctx.strokeStyle = "#8aa13a"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(0, 0, 8, 6, 0, 0, TAU); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.ellipse(7, -3, 4, 3.2, .5, 0, TAU); ctx.fill(); ctx.stroke();
+  } else if (kind === "mold") {
+    ctx.strokeStyle = "#a6c26a"; ctx.lineWidth = 1.6; for (let i = 0; i < 9; i++) { const an = i / 9 * TAU, w = Math.sin(t * 2 + i) * .15; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(an + w) * 17, Math.sin(an + w) * 17); ctx.moveTo(Math.cos(an) * 10, Math.sin(an) * 10); ctx.lineTo(Math.cos(an + .5) * 16, Math.sin(an + .5) * 16); ctx.stroke(); }
+    ctx.fillStyle = "#5f7d3a"; ctx.beginPath(); ctx.arc(0, 0, 10, 0, TAU); ctx.fill(); ctx.fillStyle = "#cfe68f"; for (const [px, py] of [[-3, -3], [4, 1], [-2, 5], [3, -5]]) ctx.fillRect(px, py, 2, 2);
+  }
+  ctx.restore();
+}
+function drawCell(type, x, y, r, lv, t) {
+  const c = CELLS[type]; ctx.save(); ctx.translate(x, y); ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.beginPath(); ctx.ellipse(1, 3, r, r * .9, 0, 0, TAU); ctx.fill(); ctx.fillStyle = c.col; ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.lineWidth = 1.6;
+  ctx.beginPath(); if (type === "macro") { for (let i = 0; i <= 24; i++) { const an = i / 24 * TAU, rr2 = r * (1 + .12 * Math.sin(an * 5 + t * 2)); ctx.lineTo(Math.cos(an) * rr2, Math.sin(an) * rr2); } ctx.closePath(); } else ctx.arc(0, 0, r, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#5b3a8a";
+  if (type === "neutro") { for (const [px, py] of [[-5, -3], [0, 3], [5, -3]]) { ctx.beginPath(); ctx.arc(px, py, 3.6, 0, TAU); ctx.fill(); } }
+  else if (type === "macro") { ctx.fillStyle = "#a0522d"; ctx.beginPath(); ctx.ellipse(-2, 0, 7, 5, .4, 0, TAU); ctx.fill(); ctx.fillStyle = "#d98d5a"; for (const [px, py] of [[6, 5], [5, -6], [-8, 6]]) { ctx.beginPath(); ctx.arc(px, py, 2.2, 0, TAU); ctx.fill(); } }
+  else if (type === "nk") { ctx.fillStyle = "#b02a4a"; ctx.beginPath(); ctx.arc(-1, 0, 6, 0, TAU); ctx.fill(); ctx.fillStyle = "#fff"; for (const [px, py] of [[6, -5], [7, 3], [-7, -6], [-6, 6], [2, 8]]) ctx.fillRect(px - 1, py - 1, 2.2, 2.2); }
+  else if (type === "bcell") { ctx.fillStyle = "#2f5da8"; ctx.beginPath(); ctx.arc(0, 0, 6.5, 0, TAU); ctx.fill(); ctx.strokeStyle = "#2f5da8"; ctx.lineWidth = 1.6; for (let i = 0; i < 4; i++) { const an = i * TAU / 4 + .8; ctx.beginPath(); ctx.moveTo(Math.cos(an) * r, Math.sin(an) * r); ctx.lineTo(Math.cos(an) * (r + 4), Math.sin(an) * (r + 4)); ctx.moveTo(Math.cos(an) * (r + 4), Math.sin(an) * (r + 4)); ctx.lineTo(Math.cos(an - .4) * (r + 7), Math.sin(an - .4) * (r + 7)); ctx.moveTo(Math.cos(an) * (r + 4), Math.sin(an) * (r + 4)); ctx.lineTo(Math.cos(an + .4) * (r + 7), Math.sin(an + .4) * (r + 7)); ctx.stroke(); } }
+  else { ctx.fillStyle = "#127a5a"; ctx.font = `700 15px ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("T", 0, 1); ctx.strokeStyle = "#8ff0c6"; ctx.lineWidth = 1.6; for (let i = 0; i < 6; i++) { const an = i * TAU / 6 + t * .5; ctx.beginPath(); ctx.moveTo(Math.cos(an) * r, Math.sin(an) * r); ctx.lineTo(Math.cos(an) * (r + 4), Math.sin(an) * (r + 4)); ctx.stroke(); } }
+  ctx.restore();
+  if (lv) { for (let i = 0; i < lv; i++) { ctx.fillStyle = "#ffe27a"; ctx.beginPath(); ctx.arc(x - (lv - 1) * 3.5 + i * 7, y + r + 6, 2.3, 0, TAU); ctx.fill(); } }
+}
+function ring(x, y, r, col, fill) { ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); if (fill) { ctx.fillStyle = fill; ctx.fill(); } ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke(); }
+function drawWorld() {
+  drawBg(); drawVessel(); drawOrgan();
+  const showRings = opt("rings", ["sel", "all", "off"], "sel"), pulse = .5 + .5 * Math.sin(runT * 4);
+  for (let i = 0; i < spots.length; i++) {
+    const s = spots[i]; if (s.tw) continue; const act = ui && ui.si === i, pr = press && press.spot === i;
+    ctx.setLineDash([4, 4]); ring(s.x, s.y, 17 + (pr ? 2 : 0), act || pr ? "#ffffff" : `rgba(255,220,230,${.5 + pulse * .4})`, act || pr ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.07)"); ctx.setLineDash([]);
+    ctx.strokeStyle = act ? "#fff" : "rgba(255,230,235,.8)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x - 6, s.y); ctx.lineTo(s.x + 6, s.y); ctx.moveTo(s.x, s.y - 6); ctx.lineTo(s.x, s.y + 6); ctx.stroke();
+  }
+  for (const t of towers) {
+    const sel = ui && spots[ui.si] === spots.find((s) => s.tw === t), s = cstats(t);
+    if (showRings === "all" || sel && showRings !== "off") ring(t.x, t.y, s.range, t.type === "thelp" ? "rgba(143,240,198,.7)" : "rgba(255,255,255,.5)", t.type === "thelp" ? "rgba(143,240,198,.08)" : "rgba(255,255,255,.05)");
+    if (t.type === "thelp" && t.nbuff) { ctx.strokeStyle = "rgba(143,240,198,.25)"; ctx.lineWidth = 1; for (const o of towers) if (o !== t && o.type !== "thelp" && Math.hypot(o.x - t.x, o.y - t.y) <= s.range) { ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.lineTo(o.x, o.y); ctx.stroke(); } }
+    const k = 1 + (t.pop || 0) * 1.2 - (t.recoil || 0) * 1.5; if (sel) ring(t.x, t.y, 21, "#fff");
+    drawCell(t.type, t.x, t.y, 14 * k, t.lv, runT); if (t.buff.r > 0) { ctx.strokeStyle = "rgba(143,240,198,.9)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(t.x, t.y, 18, -.6, .6); ctx.stroke(); }
+  }
+  const hb = setting("hbars", "on") === "on";
+  for (const e of enemies) {
+    if (e.dead) continue; ctx.save(); if (e.flash > 0) ctx.globalAlpha = .6; drawGerm(e.def.draw, e.x, e.y, e.def.draw === "flu" || e.def.draw === "mold" ? 0 : e.a, e.def.s, runT + e.d * .05); ctx.restore();
+    if (e.mark > 0) { ctx.strokeStyle = "#9ccdff"; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(e.x, e.y, e.def.r * e.def.s * .75 + 5, 0, TAU); ctx.stroke(); tx("Y", e.x, e.y - e.def.r * e.def.s - 7, 11, "#9ccdff", "center", true); }
+    if (e.slowT > 0 || fever.t > 0) { ctx.strokeStyle = fever.t > 0 ? "rgba(255,170,90,.6)" : "rgba(180,230,255,.6)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e.x, e.y, e.def.r * e.def.s * .75 + 8, 0, TAU); ctx.stroke(); }
+    if (hb && (e.hp < e.mhp || e.def.cost === 0 && e.def.hp > 100)) { const w = Math.max(14, e.def.r * 2), y = e.y + e.def.r * e.def.s * .75 + 5; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(e.x - w / 2, y, w, 3); ctx.fillStyle = e.hp / e.mhp > .4 ? "#8dff9e" : "#ff6b6b"; ctx.fillRect(e.x - w / 2, y, w * clamp(e.hp / e.mhp, 0, 1), 3); }
+  }
+  for (const b of bullets) {
+    if (b.type === "bcell") { ctx.strokeStyle = "#9ccdff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(b.x - 3, b.y - 3); ctx.lineTo(b.x, b.y); ctx.lineTo(b.x + 3, b.y - 3); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x, b.y + 4); ctx.stroke(); }
+    else { ctx.fillStyle = b.col; ctx.beginPath(); ctx.arc(b.x, b.y, b.type === "macro" ? 5 : 2.6, 0, TAU); ctx.fill(); }
+  }
+  for (const b of beams) { if (b.ring) { ring(b.x1, b.y1, b.r * (1.2 - b.t * 2), `rgba(255,217,184,${b.t * 4})`); continue; } ctx.strokeStyle = `rgba(255,150,176,${b.t * 7})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
+  drawParts();
+  for (const f of floats) { ctx.globalAlpha = clamp(f.t * 2, 0, 1); tx(f.s, f.x, f.y, 13, f.col, "center", true); } ctx.globalAlpha = 1;
+  if (fever.t > 0) { ctx.fillStyle = `rgba(255,140,60,${.06 + .03 * Math.sin(runT * 6)})`; ctx.fillRect(0, 0, W, H); }
+  if (flash > 0) { ctx.fillStyle = `rgba(255,40,70,${flash * .5})`; ctx.fillRect(0, 0, W, H); }
+}
+function drawStrip() {
+  ctx.fillStyle = "rgba(20,5,12,.82)"; ctx.fillRect(0, 0, W, 30);
+  const campaign = mode === "campaign", nxt = wave + 1;
+  if (campaign && wave >= nWaves(level)) { tx(spawnQ.length || enemies.length ? "Final wave · " + (spawnQ.length + enemies.length) + " germs left" : "All waves sent", 10, 15, 13, "#ffe3e8", "left", true); return; }
+  tx(`Wave ${wave}${campaign ? "/" + nWaves(level) : ""} · Next ▸`, 8, 15, 12, "#ffc9d3", "left", true);
+  const g = waveDef(level, nxt); let x = 118; const kinds = {};
+  for (const q of g) kinds[q.type] = (kinds[q.type] || 0) + q.count;
+  for (const [k, n] of Object.entries(kinds)) { const d = ENEMIES[k]; drawGerm(d.draw, x + 8, 15, 0, Math.min(d.s, 1) * .9, 0); tx("×" + n, x + 20, 15, 12, "#ffe3e8", "left", true); x += 54; if (x > W - 40) break; }
+}
+function drawSheet() {
+  const L = sheetLayout(); if (!L) return; const { sp, tw } = L;
+  ring(sp.x, sp.y, 20, "#fff"); if (!tw) { ctx.setLineDash([3, 4]); ring(sp.x, sp.y, 72, "rgba(255,255,255,.3)"); ctx.setLineDash([]); }
+  ctx.fillStyle = "rgba(34,10,20,.95)"; rr(L.x, L.y, L.w, L.h, 14); ctx.fill(); ctx.strokeStyle = "#ff7a93"; ctx.lineWidth = 2; ctx.stroke();
+  if (!tw) tx("Build a defender · ATP " + Math.floor(energy), L.x + 12, L.y + 15, 14, "#ffe3e8", "left", true);
+  else {
+    const c = CELLS[tw.type], s = cstats(tw); tx(`${c.name} · level ${tw.lv}`, L.x + 12, L.y + 14, 14, c.col, "left", true);
+    const line = tw.type === "thelp" ? `Boost +${Math.round(s.bRate * 100)}% speed, +${Math.round(s.bDmg * 100)}% dmg · ${tw.nbuff || 0} cells` : tw.type === "bcell" ? `Marks ${s.mark.toFixed(1)}s · +${Math.round(s.amp * 100)}% dmg taken · slow ${Math.round(s.slow * 100)}%` : `Damage ${Math.round(s.dmg * (1 + tw.buff.d))} · ${(1 / (s.rate / (1 + tw.buff.r))).toFixed(1)} shots/s · range ${Math.round(s.range)}`;
+    tx(line, L.x + 12, L.y + 33, 12, "#d8b5be", "left");
+  }
+  for (const r of L.rows) {
+    const pr = press && press.row && press.row.a === r.a && press.row.k === r.k; let ok = true, title = "", sub = "", cost = "", col = "#fff";
+    if (r.a === "build") { const c = CELLS[r.k]; ok = energy >= c.cost; title = c.name; sub = c.desc; cost = c.cost + ""; col = c.col; }
+    else if (r.a === "up") { const u = CELLS[tw.type].ups[tw.lv - 1]; ok = energy >= u.c; title = "Upgrade"; sub = u.d; cost = u.c + ""; col = "#ffe27a"; }
+    else if (r.a === "tgt") { title = "Target: " + TARGETS.find((t) => t[0] === tw.target)[1]; sub = "Tap to change who it shoots first"; col = "#cfe3ff"; }
+    else { title = "Sell"; sub = "Recover 70% of ATP spent"; cost = "+" + Math.floor(tw.spent * .7); col = "#ffb3b3"; }
+    ctx.fillStyle = pr ? "rgba(255,255,255,.28)" : ok ? "rgba(255,255,255,.1)" : "rgba(255,255,255,.04)"; rr(r.x, r.y, r.w, r.h, 10); ctx.fill();
+    if (r.a === "build") drawCell(r.k, r.x + 22, r.y + 22, 12, 0, 0); else { ctx.fillStyle = col; ctx.globalAlpha = ok ? 1 : .4; ctx.beginPath(); ctx.arc(r.x + 22, r.y + 22, 11, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; tx(r.a === "up" ? "▲" : r.a === "tgt" ? "◎" : "$", r.x + 22, r.y + 23, 12, "#2b0712", "center", true); }
+    ctx.globalAlpha = ok ? 1 : .5; tx(title, r.x + 42, r.y + 15, 14, "#ffeef2", "left", true); tx(sub, r.x + 42, r.y + 32, 11, "#cdb0b8", "left"); ctx.globalAlpha = 1;
+    if (cost) tx(cost, r.x + r.w - 10, r.y + 22, 16, ok ? "#ffe27a" : "#ff7b7b", "right", true);
+  }
+}
+function draw() {
+  if (state === "menu") { drawBg(); return; }
+  drawWorld(); drawStrip(); drawSheet();
+}
+loop((dt) => { runT += 0; if (!Kit.isPaused()) { if (state === "play") { for (let i = 0; i < speed; i++) update(dt); } stepParts(dt * (state === "play" ? speed : 1)); if (feverBtn && state === "play" && fever.cd > 0) uiBtns(); } draw(); });
+Kit.lifecycle({ pause: () => state === "play", resume: () => {}, menu: openMenu });
+
+function openMenu() {
+  state = "menu"; Kit.hideControls(); speedBtn = feverBtn = nextBtn = null; ui = null;
+  const stars = LEVELS.reduce((a, _, i) => { const v = SAVE.best["star" + (i + 1)]; return a + (Number.isFinite(v) ? clamp(Math.floor(v), 0, 3) : 0); }, 0);
+  const eb = Number.isFinite(SAVE.best.endless) ? clamp(Math.floor(SAVE.best.endless), 0, 9999) : 0;
+  Kit.menu({
+    title: "Immune Response", hand: true, bestLabel: "Best score",
+    html: `<p class="sub">Germs travel along the blood vessel to the organ. Tap a glowing spot to build an immune cell, tap a cell to upgrade or sell it, and press NEXT WAVE when ready. Stars ${stars}/30${eb ? " · Endless best wave " + eb : ""}.</p>
+    <details class="chal"><summary>Field guide</summary>
+    <div><b>Neutrophil</b> - first responder; fast, cheap, great vs bacteria.</div><div><b>Macrophage</b> - big eater; engulfs groups of bacteria and fungi.</div>
+    <div><b>NK cell</b> - kills infected cells; best vs viruses.</div><div><b>B cell</b> - antibodies tag germs (blue Y), slowing them and making them take more damage.</div>
+    <div><b>T helper</b> - releases cytokines that speed up and strengthen nearby cells.</div><div><b>Fever</b> - slows every germ for 8 seconds.</div>
+    <div><b>Armour</b> (TB, MRSA, mold) - big hits work best.</div><div><b>Splitters</b> (Strep, Candida) - break into smaller germs when killed.</div><div>Tap a germ to learn about it.</div></details>`,
+    settings: [
+      { k: "diff", label: "Difficulty", def: "normal", opts: [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]] },
+      { k: "mode", label: "Mode", def: "campaign", opts: [["campaign", "Campaign"], ["endless", "Endless"]] },
+      { k: "auto", label: "Auto-send next wave", def: "off", opts: [["off", "Off"], ["on", "On"]] },
+      { k: "spd", label: "Start speed", def: "1", opts: [["1", "1×"], ["2", "2×"]] },
+      { k: "tgt", label: "New cells target", def: "first", opts: [["first", "First"], ["strong", "Strong"], ["weak", "Weak"], ["last", "Last"]] },
+      { k: "rings", label: "Range circles", def: "sel", opts: [["sel", "Selected"], ["all", "All"], ["off", "Off"]] },
+      { k: "hbars", label: "Health bars", def: "on", opts: [["on", "On"], ["off", "Off"]] },
+      { k: "nums", label: "Damage numbers", def: "on", opts: [["on", "On"], ["off", "Off"]] }
+    ],
+    levels: LEVELS,
+    challenges: [{ id: "perfect", text: "Clear a level without losing organ health" }, { id: "innate", text: "Clear a level using only innate cells (no B or T cells)" }, { id: "combo", text: "Have one T helper boosting 3 cells at once" },
+      { id: "marked", text: "Kill 40 antibody-marked germs in one game" }, { id: "fever", text: "Trigger a Fever while 10+ germs are on screen" }, { id: "hard5", text: "Clear level 5 on Hard" }, { id: "l10", text: "Clear Sepsis Storm (level 10)" }],
+    play: "Defend"
+  }, (lv) => { showControls(); newGame(lv); });
+}
+window.T = {
+  get state() { return state; }, get energy() { return energy; }, get hp() { return hp; }, get wave() { return wave; }, get enemies() { return enemies.length; }, get speed() { return speed; }, get level() { return level; },
+  get towers() { return towers.map((t) => ({ type: t.type, lv: t.lv, x: t.x, y: t.y, target: t.target })); }, get spots() { return spots.map((s) => ({ x: s.x, y: s.y, tw: !!s.tw })); }, get sheet() { return ui ? ui.si : -1; },
+  get feverT() { return fever.t; }, get feverCd() { return fever.cd; }, get queued() { return spawnQ.length; }, get clock() { return clock; }, get kills() { return kills; }, get stars() { return state === "between" ? stars() : 0; }, get lost() { return lostHp; },
+  page(x, y) { const r = cv.getBoundingClientRect(); return [r.left + x * SC, r.top + y * SC]; },
+  build: (i, t) => build(i, t), upgrade: (i) => upgrade(spots[i].tw), sell: (i) => sell(spots[i].tw), next: () => startWave(), setEnergy: (v) => { energy = v; hud(); }, setHp: (v) => { hp = v; hud(); },
+  sim(sec) { for (let i = 0; i < Math.round(sec / .05) && state === "play"; i++) { update(.05); stepParts(.05); } },
+  winNow() { wave = nWaves(level); bonusPaid = wave; spawnQ.length = 0; enemies.length = 0; win(); }, loseNow() { hp = 0; lose(); }
+};
+fit(); openMenu();
+
+})();
+</script>
+
+</html>
