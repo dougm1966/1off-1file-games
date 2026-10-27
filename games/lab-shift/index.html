@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}</style>
+<title>Lab Shift</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#0c181d;--ink:#e8f3f1;--muted:#8cb0aa;--accent:#35d0b8;--f-display:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#06201b;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.kgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:min(calc(100vw - 20px),540px)}.kgrid .kbtn{box-sizing:border-box;width:100%;min-width:0;height:50px;border-radius:12px;padding:0 3px;font-size:13px;border-color:var(--c,#35d0b8);background:color-mix(in srgb,var(--c,#35d0b8) 16%,transparent)}.kgrid .kbtn.dis{opacity:.3}.kgrid .kbtn.hint{box-shadow:0 0 0 3px #fff,0 0 14px var(--c,#fff)}.kgrid .kbtn.on{background:var(--c,#35d0b8);color:#06201b}.kgrid .kbtn small{font-size:10px;font-weight:600;opacity:.85}.kgrp:has(.kgrid){flex:1}
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#06201b;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#06201b}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#06201b;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Lab Shift</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Tap a row to inspect it, then tap a button below</div><div class="ctl" id="ctl" hidden></div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=520,FONT="'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ================= Lab Shift: clinical laboratory simulator =================
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// ---------- reference data ----------
+// Tube tops. Order of draw (CLSI): culture bottles, light blue, red/gold, green, lavender/pink, gray.
+const TUBES = {
+  bottle: { n: "Culture bottle (yellow/orange cap)", s: "Culture bottle", c: "#e3c13a" },
+  blue: { n: "Light blue (sodium citrate)", s: "Light blue", c: "#7cc3ee" },
+  red: { n: "Red (plain serum)", s: "Red", c: "#d23b3b" },
+  gold: { n: "Gold SST (serum gel)", s: "Gold SST", c: "#d6a21c" },
+  green: { n: "Green (lithium heparin)", s: "Green", c: "#2fa05a" },
+  lav: { n: "Lavender (EDTA)", s: "Lavender", c: "#9a7fd4" },
+  pink: { n: "Pink (EDTA, blood bank)", s: "Pink", c: "#f08cb5" },
+  gray: { n: "Gray (sodium fluoride)", s: "Gray", c: "#9ba4a9" },
+  cup: { n: "Sterile cup (white cap)", s: "Sterile cup", c: "#e9eef0" },
+  csf: { n: "Sterile CSF tube", s: "CSF tube", c: "#cfd8dc" }
+};
+const DK = ["CHEM", "HEME", "COAG", "MICRO", "BB"];
+const DEPT = {
+  CHEM: { n: "Chem", full: "Chemistry", col: "#f2a03d", cap: 3, t: 18 },
+  HEME: { n: "Heme", full: "Hematology", col: "#c27cf2", cap: 2, t: 14 },
+  COAG: { n: "Coag", full: "Coagulation", col: "#5ab6ee", cap: 2, t: 18 },
+  MICRO: { n: "Micro", full: "Microbiology", col: "#6bd36f", cap: 2, t: 34 },
+  BB: { n: "Blood Bank", full: "Blood Bank", col: "#ee6c8f", cap: 2, t: 28 }
+};
+const mk = (id, name, an, u, lo, hi, cl, ch, d, dl, dept, ok, bad, x) => Object.assign({ id, name, an, u, lo, hi, cl, ch, d, dl, dept, ok, bad }, x || {});
+const TESTS = [
+  mk("K", "BMP", "K+", "mmol/L", 3.5, 5.1, 2.5, 6.5, 1, 1.5, "CHEM", ["gold", "red", "green"], ["lav", "blue"]),
+  mk("NA", "CMP", "Na+", "mmol/L", 135, 145, 120, 160, 0, 10, "CHEM", ["gold", "red", "green"], ["lav", "blue"]),
+  mk("CA", "Calcium", "Ca", "mg/dL", 8.5, 10.5, 6, 13, 1, 2, "CHEM", ["gold", "red", "green"], ["lav", "blue"]),
+  mk("GLU", "Glucose", "Glu", "mg/dL", 70, 110, 40, 500, 0, 120, "CHEM", ["gray"], ["blue", "pink"]),
+  mk("LAC", "Lactate", "Lactate", "mmol/L", .5, 2.2, null, 4, 1, 2.5, "CHEM", ["gray", "green"], ["gold", "blue"]),
+  mk("TNI", "Troponin I", "TnI", "ng/mL", 0, .04, null, .04, 2, null, "CHEM", ["green", "gold"], ["blue", "gray"]),
+  mk("HGB", "CBC", "Hgb", "g/dL", 12, 17.5, 7, 20, 1, 3, "HEME", ["lav"], ["gold", "green", "blue"]),
+  mk("WBC", "CBC", "WBC", "x10^3/uL", 4.5, 11, 2, 30, 1, 8, "HEME", ["lav"], ["gold", "green", "blue"]),
+  mk("PLT", "CBC", "Plt", "x10^3/uL", 150, 400, 20, 1000, 0, 150, "HEME", ["lav"], ["gold", "green", "blue"]),
+  mk("INR", "PT/INR", "INR", "", .8, 1.2, null, 5, 1, 1.5, "COAG", ["blue"], ["lav", "green"]),
+  mk("PTT", "aPTT", "aPTT", "sec", 25, 35, null, 100, 0, 30, "COAG", ["blue"], ["lav", "green"]),
+  mk("FIB", "Fibrinogen", "Fib", "mg/dL", 200, 400, 100, null, 0, 150, "COAG", ["blue"], ["lav", "gold"]),
+  mk("DD", "D-dimer", "D-dimer", "ug/mL", 0, .5, null, null, 2, null, "COAG", ["blue"], ["lav", "gold"]),
+  mk("BCX", "Blood culture", "BCx", "", 0, 0, null, null, 0, null, "MICRO", ["bottle"], null, { txt: 1, nrm: "No growth so far", crit: "POSITIVE: Gram-pos cocci in clusters", critTxt: "positive blood culture" }),
+  mk("CSF", "CSF Gram stain", "CSF", "", 0, 0, null, null, 0, null, "MICRO", ["csf"], null, { txt: 1, nrm: "No organisms seen", crit: "Gram-neg diplococci seen", critTxt: "organisms in CSF" }),
+  mk("UCX", "Urine culture", "UCx", "", 0, 0, null, null, 0, null, "MICRO", ["cup"], null, { txt: 1, nrm: "<10,000 CFU/mL mixed flora", abn: ">100,000 CFU/mL E. coli" }),
+  mk("TS", "Type & Screen", "T&S", "", 0, 0, null, null, 0, null, "BB", ["pink"], ["gold", "green"], { txt: 1, bb: 1 }),
+  mk("XM", "Crossmatch 2u", "XM", "", 0, 0, null, null, 0, null, "BB", ["pink"], ["gold", "green"], { txt: 1, bb: 1 })
+];
+const BYID = Object.fromEntries(TESTS.map((t) => [t.id, t]));
+const REASONS = [["HEMO", "HEMOLYZED", "hemolysis"], ["CLOT", "CLOTTED", "a clot in an anticoagulated tube"], ["WRONG", "WRONG TUBE", "the wrong tube type"], ["LABEL", "MISLABELED", "a label that does not match the order"], ["QNS", "UNDERFILLED", "too little specimen"]];
+const RNAME = Object.fromEntries(REASONS.map((r) => [r[0], r[1].toLowerCase()]));
+const LN = ["Roe", "Vance", "Okafor", "Lindqvist", "Marsh", "Tran", "Delacroix", "Whitfield", "Moreno", "Haskell", "Petrov", "Nakamura", "Abbott", "Quill", "Brandt", "Sorensen"];
+const FN = ["Jane", "Omar", "Priya", "Tomas", "Alice", "Wen", "Dmitri", "Grace", "Luis", "Hana", "Ruth", "Felix"];
+const WARD = ["ED", "ICU", "3 West", "Clinic", "OR", "5 East"];
+const ABO = ["A POS", "O POS", "B POS", "O NEG", "A NEG", "AB POS"];
+const COLLECTORS = ["KP", "DM", "JT", "RS", "LW", "AN"];
+
+// level = shift. gap = mean sim-minutes between specimens, dw = department weights [CHEM,HEME,COAG,MICRO,BB]
+const LV = [
+  { n: "Day 1: Orientation", ty: "day", gap: 24, stat: .06, crit: .08, delta: .04, def: .2, dw: [4, 3, 0, 0, 0] },
+  { n: "Day: Morning Draw", ty: "day", gap: 20, stat: .12, crit: .12, delta: .08, def: .24, dw: [4, 3, 2, 0, 0] },
+  { n: "Evening: Clinic Backlog", ty: "eve", gap: 20, stat: .1, crit: .12, delta: .1, def: .26, dw: [3, 3, 2, 2, 0] },
+  { n: "Night: Quiet Hours", ty: "night", gap: 26, stat: .12, crit: .14, delta: .1, def: .34, dw: [3, 2, 2, 2, 2], staff: -1 },
+  { n: "Day: ER Surge", ty: "day", gap: 15, stat: .35, crit: .16, delta: .1, def: .26, dw: [4, 3, 2, 1, 2] },
+  { n: "Evening: Transfusion Night", ty: "eve", gap: 18, stat: .2, crit: .1, delta: .16, def: .28, dw: [2, 2, 2, 1, 6] },
+  { n: "Night: ICU Rounds", ty: "night", gap: 18, stat: .25, crit: .3, delta: .16, def: .3, dw: [4, 3, 3, 2, 2], staff: -1 },
+  { n: "Day: Outbreak Day", ty: "day", gap: 16, stat: .2, crit: .2, delta: .1, def: .28, dw: [2, 2, 1, 7, 1] },
+  { n: "Night: Skeleton Crew", ty: "night", gap: 12, stat: .22, crit: .2, delta: .14, def: .32, dw: [3, 3, 3, 2, 2], staff: -1 },
+  { n: "MASS CASUALTY", ty: "mci", gap: 10, stat: .6, crit: .22, delta: .12, def: .3, dw: [3, 3, 3, 1, 5], burst: 1 }
+];
+const START_H = { day: 7, eve: 15, night: 23, mci: 13 };
+const TYLAB = { day: "DAY", eve: "EVENING", night: "NIGHT", mci: "MASS CASUALTY" };
+const RATE = 2; // sim-minutes per real second
+const LENS = { short: 240, std: 480, long: 720 };
+const DFS = { trainee: { def: .7, crit: .8, tat: 1.4, call: 1.5, gap: 1.3 }, tech: { def: 1, crit: 1, tat: 1, call: 1, gap: 1 }, senior: { def: 1.3, crit: 1.2, tat: .85, call: .7, gap: .85 } };
+const opt = (k, d, allowed) => { const v = setting(k, d); return allowed.includes(v) ? v : d; };
+const DF = () => DFS[opt("diff", "tech", ["trainee", "tech", "senior"])];
+const TATS = { stat: 45, routine: 120 };
+const CALL_MIN = 30; // sim minutes allowed to call a critical (scaled by difficulty)
+
+// ---------- layout ----------
+const LY = 124, RH = 44, VIS = 3, PY = 284;
+const F = (sz, w = 500) => `${w} ${sz}px ${FONT}`;
+function tx(s, x, y, sz, col, al = "left", w = 500) { ctx.font = F(sz, w); ctx.textAlign = al; ctx.textBaseline = "middle"; ctx.fillStyle = col; ctx.fillText(s, x, y); }
+function wrap(s, maxW, sz, w = 500) { ctx.font = F(sz, w); const out = []; let line = ""; for (const wd of String(s).split(" ")) { const t = line ? line + " " + wd : wd; if (ctx.measureText(t).width > maxW && line) { out.push(line); line = wd; } else line = t; } if (line) out.push(line); return out; }
+const fmtClock = (m) => { m = Math.max(0, Math.floor(m)); return String(Math.floor(m / 60) % 24).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+
+// ---------- state ----------
+let state = "menu", level = 1, clock = 0, endAt = 480, startMin = 420, uid = 0, nextArr = 0, burstAt = [], list = [], jobs = {}, bounce = [], sel = null, mode = "main", scrollPx = 0;
+let score = 0, okN = 0, errN = 0, missed = 0, made = 0, doneN = 0, onTime = 0, callsOk = 0, callsLate = 0, rejOk = 0, rowsAnim = 0, runT = 0;
+let feed = { msg: "", good: true, t: 0 }, pops = [], refOpen = 0, closing = false, manual = false, misroutes = 0, bestCall = 999, fastStat = 999, startedAt = 0;
+const slots = [];
+const LK = () => LV[level - 1];
+const target = (s) => (s.stat ? TATS.stat * (LK().ty === "mci" ? 1.3 : 1) : TATS.routine) * DF().tat;
+const cur = () => list.find((s) => s.id === sel) || null;
+const acc = () => { const n = okN + errN + missed * .5; return n ? okN / n : 1; };
+
+// ---------- specimens ----------
+const wpick = (w) => { let t = w.reduce((a, b) => a + b, 0), r = Math.random() * t; for (let i = 0; i < w.length; i++) { r -= w[i]; if (r < 0) return i; } return 0; };
+function mkPatient() { return { ln: pick(LN), fn: pick(FN), mrn: String(4000000 + Math.floor(Math.random() * 999999)), dob: String(1 + Math.floor(Math.random() * 12)).padStart(2, "0") + "/" + String(1 + Math.floor(Math.random() * 28)).padStart(2, "0") + "/" + (1940 + Math.floor(Math.random() * 62)), loc: pick(WARD) }; }
+function mkSpec(o = {}) {
+  const lv = LK(), df = DF();
+  let w = lv.dw.slice(); const foc = DK.indexOf(opt("focus", "all", ["all", "chem", "heme", "coag", "micro", "bb"]).toUpperCase()); if (foc >= 0) { w = w.map((x) => x * .5); w[foc] = Math.max(w[foc] * 4, 6); }
+  const dept = o.test ? BYID[o.test].dept : DK[wpick(w)];
+  const t = o.test ? BYID[o.test] : pick(TESTS.filter((x) => x.dept === dept));
+  const pat = mkPatient();
+  const s = { id: ++uid, t, pat, label: { name: pat.ln + ", " + pat.fn, mrn: pat.mrn, dob: pat.dob }, tube: pick(t.ok), stat: o.stat != null ? !!o.stat : Math.random() < lv.stat, arr: clock, defects: [], decoy: null, fill: 1, serum: "straw", phase: "recv", rowT: clock, collected: clock - Math.floor(rnd(8, 40)), by: pick(COLLECTORS), kind: o.kind || null, called: false, rerun: false, cond: "Looks normal. Fill 100%." };
+  const serumTube = s.tube === "gold" || s.tube === "red", plasmaTube = s.tube === "green" || s.tube === "gray";
+  const forced = o.defect !== undefined;
+  let roll = forced ? o.defect : (Math.random() < lv.def * df.def ? "?" : null);
+  if (roll === "?") {
+    const poss = []; if (t.dept === "CHEM") poss.push("HEMO", "HEMO");
+    if (["lav", "blue", "green", "gray", "pink"].includes(s.tube)) poss.push("CLOT");
+    poss.push("QNS"); if (t.bad) poss.push("WRONG", "WRONG"); poss.push("LABEL", "LABEL"); roll = pick(poss);
+  }
+  if (roll) {
+    s.defects.push(roll);
+    if (roll === "HEMO") { s.serum = "red"; s.cond = (serumTube || plasmaTube ? "Serum/plasma is RED: gross hemolysis (H-index 3+)." : "Gross hemolysis (H-index 3+)."); }
+    if (roll === "CLOT") s.cond = "Clot / fibrin strands visible in the tube.";
+    if (roll === "QNS") { s.fill = rnd(.2, .55); const p = Math.round(s.fill * 100); s.cond = s.tube === "blue" ? `Fill ${p}%: citrate tube must be at least 90% full (9:1).` : s.tube === "bottle" ? "Bottle holds 2 mL; adults need 8-10 mL." : `Fill ${p}%: not enough to run the test.`; }
+    if (roll === "WRONG") { s.tube = pick(t.bad); }
+    if (roll === "LABEL") { const k = pick(["name", "mrn", "none", "dob"]); if (k === "name") s.label.name = s.pat.ln + ", " + pick(FN.filter((f) => f !== s.pat.fn)); else if (k === "mrn") { const a = s.pat.mrn.split(""); const i = 3 + Math.floor(Math.random() * 3); [a[i], a[i + 1]] = [a[i + 1], a[i]]; if (a.join("") === s.pat.mrn) a[6] = String((+a[6] + 3) % 10); s.label.mrn = a.join(""); } else if (k === "none") s.label = { name: "", mrn: "", dob: "" }; else s.label.dob = ""; }
+    if (o.defect2) s.defects.push(o.defect2);
+  } else if (!forced && Math.random() < .13 && (serumTube || t.id === "INR" || t.id === "PTT")) {
+    if (s.tube === "blue") { s.fill = rnd(.92, .97); s.decoy = "fill"; s.cond = `Fill ${Math.round(s.fill * 100)}%: just above the 90% line.`; }
+    else { s.decoy = pick(["lipemic", "icteric", "slight"]); s.serum = { lipemic: "milk", icteric: "yellow", slight: "pink" }[s.decoy]; s.cond = { lipemic: "Serum is milky white (lipemic, L-index 2+).", icteric: "Serum is deep yellow (icteric, I-index 2+).", slight: "Faint pink tinge (hemolysis index 1+)." }[s.decoy]; }
+  }
+  if (s.tube !== "bottle" && s.t.dept === "MICRO" && !s.defects.length) s.cond = s.tube === "cup" ? "Clean-catch urine, 30 mL, sealed." : "Clear fluid, 1 mL, sealed.";
+  if (o.test && o.stat == null) s.stat = false;
+  return s;
+}
+function labelBad(s) { return s.label.name !== s.pat.ln + ", " + s.pat.fn || s.label.mrn !== s.pat.mrn || s.label.dob !== s.pat.dob; }
+function addToList(s, ph) { s.phase = ph; s.rowT = clock; if (!list.includes(s)) list.push(s); }
+function dropFromList(s) { const i = list.indexOf(s); if (i >= 0) list.splice(i, 1); }
+
+// ---------- results ----------
+const rf = (t, v) => +v.toFixed(t.d);
+function classify(t, v) { if ((t.cl != null && v < t.cl) || (t.ch != null && v > t.ch)) return "crit"; if (v < t.lo || v > t.hi) return "abn"; return "ok"; }
+function numVal(t, kind) {
+  const span = t.hi - t.lo; let v;
+  if (kind === "normal") v = t.lo + span * rnd(.2, .8);
+  else if (kind === "abn") { const up = t.cl == null || Math.random() < .5; v = up ? t.hi + ((t.ch != null ? t.ch : t.hi * 2) - t.hi) * rnd(.1, .45) : t.lo - (t.lo - t.cl) * rnd(.1, .5); if (t.id === "DD") v = rnd(.9, 3); }
+  else { const up = t.ch != null && (t.cl == null || Math.random() < .5); if (up) v = t.id === "TNI" ? rnd(.3, 3) : t.ch + (t.ch - t.lo) * rnd(.05, .3); else v = Math.max(t.cl * .4, t.cl - span * rnd(.03, .25)); }
+  return rf(t, v);
+}
+function makeResult(s) {
+  const t = s.t, lv = LK(), df = DF(); let kind = s.kind; const r = Math.random();
+  if (!kind) kind = r < lv.crit * df.crit ? "crit" : r < lv.crit * df.crit + lv.delta * df.crit ? "delta" : r < .5 ? "normal" : "abn";
+  if (kind === "abn" && (t.id === "TNI" || t.bb || t.id === "BCX" || t.id === "CSF")) kind = "normal";
+  if (kind === "crit" && !(t.ch != null || t.cl != null || t.id === "BCX" || t.id === "CSF")) kind = "normal";
+  if (kind === "delta" && t.dl == null && !t.bb) kind = "normal";
+  if (t.id === "DD" && kind === "crit") kind = "abn";
+  const res = { kind, prev: null, txt: null, v: null };
+  if (t.txt) {
+    if (t.bb) { const a = pick(ABO); const o = pick(ABO.filter((x) => x !== a)); res.v = null; if (kind === "delta") { res.txt = `${a} ABO/Rh`; res.prevTxt = `historic type ${o}`; res.note = "ABO/Rh does not match the patient's historic type"; } else { kind = "normal"; res.kind = "normal"; res.txt = t.id === "XM" ? "Compatible, 2 units" : `${a}, antibody screen NEG`; res.prevTxt = Math.random() < .5 ? `historic type ${a}` : null; } }
+    else if (kind === "crit") res.txt = t.crit; else if (kind === "abn" && t.abn) res.txt = t.abn; else { res.kind = "normal"; res.txt = t.nrm; }
+  } else if (kind === "delta") {
+    const p = numVal(t, "normal"); let dir = Math.random() < .5 ? 1 : -1; let v = rf(t, p + dir * t.dl * rnd(1.35, 2.2));
+    if (classify(t, v) === "crit" || v <= 0) { dir = -dir; v = rf(t, p + dir * t.dl * rnd(1.35, 2.0)); }
+    if (classify(t, v) === "crit" || v <= 0) { res.kind = "normal"; res.v = numVal(t, "normal"); } else { res.v = v; res.prev = p; }
+  } else {
+    res.v = numVal(t, kind); const c = classify(t, res.v); res.kind = c === "ok" ? "normal" : c; if (c === "ok" && kind === "normal" && Math.random() < .5 && t.dl) res.prev = rf(t, res.v + (Math.random() < .5 ? 1 : -1) * t.dl * rnd(.05, .4));
+  }
+  s.res = res; s.resAt = clock; addToList(s, "res");
+  if (res.kind === "crit") { s.callBy = clock + CALL_MIN * df.call; Kit.sfx("power"); Kit.haptic(40); } else Kit.sfx("tick");
+  if (sel === null) select(s.id);
+  scrollKeep();
+}
+const resText = (s) => { const r = s.res, t = s.t; if (r.txt) return r.txt; const fl = r.v < t.lo ? (t.cl != null && r.v < t.cl ? "LL" : "L") : r.v > t.hi ? (t.ch != null && r.v > t.ch ? "HH" : "H") : ""; return `${r.v.toFixed(t.d)} ${t.u} ${fl}`.trim(); };
+const deltaFail = (s) => { const r = s.res; if (r.kind !== "delta") return false; return true; };
+
+// ---------- departments ----------
+function dInit() { jobs = {}; for (const k of DK) jobs[k] = { run: [], wait: [] }; }
+const capOf = (k) => Math.max(1, DEPT[k].cap + (LK().staff || 0));
+function jobTime(s, k) { return DEPT[k].t * (s.stat ? .6 : 1) * rnd(.85, 1.15); }
+function toDept(s, k, quick) { s.phase = "proc"; s.dept = k; s.left = jobTime(s, k) * (quick ? .7 : 1); dropFromList(s); jobs[k].wait.push(s); fillDept(k); }
+function fillDept(k) { const j = jobs[k]; while (j.run.length < capOf(k) && j.wait.length) { j.run.push(j.wait.shift()); } }
+function stepDepts(dtc) {
+  for (const k of DK) { const j = jobs[k]; for (let i = j.run.length - 1; i >= 0; i--) { const s = j.run[i]; s.left -= dtc; if (s.left <= 0) { j.run.splice(i, 1); finishJob(s); } } fillDept(k); }
+  for (let i = bounce.length - 1; i >= 0; i--) { const s = bounce[i]; if (clock >= s.back) { bounce.splice(i, 1); addToList(s, "recv"); s.arr = Math.min(s.arr, clock); if (sel === null) select(s.id); } }
+}
+function finishJob(s) {
+  if (s.rerunning) { s.rerunning = false; const t = s.t, r = s.res; if (t.txt) { r.txt = (t.bb ? r.txt.replace(/ABO\/Rh.*/, "") : r.txt); const a = (r.prevTxt || "").replace("historic type ", ""); r.txt = `${a || "O POS"}, matches historic type`; r.prevTxt = null; r.note = null; } else { r.v = rf(t, r.prev + (Math.random() < .5 ? 1 : -1) * t.dl * rnd(.02, .25)); r.prev = r.v; } r.kind = "normal"; r.verified = true; s.resAt = clock; addToList(s, "res"); Kit.sfx("tick"); if (sel === null) select(s.id); return; }
+  makeResult(s);
+}
+
+// ---------- scoring helpers ----------
+function pop(txt, col, x = 180, y = PY + 205) { pops.push({ txt, col, x, y, t: 1.4 }); }
+function good(msg, pts) { okN++; score += pts; feed = { msg, good: true, t: 4 }; pop("+" + pts, "#7ff0a0"); Kit.sfx("coin"); Kit.haptic(12); hud(); }
+function bad(msg, pts) { errN++; score = Math.max(0, score - pts); feed = { msg, good: false, t: 5 }; pop("-" + pts, "#ff7a7a"); Kit.sfx("hit"); Kit.haptic(55); hud(); }
+function bonus(pts, msg) { score += pts; if (msg) feed = { msg, good: true, t: 3 }; pop("+" + pts, "#ffe27a", 180, PY + 180); hud(); }
+function hud() { stats({ Time: fmtClock(startMin + clock), Score: score, Acc: Math.round(acc() * 100) + "%" }); }
+function finalize(s, tat) { doneN++; const ok = tat <= target(s); if (ok) onTime++; if (s.stat && ok) { fastStat = Math.min(fastStat, tat); if (tat <= 15) award("fast"); } return ok; }
+
+// ---------- actions ----------
+function select(id) { sel = id; mode = "main"; setBtns(); scrollKeep(); }
+function scrollKeep() { const i = list.findIndex((s) => s.id === sel); if (i < 0) return; const top = i * RH, max = Math.max(0, list.length * RH - VIS * RH); if (top < scrollPx) scrollPx = top; else if (top + RH > scrollPx + VIS * RH) scrollPx = top + RH - VIS * RH; scrollPx = clamp(scrollPx, 0, max); }
+function selectNext(i) { const n = list[Math.min(i, list.length - 1)]; sel = n ? n.id : null; mode = "main"; setBtns(); scrollKeep(); }
+function route(s, k) {
+  const i = list.indexOf(s);
+  if (k !== s.t.dept) { misroutes++; bad(`${s.t.name} belongs in ${DEPT[s.t.dept].full}, not ${DEPT[k].full}. Bounced back.`, 60); dropFromList(s); s.phase = "bounce"; s.back = clock + 10; bounce.push(s); selectNext(i); return; }
+  if (s.defects.length) { bad(`Ran a ${RNAME[s.defects[0]]} specimen: the result is unreliable. It should have been rejected.`, 75); s.bad = true; }
+  else good(`${s.t.name} sent to ${DEPT[k].full}.`, 50);
+  toDept(s, k); selectNext(i);
+}
+function reject(s, code) {
+  const i = list.indexOf(s), r = REASONS.find((x) => x[0] === code);
+  if (!s.defects.length) { bad(s.decoy ? `That specimen was acceptable (${s.decoy === "fill" ? "fill is above 90%" : s.decoy + " is run with a comment"}). Do not reject it.` : "Good specimen rejected. A recollect delays the patient.", 75); }
+  else if (s.defects.includes(code)) {
+    good(`Rejected: ${r[1].toLowerCase()}. Recollect requested.`, 60); rejOk++;
+    if (code === "HEMO") award("hemo"); if (code === "LABEL") award("label");
+    if (s.stat) bonus(25); finalize(s, clock - s.arr);
+  } else bad(`Rejected, but the reason was wrong: it was ${RNAME[s.defects[0]]}.`, 40);
+  dropFromList(s); selectNext(i);
+}
+function callCrit(s) {
+  const r = s.res;
+  if (r.kind !== "crit") { bad("That is not a critical value: no call needed.", 40); return; }
+  if (s.called) { toast("Already called"); return; }
+  s.called = true; const mins = clock - s.resAt, on = clock <= s.callBy;
+  if (on) { callsOk++; bestCall = Math.min(bestCall, mins); if (mins <= 10) award("call"); good(`Critical called to ${s.pat.loc} RN, read back verified.`, 150); }
+  else { callsLate++; bad("Critical called late: the limit had passed.", 60); }
+  setBtns();
+}
+function release(s) {
+  const r = s.res, i = list.indexOf(s);
+  if (r.kind === "crit" && !s.called) { bad("Critical result released without a call to the nurse.", 150); finalize(s, clock - s.arr); }
+  else if (r.kind === "delta") { bad("Delta-check failure released without a rerun.", 120); finalize(s, clock - s.arr); }
+  else if (!s.bad) { const tat = clock - s.arr; const ok = finalize(s, tat); good(`Released ${s.t.an}${ok ? "" : " (late)"}.`, 100); if (ok) bonus(s.stat ? 100 : 30); }
+  else { finalize(s, clock - s.arr); feed = { msg: "Released a result from a compromised specimen.", good: false, t: 3 }; }
+  dropFromList(s); selectNext(i); checkEnd();
+}
+function rerun(s) {
+  const r = s.res, i = list.indexOf(s), k = s.t.dept;
+  if (r.kind === "delta") { good(`Delta failure caught: ${s.t.bb ? "recollect requested and retyped" : "rerun started"}.`, 80); award("delta"); s.rerunning = true; if (s.t.bb) { dropFromList(s); s.phase = "bounce"; s.back = clock + 1; } toDept2(s, k); }
+  else { bad("Unnecessary rerun: the result was fine. Time wasted.", 40); s.rerunning = true; toDept2(s, k, true); }
+  selectNext(i);
+}
+function toDept2(s, k, quick) { s.phase = "proc"; s.dept = k; s.left = jobTime(s, k) * (s.t.bb ? 1.3 : .8); dropFromList(s); const bi = bounce.indexOf(s); if (bi >= 0) bounce.splice(bi, 1); jobs[k].wait.push(s); fillDept(k); }
+
+// buttons are fixed slots; label/colour/handler depend on the selected row
+function slotDefs() {
+  const s = cur(), none = Array.from({ length: 6 }, () => ({ l: "-", c: "#556", dis: 1 }));
+  if (!s) return none;
+  if (s.phase === "recv") {
+    if (mode === "rej") return [...REASONS.map((r) => ({ l: r[1], sub: "reason", c: "#ff8a6b", do: () => reject(s, r[0]) })), { l: "BACK", c: "#8cb0aa", do: () => { mode = "main"; setBtns(); } }];
+    return [...DK.slice(0, 3).map((k) => ({ l: DEPT[k].n.toUpperCase(), sub: "send to", c: DEPT[k].col, do: () => route(s, k) })), { l: "MICRO", sub: "send to", c: DEPT.MICRO.col, do: () => route(s, "MICRO") }, { l: "BLOOD BANK", sub: "send to", c: DEPT.BB.col, do: () => route(s, "BB") }, { l: "REJECT", sub: "pick a reason", c: "#ff6b6b", do: () => { mode = "rej"; setBtns(); } }];
+  }
+  if (s.phase === "res") {
+    const bb = s.t.bb;
+    return [{ l: "RELEASE", sub: "verify + send", c: "#35d0b8", do: () => release(s) }, { l: "CALL", sub: s.called ? "done" : "critical", c: "#ff6b6b", do: () => callCrit(s) }, { l: bb ? "RECOLLECT" : "RERUN", sub: bb ? "retype" : "repeat test", c: "#f2c14e", do: () => rerun(s) }, { l: "-", c: "#556", dis: 1 }, { l: "-", c: "#556", dis: 1 }, { l: "-", c: "#556", dis: 1 }];
+  }
+  return none;
+}
+function bestSlot(s) {
+  if (!s) return -1;
+  if (s.phase === "recv") { if (s.defects.length) { if (mode !== "rej") return 5; return REASONS.findIndex((r) => r[0] === s.defects[0]); } return mode === "rej" ? 5 : DK.indexOf(s.t.dept); }
+  if (s.phase === "res") { const k = s.res.kind; if (k === "crit" && !s.called) return 1; if (k === "delta") return 2; return 0; }
+  return -1;
+}
+function setBtns() {
+  const defs = slotDefs(), best = opt("hint", "off", ["off", "rules", "full"]) === "full" ? bestSlot(cur()) : -1;
+  slots.forEach((b, i) => {
+    const d = defs[i]; b._l.textContent = d.l; b._s.textContent = d.sub || ""; b.style.setProperty("--c", d.c); b.setAttribute("aria-label", d.l);
+    b.classList.toggle("dis", !!d.dis); b.classList.toggle("hint", i === best); b._do = d.dis ? null : d.do;
+  });
+}
+function press(i) { if (state !== "play" || refOpen) return; const b = slots[i]; if (!b) return; if (!b._do) { Kit.haptic(5); return; } b._do(); }
+function showControls() {
+  slots.length = 0; const grid = document.createElement("div"); grid.className = "kgrid";
+  for (let i = 0; i < 6; i++) { const b = Kit.button("-", { down: () => press(i), cls: "wide", aria: "action " + (i + 1) }); b.innerHTML = '<span class="l"></span><small></small>'; b._l = b.firstChild; b._s = b.lastChild; slots.push(b); grid.append(b); }
+  Kit.controls([grid], []); setBtns();
+}
+
+// ---------- shift flow ----------
+function newShift(lv) {
+  level = lv; const lk = LK(); const len = LENS[opt("len", "std", ["short", "std", "long"])]; endAt = len; startMin = START_H[lk.ty] * 60;
+  clock = 0; uid = 0; list = []; bounce = []; dInit(); sel = null; mode = "main"; scrollPx = 0; pops = []; feed = { msg: "Shift started. Tap a specimen row.", good: true, t: 5 };
+  score = 0; okN = 0; errN = 0; missed = 0; made = 0; doneN = 0; onTime = 0; callsOk = 0; callsLate = 0; rejOk = 0; misroutes = 0; closing = false; refOpen = 0; runT = 0;
+  nextArr = 4; burstAt = lk.burst ? [len * .08, len * .3, len * .55, len * .78] : []; startedAt = performance.now();
+  state = "play"; hud(); setBtns();
+}
+function arrive(n = 1) { for (let i = 0; i < n; i++) { if (list.length + bounce.length >= 13) return; const s = mkSpec(); made++; addToList(s, "recv"); if (sel === null) select(s.id); } Kit.sfx("click"); scrollKeep(); }
+function checkEnd() {
+  if (!closing || state !== "play") return;
+  const busy = list.length || bounce.length || DK.some((k) => jobs[k].run.length || jobs[k].wait.length);
+  if (!busy) endShift();
+}
+function endShift() {
+  if (state !== "play") return; state = "over"; Kit.hideControls(); hud();
+  missed = list.length + bounce.length + DK.reduce((a, k) => a + jobs[k].run.length + jobs[k].wait.length, 0);
+  const a = acc(), ot = doneN ? onTime / (doneN + missed) : 0, gp = a * 60 + ot * 40 + (made ? 0 : 0);
+  const grade = gp >= 95 ? "S" : gp >= 88 ? "A" : gp >= 78 ? "B" : gp >= 65 ? "C" : gp >= 50 ? "D" : "F", pass = gp >= 65 && doneN >= Math.max(1, Math.floor(made * .5));
+  if (pass) { unlock(level + 1); if (level >= 10) award("mci"); } if (errN === 0 && okN >= 8) award("perfect"); if (LK().ty === "mci" && pass) award("mci");
+  const key = "s" + level; if (!(SAVE.best[key] >= score)) { SAVE.best[key] = score; persist(); }
+  Kit.record({ win: pass ? 1 : 0, score, secs: Math.round((performance.now() - startedAt) / 1000) });
+  Kit.sfx(pass ? "win" : "lose"); const fin = level >= 10;
+  card(`<h1>${pass ? (fin ? "Hero of the lab" : "Shift complete") : "Shift not passed"}</h1><p class="sub">${esc(LK().n)}</p><p style="font-size:44px;line-height:1;margin:2px 0;color:var(--accent)">${grade}</p><p class="sub">Accuracy ${Math.round(a * 100)}% · On time ${Math.round(ot * 100)}%<br>Handled ${doneN} · Unfinished ${missed} · Calls ${callsOk + callsLate}<br>Score ${score}</p>${pass ? "" : '<p class="sub">Need grade C: 65 points of accuracy and speed.</p>'}`,
+    pass ? (fin ? "Back to menu" : "Next shift") : "Retry shift", () => { if (pass && !fin) { newShift(level + 1); showControls(); } else if (pass) openMenu(); else { newShift(level); showControls(); } });
+  document.getElementById("card").insertAdjacentHTML("beforeend", '<button class="ghost" id="lq">Menu</button>'); document.getElementById("lq").onclick = () => { document.getElementById("over").hidden = true; openMenu(); };
+}
+
+function update(dt) {
+  if (state !== "play" || refOpen) return;
+  runT += dt; const dtc = dt * RATE; clock += dtc;
+  for (const p of pops) p.t -= dt; pops = pops.filter((p) => p.t > 0); if (feed.t > 0) feed.t -= dt;
+  stepDepts(dtc);
+  if (!closing) {
+    if (!manual) {
+      nextArr -= dtc; if (nextArr <= 0) { arrive(); nextArr = LK().gap * DF().gap * rnd(.55, 1.45); }
+      while (burstAt.length && clock >= burstAt[0]) { burstAt.shift(); arrive(5); feed = { msg: "Incoming wave from the field!", good: false, t: 4 }; }
+    }
+    if (clock >= endAt) { closing = true; feed = { msg: "End of shift: clear the remaining work.", good: true, t: 5 }; }
+  } else if (clock >= endAt + 90) { endShift(); return; }
+  checkEnd();
+  if (Math.floor(runT * 4) !== Math.floor((runT - dt) * 4)) hud();
+}
+
+// ---------- input ----------
+let listDrag = null;
+Kit.play({
+  start(f) { if (state !== "play") return; f.owner = f.y >= LY && f.y < LY + RH * VIS ? "list" : "other"; f.sy = scrollPx; f.dragged = false; },
+  move(f) { if (f.owner !== "list" || refOpen) return; if (Math.abs(f.y - f.y0) > 8) f.dragged = true; if (f.dragged) scrollPx = clamp(f.sy - (f.y - f.y0), 0, Math.max(0, list.length * RH - VIS * RH)); },
+  end(f) {
+    if (state !== "play") return;
+    const g = Kit.gesture(f, 10);
+    if (refOpen) { if (g.tap) { refOpen++; if (refOpen > 3) refOpen = 0; Kit.sfx("click"); } return; }
+    if (f.dragged || !g.tap) return;
+    if (f.x0 > 296 && f.y0 < 50) { refOpen = 1; Kit.sfx("click"); return; }
+    if (f.y0 >= 84 && f.y0 < 124) { const c = list.find((s) => s.phase === "res" && s.res.kind === "crit" && !s.called); if (c) { select(c.id); Kit.sfx("click"); } return; }
+    if (f.y0 >= LY && f.y0 < LY + RH * VIS) { const i = Math.floor((f.y0 - LY + scrollPx) / RH); if (list[i]) { select(list[i].id); Kit.sfx("click"); Kit.haptic(6); } }
+  }
+});
+addEventListener("keydown", (e) => {
+  if (e.repeat) return;
+  if (e.key === "p" || e.key === "Escape") { Kit.pause(); return; }
+  if (e.key === "r") { if (state === "play") refOpen = refOpen ? 0 : 1; return; }
+  if (state !== "play") return;
+  if (/^[1-6]$/.test(e.key)) press(+e.key - 1);
+  if (e.key === "ArrowDown" || e.key === "s") { const i = list.findIndex((x) => x.id === sel); if (list[i + 1]) select(list[i + 1].id); }
+  if (e.key === "ArrowUp" || e.key === "w") { const i = list.findIndex((x) => x.id === sel); if (i > 0) select(list[i - 1].id); }
+});
+
+// ---------- drawing ----------
+function tubeIcon(x, y, w, h, s, big) {
+  const tb = TUBES[s.tube], cx = x + w / 2;
+  if (s.tube === "cup") { ctx.fillStyle = "#e9eef0"; rr(x - 4, y, w + 8, 9, 3); ctx.fill(); ctx.fillStyle = "rgba(210,230,240,.35)"; ctx.beginPath(); ctx.moveTo(x - 2, y + 9); ctx.lineTo(x + w + 2, y + 9); ctx.lineTo(x + w - 3, y + h); ctx.lineTo(x + 3, y + h); ctx.closePath(); ctx.fill(); ctx.fillStyle = "#e6d46a"; ctx.beginPath(); ctx.moveTo(x, y + h * .4); ctx.lineTo(x + w, y + h * .4); ctx.lineTo(x + w - 3, y + h - 2); ctx.lineTo(x + 3, y + h - 2); ctx.closePath(); ctx.fill(); return; }
+  const capH = Math.max(7, h * .13);
+  ctx.fillStyle = tb.c; rr(x - 2, y, w + 4, capH, 3); ctx.fill();
+  ctx.fillStyle = "rgba(210,235,240,.14)"; rr(x, y + capH, w, h - capH, w / 2.2); ctx.fill(); ctx.strokeStyle = "rgba(210,235,240,.6)"; ctx.lineWidth = big ? 1.6 : 1; ctx.stroke();
+  const inner = h - capH - 3, ly = y + h - 2 - inner * s.fill; // liquid top
+  ctx.save(); rr(x + 1, y + capH, w - 2, h - capH - 1, w / 2.3); ctx.clip();
+  const sc = { straw: "#e9c46a", red: "#d4344c", milk: "#f4efe0", yellow: "#e2b100", pink: "#e98a96" }[s.serum] || "#e9c46a";
+  if (s.tube === "gold" || s.tube === "red") { const hh = y + h - ly; ctx.fillStyle = sc; ctx.fillRect(x, ly, w, hh); ctx.fillStyle = "#7a1f24"; ctx.fillRect(x, y + h - hh * .4, w, hh * .4); if (s.tube === "gold") { ctx.fillStyle = "#c9bfa0"; ctx.fillRect(x, y + h - hh * .42, w, 3); } }
+  else if (s.tube === "green" || s.tube === "gray") { const hh = y + h - ly; ctx.fillStyle = s.serum === "red" ? "#e0566e" : "#e9c46a"; ctx.fillRect(x, ly, w, hh * .6); ctx.fillStyle = "#7a1f24"; ctx.fillRect(x, ly + hh * .6, w, hh * .4); }
+  else if (s.tube === "bottle") { ctx.fillStyle = "#b8912a"; ctx.fillRect(x, ly, w, y + h - ly); ctx.fillStyle = "#8c1b24"; ctx.fillRect(x, y + h - 5, w, 5); }
+  else if (s.tube === "csf") { ctx.fillStyle = "rgba(235,245,250,.85)"; ctx.fillRect(x, ly, w, y + h - ly); }
+  else { ctx.fillStyle = "#8c1b24"; ctx.fillRect(x, ly, w, y + h - ly); }
+  if (s.defects.includes("CLOT")) { ctx.fillStyle = "#3d0b10"; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(cx + (i % 2 ? 2 : -2), y + capH + 8 + i * (inner / 6), w * .26, 3.2, 0, 0, TAU); ctx.fill(); } }
+  ctx.restore();
+  if (big) { // label sticker
+    ctx.fillStyle = s.label.name ? "#f4f6f4" : "rgba(255,255,255,.12)"; rr(x + 3, y + h * .3, w - 6, h * .22, 2); ctx.fill();
+    if (s.label.name) { ctx.fillStyle = "#59666b"; ctx.fillRect(x + 6, y + h * .3 + 4, w - 12, 2); ctx.fillRect(x + 6, y + h * .3 + 9, w - 18, 2); } else { tx("no label", cx, y + h * .41, 11, "#ff9a8a", "center", 700); }
+  }
+}
+function rowDraw(s, y) {
+  const sl = s.id === sel, crit = s.phase === "res" && s.res.kind === "crit" && !s.called, fl = crit && Math.floor(runT * 3) % 2;
+  rr(6, y + 2, 348, RH - 4, 9); ctx.fillStyle = sl ? "#1b3a41" : "#12262c"; ctx.fill(); ctx.lineWidth = sl ? 3 : 1.2; ctx.strokeStyle = sl ? "#35d0b8" : crit ? (fl ? "#ff5a5a" : "#7a2a2a") : "#27434b"; ctx.stroke();
+  tubeIcon(17, y + 8, 11, 29, s, false);
+  tx(`${s.pat.ln.toUpperCase()}, ${s.pat.fn}`, 38, y + 15, 14, "#e8f3f1", "left", 700);
+  const l2 = s.phase === "res" ? `${s.t.name} ${s.t.an}: ${resText(s)}` : `${s.t.name} · ${s.t.an} · ${TUBES[s.tube].s}`;
+  ctx.save(); ctx.beginPath(); ctx.rect(38, y, 232, RH); ctx.clip(); tx(l2, 38, y + 29, 12, "#9bbdb7"); ctx.restore();
+  let rx = 348;
+  if (s.stat) { rr(rx - 40, y + 7, 40, 20, 10); ctx.fillStyle = "#e0393e"; ctx.fill(); tx("STAT", rx - 20, y + 17, 11, "#fff", "center", 700); rx -= 46; }
+  if (s.phase === "res") { const c = crit ? "#ff5a5a" : DEPT[s.t.dept].col, lab = crit ? "CALL " + Math.max(0, Math.ceil((s.callBy - clock) / RATE)) + "s" : s.res.kind === "delta" ? "DELTA" : "RESULT"; const w = crit ? 62 : 58; rr(rx - w, y + 7, w, 20, 10); ctx.fillStyle = crit && fl ? "#fff" : c; ctx.fill(); tx(lab, rx - w / 2, y + 17, 11, crit && fl ? "#c00" : "#08161a", "center", 700); }
+  const el = (clock - s.arr) / target(s); ctx.fillStyle = "rgba(255,255,255,.1)"; ctx.fillRect(38, y + RH - 7, 300, 3); ctx.fillStyle = el < .6 ? "#58d68d" : el < 1 ? "#f2c14e" : "#ff5a5a"; ctx.fillRect(38, y + RH - 7, 300 * Math.min(1, el), 3);
+}
+function panelLines(s) {
+  const L = [], h = opt("hint", "off", ["off", "rules", "full"]), t = s.t;
+  const rule = h !== "off";
+  if (s.phase === "recv") {
+    L.push(["Order", `${t.name} (${t.an})${s.stat ? "  STAT" : ""}`, "#e8f3f1"]);
+    L.push(["Ordered for", `${s.pat.ln.toUpperCase()}, ${s.pat.fn}  #${s.pat.mrn}  DOB ${s.pat.dob}`, "#e8f3f1"]);
+    const lab = s.label.name ? `${s.label.name.toUpperCase()}  #${s.label.mrn}  DOB ${s.label.dob || "(blank)"}` : "NO LABEL ON TUBE";
+    L.push(["Tube label", lab, rule && labelBad(s) ? "#ff7a7a" : "#e8f3f1"]);
+    L.push(["Tube top", TUBES[s.tube].n, "#e8f3f1"]);
+    if (rule) L.push(["Needs", t.ok.map((k) => TUBES[k].s).join(" or "), "#9bd1ff"]);
+    L.push(["Condition", s.cond, "#e8f3f1"]);
+    if (rule && s.decoy) L.push(["Rule", "Lipemic, icteric, faint hemolysis and a blue top 90%+ full are run with a comment.", "#9bd1ff"]);
+  } else if (s.phase === "res") {
+    const r = s.res;
+    L.push(["Test", `${t.name} (${t.an})${s.stat ? "  STAT" : ""}`, "#e8f3f1"]);
+    L.push(["Result", resText(s), r.kind === "crit" ? "#ff7a7a" : r.kind === "abn" ? "#f2c14e" : "#7ff0a0", 1]);
+    if (!t.txt) L.push(["Reference", `${t.lo}-${t.hi} ${t.u}`, "#9bbdb7"]);
+    if (r.prev != null) { const d = r.v - r.prev; L.push(["Previous", `${r.prev.toFixed(t.d)}   change ${d >= 0 ? "+" : ""}${d.toFixed(t.d)}`, "#e8f3f1"]); }
+    if (r.prevTxt) L.push(["Previous", r.prevTxt, r.kind === "delta" ? "#ff9a8a" : "#e8f3f1"]);
+    if (rule) { if (t.dl != null) L.push(["Delta limit", `+/- ${t.dl} ${t.u}`, "#9bd1ff"]); if (t.ch != null || t.cl != null) L.push(["Critical", `${t.cl != null ? "< " + t.cl : ""}${t.cl != null && t.ch != null ? " or " : ""}${t.ch != null ? "> " + t.ch : ""} ${t.u}`, "#9bd1ff"]); if (t.critTxt) L.push(["Critical", t.critTxt, "#9bd1ff"]); if (t.bb) L.push(["Rule", "ABO/Rh must match history, or recollect.", "#9bd1ff"]); }
+    if (r.verified) L.push(["Check", "Rerun agrees with the previous value.", "#7ff0a0"]);
+    if (r.kind === "crit") L.push(["Call", s.called ? `Called to ${s.pat.loc} RN` : `Call ${s.pat.loc} within ${Math.max(0, Math.ceil((s.callBy - clock) / RATE))} s`, s.called ? "#7ff0a0" : "#ff7a7a"]);
+  }
+  if (h === "full") { const b = bestSlot(s), d = slotDefs()[b]; if (b >= 0 && d) L.push(["Hint", `${d.l}`, "#ffffff"]); }
+  return L;
+}
+function drawPanel() {
+  const s = cur(); rr(6, PY, 348, 232, 12); ctx.fillStyle = "#10222a"; ctx.fill(); ctx.strokeStyle = s ? (s.phase === "res" ? "#35d0b8" : DEPT[s.t.dept].col) : "#27434b"; ctx.lineWidth = 2; ctx.stroke();
+  if (!s) { tx(list.length ? "Tap a row above" : "Waiting for specimens...", 180, PY + 116, 16, "#9bbdb7", "center", 700); return; }
+  tubeIcon(22, PY + 14, 38, 180, s, true);
+  tx(s.phase === "res" ? "RESULT" : "from " + s.pat.loc, 41, PY + 206, 11, "#9bbdb7", "center", 700); if (s.phase === "recv") tx("coll " + fmtClock(startMin + s.collected), 41, PY + 220, 11, "#9bbdb7", "center", 600);
+  let y = PY + 16; ctx.save(); ctx.beginPath(); ctx.rect(72, PY + 4, 280, 224); ctx.clip();
+  for (const [k, v, c, big] of panelLines(s)) {
+    tx(k.toUpperCase(), 74, y, 11, "#7fa29c", "left", 700); y += 13;
+    const ls = wrap(v, 272, big ? 20 : 13, 700); for (const ln of ls) { tx(ln, 74, y + (big ? 6 : 1), big ? 20 : 13, c, "left", 700); y += big ? 24 : 15; } y += 3;
+  }
+  ctx.restore();
+  if (mode === "rej") { rr(72, PY + 186, 276, 38, 8); ctx.fillStyle = "rgba(255,107,107,.18)"; ctx.fill(); tx("Choose why it is being rejected", 210, PY + 205, 14, "#ffb0a0", "center", 700); }
+}
+function drawRef() {
+  ctx.globalAlpha = 1; ctx.fillStyle = "#060e12"; ctx.fillRect(0, 0, LW, LH); const pg = refOpen;
+  tx(["TUBE TOPS · ORDER OF DRAW", "CRITICAL VALUES: CALL", "DELTA, REJECTS, ROUTING"][pg - 1], 14, 24, 16, "#35d0b8", "left", 700); tx("X", 336, 24, 18, "#e8f3f1", "center", 700); tx(`page ${pg}/3 · tap to turn`, 14, 46, 12, "#8cb0aa");
+  let y = 70;
+  const row = (a, b, c) => { tx(a, 14, y, 13, c || "#e8f3f1", "left", 700); tx(b, 170, y, 13, "#bcd6d1"); y += 22; };
+  if (pg === 1) {
+    [["bottle", "1 Culture bottles", "Micro"], ["blue", "2 Light blue", "Coag (fill to line)"], ["gold", "3 Gold SST / Red", "Chemistry"], ["green", "4 Green", "Chem (plasma)"], ["lav", "5 Lavender", "Hematology"], ["pink", "5 Pink", "Blood bank"], ["gray", "6 Gray", "Glucose, lactate"]].forEach(([k, a, b]) => { ctx.fillStyle = TUBES[k].c; rr(14, y - 9, 22, 18, 4); ctx.fill(); tx(a, 46, y, 13, "#e8f3f1", "left", 700); tx(b, 190, y, 13, "#bcd6d1"); y += 28; });
+    y += 4; tx("Order of draw prevents additive carry-over.", 14, y, 13, "#9bbdb7"); y += 26;
+    tx("Routing", 14, y, 13, "#35d0b8", "left", 700); y += 22;
+    for (const k of DK) { ctx.fillStyle = DEPT[k].col; ctx.fillRect(14, y - 7, 6, 14); tx(DEPT[k].full, 28, y, 13, "#e8f3f1", "left", 700); tx({ CHEM: "BMP, CMP, Ca, glucose, lactate, troponin", HEME: "CBC (Hgb, WBC, Plt)", COAG: "PT/INR, aPTT, fibrinogen, D-dimer", MICRO: "Cultures, CSF Gram stain", BB: "Type & screen, crossmatch" }[k], 128, y, 11.5, "#bcd6d1"); y += 22; }
+  } else if (pg === 2) {
+    [["Potassium", "< 2.5 or > 6.5 mmol/L"], ["Sodium", "< 120 or > 160 mmol/L"], ["Calcium", "< 6.0 or > 13.0 mg/dL"], ["Glucose", "< 40 or > 500 mg/dL"], ["Lactate", "> 4.0 mmol/L"], ["Troponin I", "> 0.04 ng/mL"], ["Hemoglobin", "< 7.0 or > 20.0 g/dL"], ["WBC", "< 2.0 or > 30 x10^3/uL"], ["Platelets", "< 20 or > 1000 x10^3/uL"], ["INR", "> 5.0"], ["aPTT", "> 100 sec"], ["Fibrinogen", "< 100 mg/dL"], ["Blood culture", "positive: call"], ["CSF Gram stain", "organisms seen: call"]].forEach(([a, b]) => { row(a, b); });
+    y += 6; tx("Call the nurse, get a read-back, then release.", 14, y, 13, "#9bbdb7");
+  } else {
+    tx("Delta check: change from the last result is too big", 14, y, 13, "#e8f3f1", "left", 700); y += 20; tx("K 1.5 · Na 10 · Ca 2 · Hgb 3 · WBC 8 · Plt 150 · INR 1.5", 14, y, 12, "#bcd6d1"); y += 18; tx("Fails mean rerun first (blood bank: recollect).", 14, y, 12, "#bcd6d1"); y += 28;
+    tx("Reject reasons", 14, y, 13, "#ff8a6b", "left", 700); y += 20;
+    for (const r of REASONS) { tx(r[1], 14, y, 13, "#e8f3f1", "left", 700); tx(r[2], 120, y, 12, "#bcd6d1"); y += 19; }
+    y += 8; tx("Do NOT reject", 14, y, 13, "#7ff0a0", "left", 700); y += 20;
+    for (const ln of wrap("Lipemic or icteric serum, faint hemolysis (1+), a light blue tube at least 90% full. Run them with a comment.", 330, 12)) { tx(ln, 14, y, 12, "#bcd6d1"); y += 17; }
+    y += 6; for (const ln of wrap("Hemolysis falsely raises K+. EDTA contamination raises K+ and drops Ca. Underfilled citrate tubes prolong PT/aPTT.", 330, 12)) { tx(ln, 14, y, 12, "#bcd6d1"); y += 17; }
+  }
+}
+const nightTint = () => ({ day: "#102a31", eve: "#1a2030", night: "#0b1020", mci: "#2a1216" })[LK().ty];
+function draw() {
+  ctx.fillStyle = "#0c181d"; ctx.fillRect(0, 0, LW, LH);
+  if (state === "menu") { ctx.fillStyle = "#12262c"; rr(20, 60, 320, 420, 16); ctx.fill(); tx("LAB SHIFT", 180, 270, 34, "#35d0b8", "center", 700); for (let i = 0; i < 6; i++) tubeIcon(52 + i * 46, 140, 20, 80, { tube: ["gold", "lav", "blue", "green", "gray", "pink"][i], fill: .8, serum: "straw", defects: [], label: { name: "x" } }, false); return; }
+  // clock bar
+  ctx.fillStyle = nightTint(); rr(6, 2, 348, 42, 10); ctx.fill();
+  tx(fmtClock(startMin + clock), 16, 18, 24, "#fff", "left", 700); tx(`${TYLAB[LK().ty]} · SHIFT ${level}`, 100, 14, 12, "#9bbdb7", "left", 700); tx(LK().n.replace(/^[^:]*: /, ""), 100, 30, 12, "#cfe5e1");
+  rr(300, 6, 50, 34, 8); ctx.fillStyle = "rgba(53,208,184,.2)"; ctx.fill(); ctx.strokeStyle = "#35d0b8"; ctx.lineWidth = 1.5; ctx.stroke(); tx("REF", 325, 23, 14, "#35d0b8", "center", 700);
+  ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(16, 38, 270, 3); ctx.fillStyle = "#35d0b8"; ctx.fillRect(16, 38, 270 * Math.min(1, clock / endAt), 3);
+  // department strip
+  const cw = 66, gp = 4;
+  DK.forEach((k, i) => { const x = 7 + i * (cw + gp), j = jobs[k]; rr(x, 48, cw, 34, 7); ctx.fillStyle = "#12262c"; ctx.fill(); ctx.fillStyle = DEPT[k].col; ctx.fillRect(x + 4, 52, cw - 8, 3); tx(DEPT[k].n, x + cw / 2, 63, 12, "#e8f3f1", "center", 700);
+    const cap = capOf(k); for (let c = 0; c < cap; c++) { ctx.fillStyle = c < j.run.length ? DEPT[k].col : "rgba(255,255,255,.18)"; ctx.beginPath(); ctx.arc(x + 12 + c * 10, 74, 3.2, 0, TAU); ctx.fill(); } if (j.wait.length) tx("+" + j.wait.length, x + cw - 8, 74, 11, "#ff9a8a", "right", 700); });
+  // banner: critical alert or last feedback
+  const cr = list.find((s) => s.phase === "res" && s.res.kind === "crit" && !s.called);
+  rr(6, 86, 348, 34, 9);
+  if (cr) { const fl = Math.floor(runT * 3) % 2; ctx.fillStyle = fl ? "#b3262b" : "#6e1a1d"; ctx.fill(); tx(`CRITICAL ${cr.t.an} ${resText(cr)}: tap to open, then CALL`, 180, 103, 13, "#fff", "center", 700); }
+  else { ctx.fillStyle = feed.t > 0 ? (feed.good ? "#16402c" : "#4a1c20") : "#12262c"; ctx.fill(); const m = feed.t > 0 ? feed.msg : "Tap a row, then choose an action below."; const ls = wrap(m, 330, 12, 700); if (ls.length > 1) { tx(ls[0], 180, 98, 12, "#e8f3f1", "center", 700); tx(ls[1], 180, 111, 12, "#e8f3f1", "center", 700); } else tx(ls[0], 180, 103, 13, feed.t > 0 ? "#fff" : "#8cb0aa", "center", 700); }
+  // list
+  ctx.save(); ctx.beginPath(); ctx.rect(0, LY, LW, RH * VIS); ctx.clip();
+  list.forEach((s, i) => { const y = LY + i * RH - scrollPx; if (y > LY - RH && y < LY + RH * VIS) rowDraw(s, y); });
+  if (!list.length) tx("No specimens waiting", 180, LY + 60, 15, "#6f8f89", "center", 700);
+  ctx.restore();
+  const tot = list.length * RH; if (tot > RH * VIS) { const bh = RH * VIS * RH * VIS / tot; ctx.fillStyle = "rgba(255,255,255,.28)"; rr(356, LY + (scrollPx / tot) * RH * VIS, 3, bh, 2); ctx.fill(); }
+  const below = Math.max(0, Math.ceil((tot - scrollPx - RH * VIS) / RH)), above = Math.floor(scrollPx / RH + .3);
+  tx(list.length ? `${list.length} in list${below ? ` · ${below} more below, drag list` : ""}${above && !below ? " · drag down to see earlier" : ""}` : "", 180, LY + RH * VIS + 14, 12, "#8cb0aa", "center", 600);
+  drawPanel();
+  for (const p of pops) { ctx.globalAlpha = Math.min(1, p.t); tx(p.txt, p.x, p.y - (1.4 - p.t) * 30, 22, p.col, "center", 700); } ctx.globalAlpha = 1;
+  if (state === "play" && closing) tx("CLOSING", 330, 58, 11, "#ffd27a", "right", 700);
+  if (refOpen) drawRef();
+  drawParts();
+}
+
+loop((dt) => { if (!Kit.isPaused()) { update(dt); stepParts(dt); } draw(); });
+Kit.lifecycle({ pause: () => state === "play" && !refOpen, resume: () => {}, menu: openMenu });
+
+function openMenu() {
+  state = "menu"; Kit.hideControls(); refOpen = 0;
+  Kit.menu({
+    title: "Lab Shift", bestLabel: "Best shift score",
+    html: `<p class="sub">You run receiving at a hospital lab. Tap a specimen row to inspect it, then use the six buttons under the board: send it to the right department, or reject it with the right reason. Later, release results, CALL critical values, and rerun delta-check failures. Fast and accurate wins.</p>`,
+    settings: [
+      { k: "diff", label: "Difficulty", def: "tech", opts: [["trainee", "Trainee"], ["tech", "Tech"], ["senior", "Senior"]] },
+      { k: "len", label: "Shift length", def: "std", opts: [["short", "Short 4h"], ["std", "Standard 8h"], ["long", "Long 12h"]] },
+      { k: "hint", label: "Hints", def: "off", opts: [["off", "Off"], ["rules", "Show rules"], ["full", "Full guide"]] },
+      { k: "focus", label: "Department focus", def: "all", opts: [["all", "All"], ["chem", "Chem"], ["heme", "Heme"], ["coag", "Coag"], ["micro", "Micro"], ["bb", "Blood Bank"]] }
+    ],
+    levels: LV.map((l) => l.n),
+    challenges: [
+      { id: "hemo", text: "Reject a hemolyzed specimen" }, { id: "label", text: "Catch a mislabeled tube" }, { id: "call", text: "Call a critical within 10 minutes of the result" },
+      { id: "delta", text: "Rerun a delta-check failure" }, { id: "fast", text: "Release a STAT within 15 minutes of arrival" }, { id: "perfect", text: "Finish a shift with no errors (8+ decisions)" }, { id: "mci", text: "Pass the Mass Casualty shift" }
+    ],
+    play: "Clock in"
+  }, (lv) => { showControls(); newShift(lv); });
+}
+
+window.T = {
+  get state() { return state; }, get score() { return score; }, get clock() { return clock; }, get sel() { return sel; }, get mode() { return mode; }, get level() { return level; }, get ok() { return okN; }, get err() { return errN; }, get paused() { return Kit.isPaused(); },
+  get list() { return list.map((s) => ({ id: s.id, phase: s.phase, kind: s.res ? s.res.kind : null, test: s.t.id, called: s.called })); }, get done() { return doneN; }, get callsOk() { return callsOk; }, get refOpen() { return refOpen; },
+  get btn() { return slots.map((b) => b.textContent); }, get scroll() { return scrollPx; }, get closing() { return closing; },
+  // test-only helpers
+  manual(b) { manual = !!b; }, inject(o) { const s = mkSpec(Object.assign({ defect: null }, o)); made++; addToList(s, "recv"); if (sel === null) select(s.id); return s.id; },
+  advance(min) { const n = Math.ceil(min / 2); for (let i = 0; i < n; i++) { clock += 2; stepDepts(2); } }, jump(min) { clock = min; }
+};
+fit(); openMenu();
+
+})();
+</script>
+
+</html>

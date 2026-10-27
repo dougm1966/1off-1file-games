@@ -8,18 +8,64 @@ Build a complete, polished browser game called **Lily Pad Dash**, inspired by Fr
 
 ## The game
 
-Hop a frog across five lanes of traffic and a river of logs and diving turtles into five lily-pad bays. Fill every bay to clear the level; speeds rise each level.
+Hop a frog across five lanes of traffic and a river of logs and diving turtles into five lily-pad bays. Fill every bay to clear the level. Ten levels add faster lanes, diving turtles and a gator.
+
+Menu text to show the player:
+
+> Hop across the road and river and fill all five lily pads. Use the D-pad under the board: each press is one square. You can also swipe on the board.
 
 ## Controls (phone first)
 
-Tap ahead of the frog to hop forward, behind it to hop back, and beside it to hop left or right. Arrow keys also work.
+A D-pad under the board: each press is one hop in the direction of the wedge you touch, and the next square is outlined on the board. A big HOP button hops forward. You can also swipe on the board. Arrow keys work too.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 
 ## Rules and features
 
-- Three lives, a 30-second timer per frog, points for every new row reached and bonus points for time left.
-- Turtles periodically dive; standing on a submerged turtle drops you in the river.
+- 10 levels that unlock, and 7 challenges.
+- Settings include difficulty, lives, hold-to-keep-hopping and the grid guide.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Start menu settings
+
+Show a start card with segmented buttons for each setting, remembered between visits:
+
+- **Difficulty**: Easy, Normal, Hard
+- **Lives**: 3, 5, 7
+- **Swipe on board**: On, Off
+- **Tap board to hop forward**: On, Off
+- **Hold to keep hopping**: Off, On
+- **Grid guide**: On, Off
+- **Controls side**: Buttons right, Buttons left
+- **Sound**: On, Off
+- **Vibration**: On, Off
+
+## Levels
+
+10 levels that unlock in order, shown as a numbered grid with a lock icon on locked ones. The selected level's description appears under the grid:
+
+1. Pond Path
+2. Morning Rush
+3. Log Jam
+4. Diving Turtles
+5. Fast Lane
+6. Flood Tide
+7. Gator Bay
+8. Night Traffic
+9. Rapids
+10. Lily Legend
+
+## Challenges
+
+A collapsible checklist on the start card. When the player completes one, mark it done, save it, and show a short toast:
+
+- Eat a fly in a lily bay
+- Reach a lily pad within 8 seconds
+- Clear a level without losing a frog
+- Clear Fast Lane (level 5)
+- Clear level 3 on Hard
+- Clear Lily Legend
+- Make 500 hops in one game
 
 ## Look and feel
 

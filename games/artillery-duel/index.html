@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}</style>
+<title>Artillery Duel</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#15180f;--ink:#f4efe0;--muted:#a9a68c;--accent:#ffb347;--f-display:"Black Ops One",Impact,sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2a1a00;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.kgrid4{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;width:min(236px,61vw)}.kgrid4 .kbtn{box-sizing:border-box;width:100%;min-width:0;height:46px;border-radius:10px;padding:0 2px;font-size:11.5px;white-space:nowrap}.kgrid4 .kbtn.two{grid-column:span 2}.kgrid4 .kbtn small{font-size:10px;font-weight:600;opacity:.85}.kbtn.fire{min-width:0;width:84px;height:82px;box-sizing:border-box;border-color:#ff6b4a;background:rgba(255,107,74,.2)}.kbtn.fire.on{background:#ff6b4a;color:#fff}
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#2a1a00;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#2a1a00}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#2a1a00;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Artillery Duel</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Drag back from your tank and let go to fire · or use the buttons and FIRE</div><div class="ctl" id="ctl" hidden></div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=520,FONT="'Black Ops One', Impact, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ================= Artillery Duel: turn-based tank artillery on destructible terrain =================
+const STEP = 1 / 90, G = 240, VK = 3.3, WK = 4, BOT = LH - 8, MAXPULL = 90, RING = 40;
+const WEAP = {
+  shell: { n: "Shell", r: 24, d: 45, ammo: 99, col: "#ffd166" }, heavy: { n: "Heavy", r: 38, d: 75, ammo: 3, col: "#ff6b4a" },
+  split: { n: "Splitter", r: 16, d: 30, ammo: 3, col: "#c792ea" }, dig: { n: "Digger", r: 12, d: 16, ammo: 2, col: "#b08968" },
+  roll: { n: "Roller", r: 26, d: 55, ammo: 3, col: "#7bd88f" }, bounce: { n: "Bouncer", r: 28, d: 50, ammo: 3, col: "#5bd1ff" }
+};
+const SETS = { basic: ["shell"], classic: ["shell", "heavy", "split"], full: ["shell", "heavy", "split", "dig", "roll", "bounce"] };
+const SKY = { day: ["#5fb3e8", "#cfeeff"], dusk: ["#3a2a5c", "#ff9f6e"], sunset: ["#7a2e3a", "#f6b26b"], night: ["#070b1e", "#2b3a67"] };
+const STYLES = ["hills", "mount", "canyon", "plateau"];
+const COLS = ["#ffb347", "#5bd1ff"];
+let state = "menu", top = new Float32Array(LW), tanks = [], projs = [], delayed = [], turn = 0, wind = 0, round = 1, rounds = 1, wins = [0, 0], shots = [0, 0], dmgDone = [0, 0], theme = "day", style = "hills";
+let shake = 0, pops = [], aimFinger = null, cpu = null, settleT = 0, runT = 0, trail = [], clouds = [], mode = "2p", flash = 0, lastKill = null, banner = { t: 0, s: "" }, matchDmg = 0;
+const twoP = () => mode === "2p";
+const wset = () => { const v = setting("wset", "classic"); return v === "basic" || v === "classic" || v === "full" ? v : "classic"; };
+const isCpu = (i) => !twoP() && i === 1;
+const FUEL = () => { const v = setting("fuel", 90); return Number.isFinite(v) ? clamp(v, 0, 300) : 90; };
+const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / .75;
+
+// ---------- terrain ----------
+const gh = (x) => top[clamp(Math.round(x), 0, LW - 1)];
+function genTerrain(st) {
+  const p = [rnd(0, 6), rnd(0, 6), rnd(0, 6)];
+  if (st === "hills") for (let x = 0; x < LW; x++) top[x] = 300 - 38 * Math.sin(x * .018 + p[0]) - 24 * Math.sin(x * .041 + p[1]) - 12 * Math.sin(x * .093 + p[2]);
+  else if (st === "mount") { const c = []; let y = rnd(260, 330); for (let i = 0; i <= LW / 22 + 1; i++) { y = clamp(y + rnd(-62, 62), 190, 380); c.push(y); } for (let x = 0; x < LW; x++) { const i = Math.floor(x / 22), f = (x % 22) / 22; top[x] = c[i] * (1 - f) + c[i + 1] * f; } }
+  else if (st === "canyon") { const sm = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }; for (let x = 0; x < LW; x++) { const v = sm(55, 120, Math.abs(x - 180)); top[x] = 405 * (1 - v) + 245 * v + 9 * Math.sin(x * .05 + p[0]) * v; } }
+  else { const hs = [230, 265, 300, 335], seg = 5, w = LW / seg, lv = []; for (let i = 0; i < seg; i++) lv.push(pick(hs)); for (let x = 0; x < LW; x++) { const i = Math.min(seg - 1, Math.floor(x / w)), f = x / w - i; const nx = lv[Math.min(seg - 1, i + 1)]; const k = clamp((f - .8) / .2, 0, 1); top[x] = lv[i] * (1 - k) + nx * k; } }
+  for (let x = 0; x < LW; x++) top[x] = clamp(top[x] + (LH - 470), 150, BOT - 40);
+}
+function flatten(x, w) { let s = 0, n = 0; for (let i = Math.max(0, x - w); i <= Math.min(LW - 1, x + w); i++) { s += top[i]; n++; } const a = s / n; for (let i = Math.max(0, x - w); i <= Math.min(LW - 1, x + w); i++) top[i] = a; }
+function carve(x, y, r) {
+  for (let i = Math.max(0, Math.floor(x - r)); i <= Math.min(LW - 1, Math.ceil(x + r)); i++) {
+    const dx = i - x, dy = Math.sqrt(Math.max(0, r * r - dx * dx)), lo = y - dy, hi = y + dy;
+    if (hi <= top[i]) continue; top[i] = lo <= top[i] ? Math.min(hi, BOT) : Math.min(BOT, top[i] + (hi - lo));
+  }
+}
+
+// ---------- setup ----------
+function mkTank(i, x) { return { i, x, y: gh(x), hp: 100, ang: i ? 125 : 55, pow: 60, fuel: 0, w: "shell", ammo: {}, vy: 0, fd: 0, falling: false, dead: 0, lastBy: -1, lastSrc: "", face: i ? -1 : 1, tx: 0 }; }
+function newRound(opts = {}) {
+  style = opts.style || (setting("terr", "random") === "random" ? pick(STYLES) : setting("terr", "random")); if (!STYLES.includes(style)) style = pick(STYLES);
+  theme = { hills: "day", mount: "dusk", canyon: "sunset", plateau: "night" }[style]; genTerrain(style);
+  if (opts.flat) for (let x = 0; x < LW; x++) top[x] = 360;
+  const x0 = opts.x0 != null ? opts.x0 : Math.round(rnd(34, 70)), x1 = opts.x1 != null ? opts.x1 : LW - Math.round(rnd(34, 70)); flatten(x0, 14); flatten(x1, 14);
+  tanks = [mkTank(0, x0), mkTank(1, x1)]; const set = SETS[wset()];
+  for (const t of tanks) { for (const k of set) t.ammo[k] = WEAP[k].ammo; t.fuel = FUEL(); }
+  projs = []; delayed = []; pops = []; trail = []; shots = [0, 0]; dmgDone = [0, 0]; aimFinger = null; cpu = null; lastKill = null; shake = 0;
+  clouds = Array.from({ length: 4 }, () => ({ x: rnd(0, LW), y: rnd(70, 140), s: rnd(.6, 1.3) }));
+  wind = opts.wind != null ? opts.wind : newWind(0); hud();
+}
+function newWind(prev) { let m = setting("wind", "light"); if (m !== "off" && m !== "wild") m = "light"; if (m === "off") return 0; const mx = m === "wild" ? 10 : 4, mn = m === "wild" ? 3 : 0; if (!prev) return Math.round(rnd(mn, mx) * (Math.random() < .5 ? -1 : 1)); return clamp(prev + Math.round(rnd(-3, 3)), -mx, mx); }
+function newMatch() {
+  mode = setting("mode", "2p"); if (!["2p", "easy", "normal", "hard"].includes(mode)) mode = "2p";
+  const r = setting("rounds", 1); rounds = [1, 3, 5].includes(r) ? r : 1; round = 1; wins = [0, 0]; matchDmg = 0; hitsTaken = [0, 0]; usedW = {};
+  turn = 0; newRound(); beginTurn(true);
+}
+let hitsTaken = [0, 0], usedW = {};
+function hud() { stats({ Round: `${round}/${rounds}`, "P1": wins[0], [twoP() ? "P2" : "CPU"]: wins[1] }); }
+
+// ---------- turns ----------
+const T0 = () => tanks[turn];
+function availW(t) { return SETS[wset()].filter((k) => (t.ammo[k] || 0) > 0); }
+function beginTurn(first) {
+  const t = T0(); if (!first) wind = newWind(wind); if (!(t.ammo[t.w] > 0)) t.w = "shell"; t.fuel = FUEL(); projs = []; trail = [];
+  if (isCpu(turn)) { state = "cpu"; cpu = { ph: "think", t: 0, plan: null }; banner = { t: 1.6, s: "CPU's turn" }; setBtns(); return; }
+  setBtns();
+  if (twoP()) { state = "pass"; card(`<h1>Pass to Player ${turn + 1}</h1><p>${turn ? "You are the <b style=\"color:#5bd1ff\">cyan</b> tank, on the right." : "You are the <b style=\"color:#ffb347\">amber</b> tank, on the left."}</p><p class="sub">Wind ${windTxt()}</p>`, "I'm ready", () => { state = "aim"; banner = { t: 1.4, s: `Player ${turn + 1}` }; setBtns(); }); }
+  else { state = "aim"; banner = { t: 1.4, s: "Your turn" }; }
+}
+const windTxt = () => (wind === 0 ? "calm" : (wind < 0 ? "left " : "right ") + Math.abs(wind));
+function endTurn() {
+  const dead = tanks.filter((t) => t.hp <= 0);
+  if (dead.length) { roundOver(); return; }
+  turn = 1 - turn; beginTurn(false);
+}
+function roundOver() {
+  state = "round"; Kit.hideControls();
+  const d0 = tanks[0].hp <= 0, d1 = tanks[1].hp <= 0; let w = d0 && d1 ? -1 : d1 ? 0 : 1;
+  Kit.sfx(w < 0 ? "lose" : "win"); Kit.haptic(60);
+  if (w >= 0) {
+    wins[w]++; const hu = twoP() || w === 0;
+    if (hu) { const k = lastKill; if (k && k.src === "direct") award("direct"); if (k && k.src === "roll") award("roller"); if (k && k.src === "fall" && k.by === w) award("fall"); if (tanks[w].hp >= 100 && !hitsTaken[w]) award("flawless"); if (shots[w] <= 3) award("quick"); }
+  }
+  hud();
+  const need = Math.floor(rounds / 2) + 1, over = wins[0] >= need || wins[1] >= need || round >= rounds;
+  const who = w < 0 ? "Both tanks destroyed" : (w === 0 ? "Player 1" : twoP() ? "Player 2" : "The CPU") + " wins the round";
+  const score = `<p class="sub">Rounds: ${wins[0]} - ${wins[1]}</p>`;
+  if (over) {
+    const mw = wins[0] > wins[1] ? 0 : wins[1] > wins[0] ? 1 : -1; const humanWon = mw === 0 || (twoP() && mw === 1);
+    if (humanWon) { if (setting("wind", "light") === "wild") award("wild"); if (mode === "hard" && mw === 0) award("hard"); }
+    Kit.record({ win: humanWon ? 1 : 0, score: Math.round(matchDmg) });
+    card(`<h1>${mw < 0 ? "Draw" : mw === 0 ? "Player 1 wins" : twoP() ? "Player 2 wins" : "CPU wins"}</h1><p>${who}</p>${score}`, "Rematch", () => { newMatch(); showControls(); });
+    document.getElementById("card").insertAdjacentHTML("beforeend", '<button class="ghost" id="aq">Menu</button>'); document.getElementById("aq").onclick = () => { document.getElementById("over").hidden = true; openMenu(); };
+  } else card(`<h1>${who}</h1>${score}`, "Next round", () => { round++; turn = (round - 1) % 2; newRound(); showControls(); beginTurn(true); hud(); });
+}
+
+// ---------- physics ----------
+function muzzle(t, ang) { const a = ang * Math.PI / 180; return { x: t.x + Math.cos(a) * 15, y: t.y - 11 - Math.sin(a) * 15 }; }
+function launch(t) {
+  const m = muzzle(t, t.ang), a = t.ang * Math.PI / 180, v = t.pow * VK;
+  return { x: m.x, y: m.y, vx: Math.cos(a) * v, vy: -Math.sin(a) * v };
+}
+// returns impact point of a plain ballistic shot; used by the CPU and tests
+function simShot(sx, sy, vx, vy, w, enemy, skipSelf) {
+  let x = sx, y = sy, t = 0;
+  for (let n = 0; n < 1400; n++) {
+    vx += w * WK * STEP; vy += G * STEP; x += vx * STEP; y += vy * STEP; t += STEP;
+    if (x < -30 || x > LW + 30 || y > LH + 20) return { x, y, out: true };
+    if (enemy && Math.hypot(x - enemy.x, y - (enemy.y - 6)) < 12) return { x, y, hit: true };
+    if (x >= 0 && x < LW && y >= gh(x)) return { x, y };
+  }
+  return { x, y };
+}
+function hurt(t, n, by, src) {
+  if (n <= 0 || t.hp <= 0) return; t.hp = Math.max(0, t.hp - n); t.lastBy = by; t.lastSrc = src; hitsTaken[t.i] += n;
+  pops.push({ x: t.x, y: t.y - 30, s: "-" + n, col: "#ff7a7a", t: 1.3 }); if (by >= 0 && by !== t.i) { dmgDone[by] += n; matchDmg += (twoP() || by === 0) ? n : 0; }
+  Kit.sfx("hit"); Kit.haptic(40);
+  if (t.hp <= 0) { t.dead = 1; lastKill = { by, src }; burst(t.x, t.y - 6, "#ff9a3c", 40, 200, 1); burst(t.x, t.y - 6, "#555", 20, 120, 1.2); shake = Math.max(shake, 10); Kit.sfx("boom"); }
+}
+function explode(x, y, r, dmg, by, src) {
+  for (const t of tanks) if (t.hp > 0) { const d = Math.hypot(t.x - x, (t.y - 6) - y), reach = r + 14; if (d < reach) hurt(t, Math.round(dmg * (1 - d / reach)), by, src); }
+  carve(x, y, r); burst(x, y, "#ffd166", Math.round(8 + r / 2), 60 + r * 3, .6); burst(x, y, "#8a6a44", Math.round(6 + r / 3), 100, .8);
+  shake = Math.max(shake, Math.min(9, r / 4)); Kit.sfx(r > 30 ? "boom" : "hit"); if (r > 30) Kit.haptic(30);
+}
+function fire() {
+  if (state !== "aim") return; const t = T0(); if (!(t.ammo[t.w] > 0)) t.w = "shell";
+  const L = launch(t), w = t.w; if (t.ammo[w] < 90) t.ammo[w]--; usedW[w] = 1; shots[turn]++;
+  projs.push({ ...L, type: w, by: turn, age: 0, acc: 0, bounces: 0, apex: false, mode: "fly" }); state = "fly"; aimFinger = null; settleT = 0; Kit.sfx("shoot"); Kit.haptic(25); burst(L.x, L.y, "#fff3c0", 8, 90, .3); t.recoil = .25; setBtns();
+}
+function projImpact(p, hitTank) {
+  const W = WEAP[p.type === "mini" ? "split" : p.type];
+  if (p.type === "dig") {
+    explode(p.x, p.y, 12, 16, p.by, "dig"); for (let k = 1; k <= 5; k++) delayed.push({ t: k * .13, x: p.x + rnd(-3, 3), y: p.y + k * 13, r: 14, d: 12, by: p.by, src: "dig" }); return true;
+  }
+  const r = p.type === "mini" ? 16 : W.r, d = p.type === "mini" ? 28 : W.d; explode(p.x, p.y, r, d, p.by, hitTank ? "direct" : p.type === "roll" ? "roll" : p.type); return true;
+}
+function stepProj(p) {
+  if (p.mode === "fly") { p.vx += wind * WK * STEP; p.vy += G * STEP; } p.age += STEP;
+  if (p.mode === "roll") { // follows the ground
+    const dir = Math.sign(p.vx) || 1, nx = p.x + dir * 80 * STEP; if (nx < 2 || nx > LW - 2) { p.dead = projImpact(p); return; }
+    if (gh(nx) < gh(p.x) - 3.2 * Math.abs(nx - p.x) - 1.2) { p.dead = projImpact(p); return; } p.x = nx; p.y = gh(p.x) - 3;
+    for (const t of tanks) if (t.hp > 0 && Math.hypot(t.x - p.x, t.y - 6 - p.y) < 16) { p.dead = projImpact(p, false); return; }
+    if (p.age > 3.2) p.dead = projImpact(p); return;
+  }
+  const ox = p.x, oy = p.y; p.x += p.vx * STEP; p.y += p.vy * STEP; if (p.type === "split" && !p.apex && p.vy > 0) { p.apex = true; p.dead = true; for (const dx of [-70, 0, 70]) projs.push({ x: p.x, y: p.y, vx: p.vx + dx, vy: p.vy * .6, type: "mini", by: p.by, age: 0, mode: "fly", bounces: 0 }); Kit.sfx("power"); return; }
+  if (p.x < -30 || p.x > LW + 30 || p.y > LH + 30) { p.dead = true; return; }
+  for (const t of tanks) if (t.hp > 0 && Math.hypot(p.x - t.x, p.y - (t.y - 6)) < 12 && p.age > .08) { p.dead = projImpact(p, true); return; }
+  if (p.x >= 0 && p.x < LW && p.y >= gh(p.x)) {
+    if (p.type === "roll") { p.mode = "roll"; p.y = gh(p.x) - 3; p.vx = Math.sign(p.vx) || 1; p.age = 0; Kit.sfx("thud"); return; }
+    if (p.type === "bounce" && p.bounces < 3) {
+      p.bounces++; const sl = (gh(p.x + 3) - gh(p.x - 3)) / 6, nxv = -sl, nyv = -1, nl = Math.hypot(nxv, nyv), nx = nxv / nl, ny = nyv / nl, dp = p.vx * nx + p.vy * ny;
+      p.vx = (p.vx - 2 * dp * nx) * .62; p.vy = (p.vy - 2 * dp * ny) * .62; p.x = ox; p.y = Math.min(oy, gh(ox) - 2); explode(p.x, p.y, 8, 6, p.by, "bounce"); Kit.sfx("bounce"); if (p.bounces === 3) { p.dead = projImpact({ ...p, y: p.y }); } return;
+    }
+    p.dead = projImpact(p, false);
+  }
+}
+
+// ---------- tanks ----------
+function moveTank(t, dir) {
+  if (t.fuel <= 0 || t.falling || t.hp <= 0) return false; const nx = clamp(t.x + dir, 12, LW - 12), g = gh(nx);
+  if (t.y - g > 1.7) return false; t.x = nx; t.face = dir; t.fuel -= 1; if (g > t.y) { t.falling = true; t.vy = 0; t.fd = 0; } else t.y = g; return true;
+}
+function updateTanks(dt) {
+  for (const t of tanks) {
+    if (t.recoil > 0) t.recoil -= dt; if (t.hp <= 0) { t.dead += dt; continue; }
+    const g = gh(t.x);
+    if (t.y < g - .4) { if (!t.falling) { t.falling = true; t.vy = 0; t.fd = 0; } t.vy += 520 * dt; const mv = Math.min(g - t.y, t.vy * dt); t.y += mv; t.fd += mv; if (t.y >= g - .01) { t.y = g; t.falling = false; if (t.fd > 14) { hurt(t, Math.round((t.fd - 14) * .75), t.lastBy, "fall"); Kit.sfx("thud"); burst(t.x, t.y, "#8a6a44", 10, 80, .5); } t.fd = 0; } }
+    else { t.y = g; t.falling = false; }
+  }
+}
+function setAim(t, ang, pow) { if (ang != null) t.ang = clamp(ang, 0, 180); if (pow != null) t.pow = clamp(pow, 5, 100); }
+
+// ---------- CPU ----------
+const SK = { easy: { a: 6, p: .11, w: 0, mv: 0 }, normal: { a: 2.4, p: .04, w: 1, mv: 1 }, hard: { a: .6, p: .012, w: 1, mv: 1 } };
+function bestShot(t, en, wuse, xs) {
+  const dir = en.x > xs ? 1 : -1; let best = { d: 1e9 }; const sy = t.y;
+  const tryShot = (a, p) => {
+    const ang = dir > 0 ? a : 180 - a, rad = ang * Math.PI / 180, v = p * VK, m = { x: xs + Math.cos(rad) * 15, y: sy - 11 - Math.sin(rad) * 15 }, r = simShot(m.x, m.y, Math.cos(rad) * v, -Math.sin(rad) * v, wuse, en);
+    const d = r.hit ? 0 : Math.hypot(r.x - en.x, r.y - (en.y - 4)); if (d < best.d) best = { d, ang, pow: p };
+  };
+  for (let a = 12; a <= 84; a += 2) for (let p = 20; p <= 100; p += 3) tryShot(a, p);
+  const b0 = best; const ba = dir > 0 ? b0.ang : 180 - b0.ang;
+  for (let a = ba - 2; a <= ba + 2; a += .5) for (let p = b0.pow - 3; p <= b0.pow + 3; p += .5) if (a > 3 && a < 87 && p >= 5 && p <= 100) tryShot(a, p);
+  return best;
+}
+function cpuPlan(t) {
+  const en = tanks[1 - t.i], sk = SK[mode] || SK.normal; let bx = t.x, b = bestShot(t, en, sk.w ? wind : 0, t.x);
+  if (sk.mv && b.d > 30 && t.fuel > 10) { const dir = en.x > t.x ? 1 : -1; for (const dx of [30, 60, -30]) { const nx = clamp(t.x + dir * dx, 14, LW - 14); if (Math.abs(nx - t.x) > t.fuel) continue; const save = t.y, sy = gh(nx); t.y = sy; const c = bestShot(t, en, wind, nx); t.y = save; if (c.d < b.d - 10) { b = c; bx = nx; } } }
+  let w = "shell"; const av = availW(t);
+  if (mode !== "easy") { if (av.includes("heavy") && en.hp > 40 && Math.random() < (mode === "hard" ? .6 : .3)) w = "heavy"; else if (av.includes("split") && Math.random() < .25) w = "split"; }
+  return { x: bx, ang: clamp(b.ang + gauss() * sk.a, 1, 179), pow: clamp(b.pow * (1 + gauss() * sk.p), 8, 100), w };
+}
+function updateCpu(dt) {
+  const t = T0(); cpu.t += dt;
+  if (cpu.ph === "think") { if (cpu.t > .9) { cpu.plan = cpuPlan(t); t.w = cpu.plan.w; cpu.ph = "move"; cpu.t = 0; } }
+  else if (cpu.ph === "move") { const d = cpu.plan.x - t.x; if (Math.abs(d) < 1 || t.fuel <= 0) { cpu.ph = "aim"; cpu.t = 0; cpu.a0 = t.ang; cpu.p0 = t.pow; } else { cpu.mt = (cpu.mt || 0) + dt; while (cpu.mt > .02) { cpu.mt -= .02; if (!moveTank(t, Math.sign(d))) { cpu.ph = "aim"; cpu.t = 0; cpu.a0 = t.ang; cpu.p0 = t.pow; break; } } } }
+  else if (cpu.ph === "aim") { const k = clamp(cpu.t / 1, 0, 1), e = k * k * (3 - 2 * k); t.ang = cpu.a0 + (cpu.plan.ang - cpu.a0) * e; t.pow = cpu.p0 + (cpu.plan.pow - cpu.p0) * e; if (k >= 1) { cpu.ph = "wait"; cpu.t = 0; } }
+  else if (cpu.ph === "wait") { if (cpu.t > .35) { state = "aim"; fire(); cpu = null; } }
+}
+
+// ---------- input ----------
+const humanTurn = () => state === "aim" && !isCpu(turn);
+function applyDrag(f) {
+  const t = T0(), vx = t.x - f.x, vy = (t.y - 6) - f.y, d = Math.hypot(vx, vy); if (d < 6) return;
+  let ang = Math.atan2(-vy, vx) * 180 / Math.PI; if (ang < 0) ang = vx >= 0 ? 0 : 180; setAim(t, ang, d / MAXPULL * 100);
+}
+Kit.play({
+  start(f) { if (!humanTurn()) return; const t = T0(); if (Math.hypot(f.x - t.x, f.y - (t.y - 6)) <= RING && !aimFinger) { f.owner = "aim"; aimFinger = f; applyDrag(f); } },
+  move(f) { if (f.owner === "aim" && humanTurn()) applyDrag(f); },
+  end(f) {
+    if (f.owner !== "aim") return; aimFinger = null; if (!humanTurn()) return; const t = T0(), pull = Math.hypot(t.x - f.x, t.y - 6 - f.y);
+    if (pull < 14) { toast("Drag back farther to aim, then let go"); return; } applyDrag(f);
+    if (setting("release", "fire") === "fire") fire(); else toast("Aim set. Press FIRE");
+  }
+});
+const adj = (k, v) => () => { if (!humanTurn()) return; const t = T0(); if (k === "ang") setAim(t, t.ang + v, null); else setAim(t, null, t.pow + v); };
+const drive = (d) => () => { if (!humanTurn()) return; const t = T0(); if (!moveTank(t, d)) Kit.haptic(5); };
+function cycleW() { if (!humanTurn()) return; const t = T0(), av = availW(t), i = av.indexOf(t.w); t.w = av[(i + 1) % av.length]; Kit.sfx("click"); setBtns(); }
+addEventListener("keydown", (e) => {
+  if (e.key === "p" || e.key === "Escape") { Kit.pause(); return; } if (!humanTurn()) return;
+  const k = e.key, t = T0();
+  if (k === "ArrowLeft") adj("ang", 1)(); else if (k === "ArrowRight") adj("ang", -1)(); else if (k === "ArrowUp") adj("pow", 1)(); else if (k === "ArrowDown") adj("pow", -1)();
+  else if (k === "a") drive(-1)(); else if (k === "d") drive(1)(); else if (k === "w" || k === "q") cycleW(); else if (k === " " || k === "Enter") { e.preventDefault(); fire(); }
+});
+let wBtn = null;
+function setBtns() { if (!wBtn || !tanks.length) return; const t = T0(); const w = WEAP[t.w]; wBtn._l.textContent = w.n.toUpperCase(); wBtn._s.textContent = (t.ammo[t.w] > 90 ? "∞" : "x" + t.ammo[t.w] + " left") + " · tap to swap"; }
+function showControls() {
+  const g = document.createElement("div"); g.className = "kgrid4"; const B = (l, o) => { const b = Kit.button(l, { cls: "", ...o }); g.append(b); return b; };
+  B("AIM ◀", { down: adj("ang", 1), repeat: 60, aria: "Aim barrel left" }); B("AIM ▶", { down: adj("ang", -1), repeat: 60, aria: "Aim barrel right" });
+  B("POWER −", { down: adj("pow", -1), repeat: 60, aria: "Less power" }); B("POWER +", { down: adj("pow", 1), repeat: 60, aria: "More power" });
+  B("◀ MOVE", { down: drive(-1), repeat: 25, aria: "Move tank left" }); B("MOVE ▶", { down: drive(1), repeat: 25, aria: "Move tank right" });
+  wBtn = B("WEAPON", { down: cycleW, cls: "two", aria: "Change weapon" }); wBtn.classList.add("two"); wBtn.innerHTML = '<span class="l"></span><small></small>'; wBtn._l = wBtn.firstChild; wBtn._s = wBtn.lastChild;
+  const fb = Kit.button(`<span class="big">✹</span>FIRE`, { down: fire, cls: "wide fire", aria: "Fire" });
+  Kit.controls([g], [fb]); setBtns();
+}
+
+// ---------- update ----------
+function update(dt) {
+  runT += dt; if (shake > 0) shake = Math.max(0, shake - dt * 25); if (banner.t > 0) banner.t -= dt; for (const p of pops) { p.t -= dt; p.y -= 14 * dt; } pops = pops.filter((p) => p.t > 0);
+  for (const c of clouds) { c.x += c.s * 6 * dt; if (c.x > LW + 60) c.x = -60; }
+  if (state === "menu") return;
+  updateTanks(dt);
+  if (state === "cpu" && cpu) updateCpu(dt);
+  if (state === "fly") {
+    for (const p of projs) { p.acc = (p.acc || 0) + dt; let n = 0; while (p.acc >= STEP && !p.dead && n++ < 8) { p.acc -= STEP; stepProj(p); } if (n && !p.dead && Math.floor(runT * 40) % 2) { trail.push({ x: p.x, y: p.y, t: .5 }); } }
+    projs = projs.filter((p) => !p.dead); for (const d of delayed) d.t -= dt; for (const d of delayed.filter((q) => q.t <= 0)) explode(d.x, d.y, d.r, d.d, d.by, d.src); delayed = delayed.filter((d) => d.t > 0);
+    const calm = !projs.length && !delayed.length && tanks.every((t) => !t.falling);
+    settleT = calm ? settleT + dt : 0; if (settleT > .8) { state = "resolve"; endTurn(); }
+  }
+  for (const t of trail) t.t -= dt; trail = trail.filter((t) => t.t > 0);
+}
+
+// ---------- drawing ----------
+function drawSky() {
+  const c = SKY[theme], g = ctx.createLinearGradient(0, 0, 0, LH); g.addColorStop(0, c[0]); g.addColorStop(1, c[1]); ctx.fillStyle = g; ctx.fillRect(0, 0, LW, LH);
+  if (theme === "night") { ctx.fillStyle = "rgba(255,255,255,.7)"; for (let i = 0; i < 40; i++) ctx.fillRect((i * 97) % LW, (i * 53) % 190, 1.6, 1.6); ctx.fillStyle = "#f4efd0"; ctx.beginPath(); ctx.arc(290, 90, 16, 0, TAU); ctx.fill(); ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(297, 86, 14, 0, TAU); ctx.fill(); }
+  else if (theme === "day") { ctx.fillStyle = "rgba(255,255,255,.75)"; for (const cl of clouds) { ctx.beginPath(); ctx.ellipse(cl.x, cl.y, 26 * cl.s, 8 * cl.s, 0, 0, TAU); ctx.ellipse(cl.x + 14 * cl.s, cl.y - 5, 16 * cl.s, 8 * cl.s, 0, 0, TAU); ctx.fill(); } }
+  else { ctx.fillStyle = "rgba(255,230,160,.85)"; ctx.beginPath(); ctx.arc(70, 190, 24, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.beginPath(); ctx.moveTo(0, LH); for (let x = 0; x <= LW; x += 12) ctx.lineTo(x, 250 + 40 * Math.sin(x * .021 + 1) + 22 * Math.sin(x * .05)); ctx.lineTo(LW, LH); ctx.fill();
+}
+function drawTerrain() {
+  const cols = { day: ["#4f9a3a", "#7a5a38", "#4d3822"], dusk: ["#7c6a8a", "#6a4a46", "#3b2a30"], sunset: ["#c99a4a", "#9a5a3a", "#5a3020"], night: ["#4a7a6a", "#3a3a52", "#20202e"] }[theme];
+  const g = ctx.createLinearGradient(0, 150, 0, LH); g.addColorStop(0, cols[1]); g.addColorStop(1, cols[2]); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, LH); for (let x = 0; x < LW; x++) ctx.lineTo(x, top[x]); ctx.lineTo(LW - 1, LH); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = cols[0]; ctx.lineWidth = 4; ctx.lineJoin = "round"; ctx.beginPath(); for (let x = 0; x < LW; x += 2) { if (x) ctx.lineTo(x, top[x] + 1); else ctx.moveTo(x, top[x] + 1); } ctx.stroke();
+}
+function drawTank(t) {
+  if (t.hp <= 0 && t.dead > 2.5) { ctx.fillStyle = "#222"; rr(t.x - 12, t.y - 6, 24, 6, 3); ctx.fill(); return; }
+  const sl = clamp(Math.atan2(gh(t.x + 7) - gh(t.x - 7), 14), -.6, .6), col = COLS[t.i], dead = t.hp <= 0;
+  ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(sl);
+  ctx.fillStyle = "#1c1c1c"; rr(-13, -6, 26, 7, 3); ctx.fill(); ctx.fillStyle = "#555"; for (let i = -9; i <= 9; i += 6) { ctx.beginPath(); ctx.arc(i, -2, 2.4, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = dead ? "#444" : col; rr(-10, -12, 20, 8, 3); ctx.fill(); ctx.beginPath(); ctx.arc(0, -12, 6, Math.PI, 0); ctx.fill();
+  ctx.rotate(-sl); const a = t.ang * Math.PI / 180, rc = t.recoil > 0 ? 3 * t.recoil / .25 : 0; ctx.strokeStyle = dead ? "#333" : "#222"; ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(Math.cos(a) * (3 - rc), -11 - Math.sin(a) * (3 - rc)); ctx.lineTo(Math.cos(a) * (15 - rc), -11 - Math.sin(a) * (15 - rc)); ctx.stroke();
+  ctx.restore();
+  if (dead) { ctx.fillStyle = "rgba(60,60,60,.5)"; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(t.x + Math.sin(runT * 2 + i) * 4, t.y - 14 - i * 9 - (t.dead * 6) % 10, 5 + i * 2, 0, TAU); ctx.fill(); } }
+}
+function drawArc(t) {
+  const arc = setting("arc", "short"); if (arc === "off") return; const L = launch(t); let { x, y, vx, vy } = L; const n = arc === "long" ? 60 : 22, dtp = 0.045; ctx.fillStyle = "#fff";
+  const steps = Math.round(dtp / STEP);
+  for (let i = 0; i < n; i++) { for (let k = 0; k < steps; k++) { vx += wind * WK * STEP; vy += G * STEP; x += vx * STEP; y += vy * STEP; } if (x < 0 || x > LW || y > LH || (x >= 0 && x < LW && y >= gh(x))) break; ctx.globalAlpha = 1 - i / (n + 4) * .8; ctx.beginPath(); ctx.arc(x, y, i % 4 === 0 ? 2.8 : 2.1, 0, TAU); ctx.fill(); }
+  ctx.globalAlpha = 1;
+}
+function drawHud() {
+  for (let i = 0; i < 2; i++) {
+    const t = tanks[i], x = i ? 232 : 6, act = state !== "menu" && turn === i && (state === "aim" || state === "cpu" || state === "fly");
+    rr(x, 4, 122, 38, 9); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fill(); if (act) { ctx.strokeStyle = COLS[i]; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.font = `700 12px ${FONT}`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = COLS[i]; ctx.fillText(i ? (twoP() ? "PLAYER 2" : "CPU " + mode.toUpperCase()) : "PLAYER 1", x + 8, 15);
+    ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fillRect(x + 8, 25, 106, 8); ctx.fillStyle = t.hp > 50 ? "#7bd88f" : t.hp > 25 ? "#ffd166" : "#ff6b6b"; ctx.fillRect(x + 8, 25, 106 * t.hp / 100, 8); ctx.fillStyle = "#fff"; ctx.textAlign = "right"; ctx.font = `700 11px ${FONT}`; ctx.fillText(String(t.hp), x + 114, 15);
+  }
+  // wind
+  rr(130, 4, 100, 38, 9); ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fill(); ctx.fillStyle = "#cfd8dc"; ctx.font = `700 11px ${FONT}`; ctx.textAlign = "center"; ctx.fillText("WIND", 180, 13);
+  if (wind === 0) { ctx.font = `700 14px ${FONT}`; ctx.fillText("calm", 180, 31); } else {
+    const L = 8 + Math.abs(wind) * 3, s = Math.sign(wind), cx = 180; ctx.strokeStyle = "#ffd166"; ctx.fillStyle = "#ffd166"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx - s * L / 2 - (s > 0 ? 8 : -8) * 0, 30); ctx.lineTo(cx + s * L / 2, 30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + s * (L / 2 + 8), 30); ctx.lineTo(cx + s * L / 2, 24); ctx.lineTo(cx + s * L / 2, 36); ctx.closePath(); ctx.fill(); ctx.font = `700 13px ${FONT}`; ctx.textAlign = s > 0 ? "left" : "right"; ctx.fillStyle = "#fff"; ctx.fillText(String(Math.abs(wind)), s > 0 ? 134 : 226, 31);
+  }
+  // active status line
+  const a = T0 && tanks.length ? tanks[turn] : null;
+  if (a && (state === "aim" || state === "cpu")) { rr(40, 46, 280, 20, 8); ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fill(); ctx.fillStyle = "#fff"; ctx.font = `700 12px ${FONT}`; ctx.textAlign = "center"; ctx.fillText(`ANGLE ${Math.round(a.ang)}°   POWER ${Math.round(a.pow)}   FUEL ${Math.round(a.fuel)}   ${WEAP[a.w].n}`, 180, 56); }
+}
+function draw() {
+  if (state === "menu" || !tanks.length) { theme = "dusk"; drawSky(); ctx.fillStyle = "#3b2a30"; ctx.fillRect(0, LH - 130, LW, 130); text("ARTILLERY DUEL", 180, 200, 30, "#ffb347"); return; }
+  ctx.save(); if (shake > 0) ctx.translate(rnd(-shake, shake) * .5, rnd(-shake, shake) * .5);
+  drawSky(); drawTerrain();
+  for (const t of trail) { ctx.globalAlpha = t.t; ctx.fillStyle = "#fff"; ctx.fillRect(t.x - 1, t.y - 1, 2, 2); } ctx.globalAlpha = 1;
+  for (const t of tanks) drawTank(t);
+  const a = tanks[turn];
+  if (state === "aim" && !isCpu(turn) && a.hp > 0) {
+    ctx.strokeStyle = COLS[turn]; ctx.setLineDash([5, 5]); ctx.lineWidth = 2; ctx.globalAlpha = .55 + .25 * Math.sin(runT * 5); ctx.beginPath(); ctx.arc(a.x, a.y - 6, RING, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    drawArc(a); if (aimFinger) { ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.x, a.y - 6); ctx.lineTo(aimFinger.x, aimFinger.y); ctx.stroke(); ctx.fillStyle = COLS[turn]; ctx.beginPath(); ctx.arc(aimFinger.x, aimFinger.y, 7, 0, TAU); ctx.fill(); }
+    else { const my = Math.min(a.y + 34, LH - 12); text("drag back from the tank", a.x < 120 ? a.x + 54 : a.x > 240 ? a.x - 54 : a.x, Math.min(my, a.y + 30), 11, "#fff"); }
+    ctx.fillStyle = COLS[turn]; const by = a.y - 44 + Math.sin(runT * 6) * 3; ctx.beginPath(); ctx.moveTo(a.x, by + 7); ctx.lineTo(a.x - 6, by - 3); ctx.lineTo(a.x + 6, by - 3); ctx.fill();
+  }
+  for (const p of projs) { ctx.fillStyle = WEAP[p.type === "mini" ? "split" : p.type].col; ctx.beginPath(); ctx.arc(p.x, p.y, p.type === "heavy" ? 4.5 : 3.2, 0, TAU); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.stroke(); if (p.y < 0) { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(p.x, 70); ctx.lineTo(p.x - 6, 80); ctx.lineTo(p.x + 6, 80); ctx.fill(); text(Math.round(-p.y) + " up", p.x, 92, 11, "#fff"); } }
+  drawParts(); for (const p of pops) { ctx.globalAlpha = Math.min(1, p.t); text(p.s, p.x, p.y, 18, p.col); } ctx.globalAlpha = 1;
+  ctx.restore(); drawHud();
+  if (banner.t > 0 && (state === "aim" || state === "cpu")) { ctx.globalAlpha = Math.min(1, banner.t); text(banner.s, 180, 100, 26, COLS[turn]); ctx.globalAlpha = 1; }
+}
+
+loop((dt) => { if (!Kit.isPaused()) { update(dt); stepParts(dt); } draw(); });
+Kit.lifecycle({ pause: () => state === "aim" || state === "fly" || state === "cpu", resume: () => {}, menu: openMenu });
+
+function openMenu() {
+  state = "menu"; Kit.hideControls(); tanks = [];
+  Kit.menu({
+    title: "Artillery Duel", hand: true, bestLabel: "Best damage",
+    html: `<p class="sub">Tank duel on destructible ground. On your turn, drag back from your tank like a slingshot (the dotted arc shows the start of the shot) and let go to fire. Or use the AIM and POWER buttons and press FIRE. Mind the wind arrow. Wreck the other tank to win the round.</p>`,
+    settings: [
+      { k: "mode", label: "Mode", def: "2p", opts: [["2p", "2 players"], ["easy", "CPU easy"], ["normal", "CPU normal"], ["hard", "CPU hard"]] },
+      { k: "wind", label: "Wind", def: "light", opts: [["off", "Off"], ["light", "Light"], ["wild", "Wild"]] },
+      { k: "terr", label: "Terrain", def: "random", opts: [["random", "Random"], ["hills", "Hills"], ["mount", "Mountains"], ["canyon", "Canyon"], ["plateau", "Plateaus"]] },
+      { k: "rounds", label: "Rounds", def: 1, opts: [[1, "1"], [3, "Best of 3"], [5, "Best of 5"]] },
+      { k: "wset", label: "Weapons", def: "classic", opts: [["basic", "Shells only"], ["classic", "Classic 3"], ["full", "Full arsenal"]] },
+      { k: "fuel", label: "Tank fuel", def: 90, opts: [[0, "None"], [90, "Some"], [200, "Lots"]] },
+      { k: "release", label: "Drag release", def: "fire", opts: [["fire", "Fires"], ["set", "Only aims"]] },
+      { k: "arc", label: "Aim arc", def: "short", opts: [["short", "Short"], ["long", "Long"], ["off", "Off"]] }
+    ],
+    challenges: [{ id: "direct", text: "Win a round with a direct hit" }, { id: "flawless", text: "Win a round without taking damage" }, { id: "fall", text: "Finish a tank with falling damage" }, { id: "roller", text: "Finish a tank with a Roller" }, { id: "quick", text: "Win a round in 3 shots or fewer" }, { id: "wild", text: "Win a match in wild wind" }, { id: "hard", text: "Beat the hard CPU in a match" }],
+    play: "Battle"
+  }, () => { newMatch(); showControls(); });
+}
+
+window.T = {
+  get state() { return state; }, get turn() { return turn; }, get wind() { return wind; }, get round() { return round; }, get wins() { return wins.slice(); }, get mode() { return mode; }, get paused() { return Kit.isPaused(); },
+  get hp() { return tanks.map((t) => t.hp); }, get ang() { return tanks.map((t) => Math.round(t.ang * 10) / 10); }, get pow() { return tanks.map((t) => Math.round(t.pow * 10) / 10); }, get fuel() { return tanks.map((t) => t.fuel); },
+  get x() { return tanks.map((t) => Math.round(t.x)); }, get y() { return tanks.map((t) => Math.round(t.y)); }, get weapon() { return tanks.map((t) => t.w); }, get ammo() { return tanks.map((t) => ({ ...t.ammo })); }, get shots() { return shots.slice(); }, get projs() { return projs.length; }, get px() { return projs.map((p) => Math.round(p.x * 10) / 10); }, get tsum() { let a = 0; for (let i = 0; i < LW; i++) a += top[i]; return Math.round(a); },
+  get card() { return !document.getElementById("over").hidden; }, top: (x) => Math.round(gh(x)), get pos() { return tanks.length ? [tanks[0].x, tanks[0].y, tanks[1].x, tanks[1].y] : null; },
+  // test-only helpers
+  setup(o) { newRound(o); beginTurn(true); }, solve() { const t = T0(), en = tanks[1 - turn], b = bestShot(t, en, wind, t.x); return { ang: b.ang, pow: b.pow, d: b.d }; },
+  fireAs(k, a, p) { const t = T0(); t.ammo[k] = Math.max(t.ammo[k] || 0, 3); t.w = k; t.ang = a; t.pow = p; fire(); }, aimAt(a, p) { const t = T0(); t.ang = a; t.pow = p; }, setHp(i, v) { tanks[i].hp = v; }, give(i, k, n) { tanks[i].ammo[k] = n; }, pick(k) { T0().w = k; setBtns(); },
+  carveAt(x, y, r) { carve(x, y, r); }, tankScreen(i) { const r = cv.getBoundingClientRect(); return [r.left + tanks[i].x * SC, r.top + (tanks[i].y - 6) * SC]; }
+};
+fit(); openMenu();
+
+})();
+</script>
+
+</html>

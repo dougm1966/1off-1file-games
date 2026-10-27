@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}</style>
+<title>Deep Delve</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#14101a;--ink:#eadfcb;--muted:#a597b3;--accent:#ff9a3d;--f-display:"Pixelify Sans","Courier New",monospace;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#1c0f04;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#1c0f04;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#1c0f04}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#1c0f04;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Deep Delve</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">D-pad moves and attacks · tap a tile to walk there</div><div class="ctl" id="ctl" hidden></div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=440,FONT="'Pixelify Sans', 'Courier New', monospace";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ===================================== data =====================================
+const MW = 48, MH = 32, TS = 30, VC = 12, VR = 11, MY = 42, FLOORS = 10, SIGHT = 8;
+const FLOOR_NAMES = ["The Cellars", "Rat Warrens", "Mossy Halls", "Bone Gallery", "Slime Pits", "The Barracks", "Cursed Library", "Ogre Den", "Shadow Vault", "The Hollow Throne"];
+const CLASSES = {
+  warrior: { name: "Warrior", hp: 40, w: ["Rusty sword", 3, 6], a: ["Leather vest", 1], crit: .08, critMul: 2, ab: "Whirlwind", abCd: 14, col: "#d9534f" },
+  rogue: { name: "Rogue", hp: 30, w: ["Dagger", 2, 5], a: ["Cloth hood", 0], crit: .25, critMul: 3, ab: "Vanish", abCd: 24, col: "#4cc38a" },
+  mage: { name: "Mage", hp: 24, w: ["Oak staff", 1, 3], a: ["Robe", 0], crit: .08, critMul: 2, ab: "Firebolt", abCd: 0, col: "#7a8cff" }
+};
+const DIFF = { easy: { hp: .8, dmg: .8, item: 1.3, heal: 1.25 }, normal: { hp: 1, dmg: 1, item: 1, heal: 1 }, hard: { hp: 1.3, dmg: 1.25, item: .8, heal: .8 } };
+const EN = {
+  rat: { n: "Rat", hp: 4, d: [1, 2], xp: 3 }, bat: { n: "Cave bat", hp: 5, d: [1, 3], xp: 4 }, archer: { n: "Goblin archer", hp: 8, d: [2, 4], xp: 8 },
+  slime: { n: "Slime", hp: 14, d: [2, 3], xp: 8 }, mini: { n: "Slimelet", hp: 4, d: [1, 2], xp: 1 }, skeleton: { n: "Skeleton", hp: 12, d: [3, 5], xp: 10 },
+  wraith: { n: "Wraith", hp: 14, d: [4, 6], xp: 16 }, ogre: { n: "Ogre", hp: 30, d: [8, 12], xp: 25 }, acolyte: { n: "Dark acolyte", hp: 12, d: [5, 7], xp: 20 }, king: { n: "The Hollow King", hp: 95, d: [6, 10], xp: 150 }
+};
+const SPAWN = [["rat", 1, 4, 5], ["bat", 2, 7, 3], ["archer", 3, 9, 3], ["slime", 2, 8, 3], ["skeleton", 3, 10, 4], ["wraith", 6, 10, 3], ["ogre", 5, 10, 2], ["acolyte", 6, 10, 3]];
+const WEAPONS = [["Dagger", 2, 5], ["Short sword", 3, 6], ["Sword", 4, 8], ["Battle axe", 5, 10], ["War hammer", 7, 13], ["Runeblade", 9, 16]];
+const ARMORS = [["Padded coat", 1], ["Studded leather", 2], ["Chain mail", 3], ["Plate armor", 5], ["Dragon scale", 7]];
+const CHARMS = [["Vigor charm", "vigor", "+6 max HP"], ["Power charm", "power", "+2 damage"], ["Regen charm", "regen", "faster healing"], ["Lucky charm", "lucky", "+15% crit"]];
+const POTIONS = { heal: ["Health potion", "Heals half your HP"], haste: ["Haste potion", "Act twice per turn for 15 turns"], might: ["Might potion", "+1 damage for good"], vigor: ["Vitality potion", "+5 max HP and heal 5"] };
+const SCROLLS = { teleport: ["Teleport scroll", "Jump to a random spot"], map: ["Mapping scroll", "Reveal this floor"], fire: ["Fire scroll", "Burn every enemy you can see"], fear: ["Fear scroll", "Visible enemies flee for 10 turns"] };
+
+// ===================================== helpers =====================================
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function parseSeed(s) { const n = parseInt(s, 10); return Number.isFinite(n) ? clamp(n, 0, 2147483646) : null; }
+function dailySeed() { const d = new Date(); return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate(); }
+function urlSeed() { try { const v = new URLSearchParams(location.search).get("seed"); return v === null ? null : parseSeed(v); } catch (e) { return null; } }
+const choice = (k, allowed, def) => { const v = setting(k, def); return allowed.includes(v) ? v : def; };
+const ri = (r, a, b) => a + Math.floor(r() * (b - a + 1));
+const idx = (x, y) => y * MW + x;
+const inb = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH;
+function loadBest() { const b = SAVE.best || {}; const g = (k) => (Number.isFinite(b[k]) ? clamp(Math.floor(b[k]), 0, 1e7) : 0); return { depth: g("depth"), score: g("score"), daily: g("daily"), dailyDate: g("dailyDate") }; }
+
+// ===================================== state =====================================
+let state = "menu", cls = "warrior", diff = "normal", mode = "random", autoPick = true, tapTravel = true, seed = 1, rngG = Math.random;
+let depth = 1, map = new Uint8Array(MW * MH), seenA = new Uint8Array(MW * MH), vis = new Uint8Array(MW * MH), dist = new Int16Array(MW * MH);
+let P = null, enemies = [], items = [], rooms = [], stairs = [0, 0], traps = {}, log = [], floaters = [], travel = null, turnNo = 0, kills = 0, gold = 0, killedBy = "", startDepth = 1, shake = 0, cam = [0, 0], tm = 0, runT = 0, menuOpen = false, haste = 0, doneRun = false, lastPath = null, flash = 0;
+const T_WALL = 0, T_FLOOR = 1, T_STAIRS = 2, T_TRAP = 3;
+const walkable = (x, y) => inb(x, y) && map[idx(x, y)] !== T_WALL;
+const enemyAt = (x, y) => enemies.find((e) => e.hp > 0 && e.x === x && e.y === y);
+const itemAt = (x, y) => items.findIndex((i) => i.x === x && i.y === y);
+const msg = (t, c = "#eadfcb") => { log.push({ t, c }); if (log.length > 40) log.shift(); };
+const flo = (x, y, t, c) => floaters.push({ x, y, t, c, a: 1 });
+
+// ===================================== dungeon generation =====================================
+function genFloor(d) {
+  const r = mulberry((seed * 7919 + d * 104729) ^ 0x9e3779b9), m = new Uint8Array(MW * MH);
+  rooms = [];
+  for (let tries = 0; tries < 120 && rooms.length < 9 + (d > 6 ? 1 : 0); tries++) {
+    const w = ri(r, 5, 10), h = ri(r, 4, 7), x = ri(r, 1, MW - w - 2), y = ri(r, 1, MH - h - 2);
+    if (rooms.some((o) => x < o.x + o.w + 2 && x + w + 2 > o.x && y < o.y + o.h + 2 && y + h + 2 > o.y)) continue;
+    rooms.push({ x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1) });
+  }
+  rooms.sort((a, b) => a.cx - b.cx);
+  for (const o of rooms) for (let y = o.y; y < o.y + o.h; y++) for (let x = o.x; x < o.x + o.w; x++) m[idx(x, y)] = T_FLOOR;
+  const carve = (x, y) => { if (inb(x, y)) m[idx(x, y)] = T_FLOOR; };
+  const link = (a, b) => { let x = a.cx, y = a.cy; const hFirst = r() < .5; const hz = () => { while (x !== b.cx) { x += Math.sign(b.cx - x); carve(x, y); } }, vt = () => { while (y !== b.cy) { y += Math.sign(b.cy - y); carve(x, y); } }; if (hFirst) { hz(); vt(); } else { vt(); hz(); } };
+  for (let i = 0; i < rooms.length - 1; i++) link(rooms[i], rooms[i + 1]);
+  for (let i = 0; i < 3; i++) { const a = rooms[ri(r, 0, rooms.length - 1)], b = rooms[ri(r, 0, rooms.length - 1)]; if (a !== b) link(a, b); }
+  const st = rooms[0]; let far = rooms[1], fd = -1;
+  for (const o of rooms) { const dd = Math.abs(o.cx - st.cx) + Math.abs(o.cy - st.cy); if (dd > fd) { fd = dd; far = o; } }
+  map = m; seenA = new Uint8Array(MW * MH); vis = new Uint8Array(MW * MH); traps = {}; enemies = []; items = [];
+  const start = [st.cx, st.cy];
+  if (d < FLOORS) { stairs = [far.cx, far.cy]; map[idx(far.cx, far.cy)] = T_STAIRS; } else stairs = [-1, -1];
+  const free = (o, pad) => { for (let k = 0; k < 40; k++) { const x = ri(r, o.x, o.x + o.w - 1), y = ri(r, o.y + 0, o.y + o.h - 1); if (map[idx(x, y)] === T_FLOOR && !enemyAtG(x, y) && !items.some((i) => i.x === x && i.y === y) && (Math.abs(x - start[0]) + Math.abs(y - start[1]) > pad)) return [x, y]; } return null; };
+  const enemyAtG = (x, y) => enemies.some((e) => e.x === x && e.y === y);
+  const df = DIFF[diff];
+  // enemies
+  const pool = SPAWN.filter((s) => d >= s[1] && d <= s[2]); let tot = pool.reduce((n, s) => n + s[3], 0);
+  const nE = 4 + Math.floor(d * .7) + ri(r, 0, 2) + (diff === "hard" ? 2 : diff === "easy" ? -1 : 0);
+  for (let i = 0; i < nE; i++) {
+    const room = rooms[ri(r, 1, rooms.length - 1)], p = free(room, 6); if (!p) continue;
+    let w = r() * tot, kind = pool[0][0]; for (const s of pool) { w -= s[3]; if (w <= 0) { kind = s[0]; break; } }
+    enemies.push(mkEnemy(kind, p[0], p[1], d));
+    if (kind === "rat" && r() < .5) { const q = free(room, 6); if (q) enemies.push(mkEnemy("rat", q[0], q[1], d)); }
+  }
+  if (d === FLOORS) { const kr = rooms[rooms.length - 1], k = mkEnemy("king", kr.cx, kr.cy, d); k.awake = false; enemies.push(k); }
+  // items & gold
+  const nI = Math.round((3 + r() * 2 + (d === 1 ? 1 : 0)) * df.item);
+  for (let i = 0; i < nI; i++) { const room = rooms[ri(r, 1, rooms.length - 1)], p = free(room, 4); if (!p) continue; const it = rollItem(r, d); it.x = p[0]; it.y = p[1]; items.push(it); }
+  const nG = ri(r, 4, 6);
+  for (let i = 0; i < nG; i++) { const room = rooms[ri(r, 0, rooms.length - 1)], p = free(room, 2); if (!p) continue; items.push({ t: "gold", n: "Gold", v: ri(r, 5, 12) + d * 4, x: p[0], y: p[1] }); }
+  const nT = d >= 2 ? ri(r, 1, 2 + (d >> 2)) : 0;
+  for (let i = 0; i < nT; i++) { const room = rooms[ri(r, 1, rooms.length - 1)], p = free(room, 5); if (p) { map[idx(p[0], p[1])] = T_TRAP; traps[idx(p[0], p[1])] = 0; } }
+  return start;
+}
+function mkEnemy(kind, x, y, d) {
+  const b = EN[kind], df = DIFF[diff], sc = 1 + (d - 1) * .09, hp = Math.max(1, Math.round(b.hp * sc * df.hp));
+  return { k: kind, x, y, px: x * TS, py: y * TS, hp, mhp: hp, d: [Math.max(1, Math.round(b.d[0] * sc * df.dmg)), Math.max(1, Math.round(b.d[1] * sc * df.dmg))], xp: b.xp, awake: false, t: 0, wind: false, flee: 0, stun: 0, summoned: 0, last: null, hit: 0 };
+}
+function rollItem(r, d) {
+  const q = r();
+  if (q < .34) { const k = r() < .55 ? "heal" : pick2(r, ["haste", "might", "vigor"]); return { t: "potion", k, n: POTIONS[k][0], tip: POTIONS[k][1] }; }
+  if (q < .58) { const k = pick2(r, ["teleport", "map", "fire", "fear"]); return { t: "scroll", k, n: SCROLLS[k][0], tip: SCROLLS[k][1] }; }
+  if (q < .78) { const ti = clamp(Math.floor((d - 1) / 2 + r() * 2.2 - .6), 0, WEAPONS.length - 1), w = WEAPONS[ti], plus = r() < .25 ? 1 : 0; return { t: "weapon", n: w[0] + (plus ? " +1" : ""), min: w[1] + plus, max: w[2] + plus, tip: `Damage ${w[1] + plus}-${w[2] + plus}` }; }
+  if (q < .93) { const ti = clamp(Math.floor((d - 1) / 2.4 + r() * 1.8 - .5), 0, ARMORS.length - 1), a = ARMORS[ti]; return { t: "armor", n: a[0], ac: a[1], tip: `Armor ${a[1]}` }; }
+  const c = CHARMS[ri(r, 0, CHARMS.length - 1)]; return { t: "charm", n: c[0], k: c[1], tip: c[2] };
+}
+const pick2 = (r, a) => a[Math.floor(r() * a.length)];
+
+// ===================================== field of view & paths =====================================
+function computeFov() {
+  vis.fill(0); const R = SIGHT, px = P.x, py = P.y;
+  vis[idx(px, py)] = 1; seenA[idx(px, py)] = 1;
+  for (let y = py - R; y <= py + R; y++) for (let x = px - R; x <= px + R; x++) {
+    if (!inb(x, y)) continue; const dx = x - px, dy = y - py; if (dx * dx + dy * dy > R * R + R) continue;
+    if (los(px, py, x, y)) { vis[idx(x, y)] = 1; seenA[idx(x, y)] = 1; }
+  }
+}
+function los(x0, y0, x1, y1) {
+  let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, e = dx - dy, x = x0, y = y0;
+  while (x !== x1 || y !== y1) {
+    if ((x !== x0 || y !== y0) && map[idx(x, y)] === T_WALL) return false;
+    const e2 = 2 * e; if (e2 > -dy) { e -= dy; x += sx; } if (e2 < dx) { e += dx; y += sy; }
+  }
+  return true;
+}
+function distMap() {
+  dist.fill(-1); const q = [P.x, P.y]; dist[idx(P.x, P.y)] = 0;
+  for (let h = 0; h < q.length; h += 2) { const x = q[h], y = q[h + 1], dd = dist[idx(x, y)]; if (dd >= 30) continue; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (walkable(nx, ny) && dist[idx(nx, ny)] < 0) { dist[idx(nx, ny)] = dd + 1; q.push(nx, ny); } } }
+}
+function findPath(tx, ty, known) {
+  const par = new Int16Array(MW * MH).fill(-2), q = [P.x, P.y]; par[idx(P.x, P.y)] = -1;
+  for (let h = 0; h < q.length; h += 2) {
+    const x = q[h], y = q[h + 1]; if (x === tx && y === ty) break;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!walkable(nx, ny) || par[idx(nx, ny)] !== -2) continue; if (known && !seenA[idx(nx, ny)]) continue; if (map[idx(nx, ny)] === T_TRAP && traps[idx(nx, ny)] && !(nx === tx && ny === ty)) continue; const en = enemyAt(nx, ny); if (en && !(nx === tx && ny === ty)) continue; par[idx(nx, ny)] = idx(x, y); q.push(nx, ny); }
+  }
+  if (par[idx(tx, ty)] === -2) return null; const path = []; let c = idx(tx, ty);
+  while (c !== idx(P.x, P.y)) { path.push([c % MW, (c / MW) | 0]); c = par[c]; } return path.reverse();
+}
+
+// ===================================== run setup =====================================
+function newRun(opts) {
+  opts = opts || {};
+  cls = opts.cls || choice("cls", ["warrior", "rogue", "mage"], "warrior"); diff = opts.diff || choice("diff", ["easy", "normal", "hard"], "normal");
+  mode = opts.mode || choice("mode", ["random", "daily"], "random"); autoPick = choice("pick", ["on", "off"], "on") === "on"; tapTravel = choice("tap", ["on", "off"], "on") === "on";
+  const us = urlSeed();
+  if (opts.seed !== undefined) seed = clamp(Math.floor(opts.seed) || 0, 0, 2147483646);
+  else if (mode === "daily") seed = dailySeed(); else if (us !== null) seed = us; else seed = Math.floor(Math.random() * 2147483000) + 1;
+  rngG = mulberry(seed ^ 0x51ed27 ^ (mode === "daily" ? 7 : 0));
+  startDepth = mode === "daily" ? 1 : clamp(Math.floor(opts.start || (Number(setting("_lvl", 1)) || 1)), 1, Math.max(1, Math.min(SAVE.unlocked, FLOORS)));
+  depth = startDepth; const c = CLASSES[cls], skip = startDepth - 1;
+  P = { x: 0, y: 0, px: 0, py: 0, lvl: 1 + Math.floor(skip * .8), xp: 0, hp: 0, mhp: c.hp + Math.floor(skip * .8) * 4, w: { n: c.w[0], min: c.w[1], max: c.w[2], t: "weapon" }, a: { n: c.a[0], ac: c.a[1], t: "armor" }, ch: null, bonus: 0, inv: [], mana: 12, mmana: 12, cd: 0, regen: 0, vanish: 0, rest: 0, fast: 0 };
+  P.hp = P.mhp; for (let i = 0; i < Math.floor(skip / 2); i++) P.inv.push({ t: "potion", k: "heal", n: POTIONS.heal[0], tip: POTIONS.heal[1] });
+  if (P.lvl > 1) { P.w.min += Math.floor(skip / 3); P.w.max += Math.floor(skip / 3); }
+  enemies = []; items = []; log = []; floaters = []; travel = null; turnNo = 0; kills = 0; gold = 0; haste = 0; killedBy = ""; doneRun = false; runT = performance.now(); menuOpen = false; parts.length = 0;
+  enterFloor(depth, true); state = "play"; showControls();
+  msg(mode === "daily" ? "Daily dungeon " + seed + ": everyone gets this layout today." : "A new dungeon awaits.", "#ff9a3d"); msg(`${c.name}: tap a floor tile to walk, or use the D-pad.`, "#a597b3");
+}
+function enterFloor(d, first) {
+  const st = genFloor(d); P.x = st[0]; P.y = st[1]; P.px = P.x * TS; P.py = P.y * TS; travel = null; computeFov(); distMap(); snapCam();
+  if (!first) { const heal = Math.ceil(P.mhp * .15); P.hp = Math.min(P.mhp, P.hp + heal); msg(`Floor ${d}: ${FLOOR_NAMES[d - 1]}. You catch your breath.`, "#ff9a3d"); }
+  else msg(`Floor ${d}: ${FLOOR_NAMES[d - 1]}.`, "#ff9a3d");
+  if (d === FLOORS) msg("A cold crown glimmers in the dark...", "#d98cff");
+  hud(); unlock(Math.min(FLOORS, d)); checkDepthAwards();
+}
+function checkDepthAwards() { if (depth >= 3) award("d3"); if (depth >= 5) award("d5"); if (mode === "daily" && depth >= 3) award("daily3"); }
+function hud() { stats({ Floor: depth, Lv: P.lvl, Gold: gold }); }
+function snapCam() { cam = [clamp(P.px - (VC * TS - TS) / 2, 0, MW * TS - VC * TS), clamp(P.py - (VR * TS - TS) / 2, 0, MH * TS - VR * TS)]; }
+
+// ===================================== combat =====================================
+const armorVal = () => P.a.ac + (P.ch && P.ch.k === "regen" ? 0 : 0);
+const atkBonus = () => Math.floor(P.lvl / 2) + P.bonus + (P.ch && P.ch.k === "power" ? 2 : 0);
+function playerHit(e, mult = 1, label) {
+  const r = rngG; if (r() > .93 && !label) { msg(`You miss the ${EN[e.k].n}.`, "#a597b3"); flo(e.x, e.y, "miss", "#a597b3"); Kit.sfx("whoosh"); return; }
+  const c = CLASSES[cls]; let dmg = ri(r, P.w.min, P.w.max) + atkBonus(), crit = false;
+  if (r() < c.crit + (P.ch && P.ch.k === "lucky" ? .15 : 0)) { dmg *= c.critMul; crit = true; }
+  dmg = Math.max(1, Math.round(dmg * mult)); damageEnemy(e, dmg, crit, label);
+}
+function damageEnemy(e, dmg, crit, label) {
+  e.hp -= dmg; e.hit = .25; e.awake = true; if (e.k === "king") e.last = [P.x, P.y];
+  flo(e.x, e.y, (crit ? "!" : "") + dmg, crit ? "#ffd23f" : "#fff"); burst(e.x * TS + TS / 2, e.y * TS + TS / 2, "#ff6b6b", crit ? 14 : 7, 90, .5);
+  msg(`${label || "You hit"} the ${EN[e.k].n} for ${dmg}${crit ? " (critical!)" : ""}.`, crit ? "#ffd23f" : "#eadfcb"); Kit.sfx("hit"); Kit.haptic(crit ? 25 : 12); if (crit) shake = .18;
+  if (e.hp <= 0) killEnemy(e);
+}
+function killEnemy(e) {
+  e.hp = 0; kills++; P.xp += e.xp; msg(`The ${EN[e.k].n} dies.`, "#9be15d"); Kit.sfx("boom"); burst(e.x * TS + TS / 2, e.y * TS + TS / 2, "#c9b8a0", 16, 120, .7);
+  if (kills >= 25) award("kills25");
+  if (e.k === "slime") for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { if (enemies.filter((q) => q.k === "mini" && q.hp > 0).length >= 2 + (e.mhp > 20 ? 2 : 0)) break; const nx = e.x + dx, ny = e.y + dy; if (walkable(nx, ny) && !enemyAt(nx, ny) && !(nx === P.x && ny === P.y)) { const m = mkEnemy("mini", nx, ny, depth); m.awake = true; enemies.push(m); } }
+  if (rngG() < .12 * DIFF[diff].item && e.k !== "king") { const it = rollItem(rngG, depth); if (it.t === "potion" || it.t === "scroll") { it.x = e.x; it.y = e.y; items.push(it); } }
+  while (P.xp >= 12 + P.lvl * 10 && P.lvl < 20) { P.xp -= 12 + P.lvl * 10; P.lvl++; P.mhp += 4; P.hp = Math.min(P.mhp, P.hp + Math.ceil(P.mhp * .3)); msg(`Level up! You are level ${P.lvl}.`, "#ffd23f"); flo(P.x, P.y, "LEVEL UP", "#ffd23f"); Kit.sfx("power"); burst(P.x * TS + TS / 2, P.y * TS + TS / 2, "#ffd23f", 20, 130, .8); if (P.lvl >= 8) award("lv8"); }
+  if (e.k === "king") win();
+  hud();
+}
+function hurtPlayer(dmg, src, ignoreArmor) {
+  const d = Math.max(1, ignoreArmor ? dmg : dmg - armorVal()); P.hp -= d; shake = .22; flash = .2; flo(P.x, P.y, "-" + d, "#ff6b6b"); Kit.sfx("thud"); Kit.haptic(35); burst(P.x * TS + TS / 2, P.y * TS + TS / 2, "#ff4d4d", 10, 100, .5);
+  msg(`${src} hits you for ${d}.`, "#ff8a7a"); travel = null; P.rest = 0;
+  if (P.hp <= 0) { P.hp = 0; killedBy = src.replace(/^The /, ""); die(); }
+}
+function enemyTurn(e) {
+  if (e.hp <= 0) return;
+  if (e.stun > 0) { e.stun--; return; }
+  const B = EN[e.k], dx = P.x - e.x, dy = P.y - e.y, md = Math.abs(dx) + Math.abs(dy), sees = vis[idx(e.x, e.y)] === 1 && !P.vanish;
+  if (!e.awake) { if ((sees && md <= 7) || md <= 2) { e.awake = true; if (sees) msg(`The ${B.n} notices you!`, "#ff8a7a"); } else return; }
+  if (e.flee > 0) { e.flee--; stepAway(e); return; }
+  const nm = "The " + B.n;
+  switch (e.k) {
+    case "slime": e.t++; if (e.t % 2) return; break;
+    case "bat": if (rngG() < .5) { const [rx, ry] = [[1, 0], [-1, 0], [0, 1], [0, -1]][ri(rngG, 0, 3)]; tryStep(e, e.x + rx, e.y + ry); return; } break;
+    case "archer": if (sees && md <= 6 && md > 1 && los(e.x, e.y, P.x, P.y)) { if (md <= 2) { stepAway(e); return; } if (rngG() < .75) { flo(e.x, e.y, "→", "#ffd23f"); hurtPlayer(ri(rngG, e.d[0], e.d[1]), nm); Kit.sfx("shoot"); return; } return; } if (md === 1) { stepAway(e); return; } break;
+    case "acolyte": if (sees && md <= 6 && los(e.x, e.y, P.x, P.y)) { e.t++; if (e.t % 3 === 0) { flo(e.x, e.y, "✦", "#d98cff"); hurtPlayer(ri(rngG, e.d[0], e.d[1]), nm, true); Kit.sfx("power"); return; } if (md <= 2) { stepAway(e); return; } return; } break;
+    case "ogre": if (md === 1) { if (e.wind) { e.wind = false; hurtPlayer(ri(rngG, e.d[0], e.d[1]), nm); } else { e.wind = true; msg(`${nm} raises its club!`, "#ffb347"); flo(e.x, e.y, "!!", "#ffb347"); Kit.sfx("whoosh"); } return; } e.wind = false; break;
+    case "wraith": if (md === 1) { hurtPlayer(ri(rngG, e.d[0], e.d[1]), nm); return; } { const sx = Math.abs(dx) >= Math.abs(dy) ? Math.sign(dx) : 0, sy = sx ? 0 : Math.sign(dy); const nx = e.x + sx, ny = e.y + sy; if (inb(nx, ny) && !enemyAt(nx, ny) && !(nx === P.x && ny === P.y)) { e.x = nx; e.y = ny; } } return;
+    case "king": e.t++; if (e.t % 9 === 0 || (e.hp < e.mhp / 2 && !e.summoned)) { e.summoned = 1; let n = 0; for (const [sx, sy] of [[2, 0], [-2, 0], [0, 2], [0, -2], [1, 1], [-1, -1]]) { const nx = e.x + sx, ny = e.y + sy; if (n < 2 && walkable(nx, ny) && !enemyAt(nx, ny) && !(nx === P.x && ny === P.y)) { const s = mkEnemy("skeleton", nx, ny, depth); s.awake = true; enemies.push(s); n++; } } msg("The Hollow King calls his servants!", "#d98cff"); Kit.sfx("power"); return; } break;
+  }
+  if (md === 1) { hurtPlayer(ri(rngG, e.d[0], e.d[1]), nm); return; }
+  if (P.vanish > 0 && !sees && e.last) { chase(e, e.last); return; }
+  chase(e, null);
+}
+function chase(e, target) {
+  let best = null, bd = 1e9; const cur = target ? Math.abs(target[0] - e.x) + Math.abs(target[1] - e.y) : (dist[idx(e.x, e.y)] < 0 ? 1e9 : dist[idx(e.x, e.y)]);
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const nx = e.x + dx, ny = e.y + dy; if (!walkable(nx, ny) || enemyAt(nx, ny) || (nx === P.x && ny === P.y)) continue;
+    const d = target ? Math.abs(target[0] - nx) + Math.abs(target[1] - ny) : (dist[idx(nx, ny)] < 0 ? 1e9 : dist[idx(nx, ny)]); if (d < bd) { bd = d; best = [nx, ny]; }
+  }
+  if (best && bd < cur) { e.x = best[0]; e.y = best[1]; }
+}
+function stepAway(e) {
+  let best = null, bd = -1; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = e.x + dx, ny = e.y + dy; if (!walkable(nx, ny) || enemyAt(nx, ny) || (nx === P.x && ny === P.y)) continue; const d = Math.abs(P.x - nx) + Math.abs(P.y - ny); if (d > bd) { bd = d; best = [nx, ny]; } }
+  if (best) { e.x = best[0]; e.y = best[1]; }
+}
+function tryStep(e, nx, ny) { if (walkable(nx, ny) && !enemyAt(nx, ny) && !(nx === P.x && ny === P.y)) { e.x = nx; e.y = ny; } }
+
+// ===================================== turns =====================================
+function endTurn(fast) {
+  turnNo++;
+  if (haste > 0) { haste--; if (turnNo % 2 === 0 && haste >= 0) { computeFov(); distMap(); hud(); return; } }
+  P.regen++; const every = (P.ch && P.ch.k === "regen" ? 4 : 9) - (P.rest > 2 ? 3 : 0);
+  if (P.regen >= every && P.hp < P.mhp) { P.regen = 0; P.hp++; }
+  if (cls === "mage" && turnNo % 3 === 0 && P.mana < P.mmana) P.mana++;
+  if (P.cd > 0) P.cd--; if (P.vanish > 0) P.vanish--;
+  const before = new Set(); for (const e of enemies) if (e.hp > 0 && vis[idx(e.x, e.y)]) before.add(e);
+  distMap(); for (const e of enemies.slice()) { if (state !== "play") break; enemyTurn(e); }
+  enemies = enemies.filter((e) => e.hp > 0 || e.hit > 0);
+  if (state === "play") { computeFov(); for (const e of enemies) if (e.hp > 0 && vis[idx(e.x, e.y)] && !before.has(e)) { if (travel) { travel = null; } } }
+  void fast; hud();
+}
+function visibleEnemies() { return enemies.filter((e) => e.hp > 0 && vis[idx(e.x, e.y)]); }
+function onEnter() {
+  const i = itemAt(P.x, P.y);
+  if (i >= 0) { const it = items[i]; if (it.t === "gold") { gold += it.v; items.splice(i, 1); flo(P.x, P.y, "+" + it.v, "#ffd23f"); Kit.sfx("coin"); if (gold >= 250) award("gold250"); hud(); } else if (autoPick) pickUp(i); else msg(`You see a ${it.n}. Open USE to pick it up.`, "#a597b3"); }
+  const t = map[idx(P.x, P.y)];
+  if (t === T_TRAP) { if (!traps[idx(P.x, P.y)]) { traps[idx(P.x, P.y)] = 1; hurtPlayer(3 + depth, "A spike trap", true); msg("Spikes shoot from the floor!", "#ff8a7a"); } }
+  else if (t === T_STAIRS) { msg("Stairs down. Press STAIRS to descend.", "#ff9a3d"); Kit.sfx("power"); }
+}
+function pickUp(i) {
+  const it = items[i]; if (!it) return;
+  if (P.inv.length >= 8) { msg("Your pack is full.", "#ff8a7a"); toast("Pack full: use or drop something"); return; }
+  items.splice(i, 1); P.inv.push(it); msg(`Picked up ${it.n}.`, "#9be15d"); Kit.sfx("coin"); Kit.haptic(10);
+}
+function step(dx, dy) {
+  if (state !== "play" || menuOpen) return; travel = null;
+  const nx = P.x + dx, ny = P.y + dy, e = enemyAt(nx, ny);
+  if (e) { P.rest = 0; playerHit(e); P.fast = 0; endTurn(); return; }
+  if (!walkable(nx, ny)) { Kit.haptic(5); Kit.sfx("bounce"); return; }
+  P.x = nx; P.y = ny; P.rest = 0; Kit.sfx("step"); computeFov(); onEnter(); if (state === "play") endTurn();
+}
+function wait() { if (state !== "play" || menuOpen) return; travel = null; P.rest++; Kit.sfx("tick"); endTurn(); }
+function stairsBtn() {
+  if (state !== "play" || menuOpen) return;
+  if (P.x === stairs[0] && P.y === stairs[1]) { descend(); return; }
+  if (stairs[0] < 0) { toast("No stairs here: defeat the Hollow King!"); return; }
+  if (!seenA[idx(stairs[0], stairs[1])]) { toast("You haven't found the stairs yet"); return; }
+  startTravel(stairs[0], stairs[1]);
+}
+function descend() {
+  depth++; msg("You descend...", "#ff9a3d"); Kit.sfx("whoosh"); enterFloor(depth, false); burst(P.x * TS + TS / 2, P.y * TS + TS / 2, "#ff9a3d", 18, 120, .7);
+}
+function startTravel(tx, ty) {
+  const path = findPath(tx, ty, true); if (!path || !path.length) { toast("Can't get there"); Kit.haptic(10); return; }
+  travel = { path, i: 0, t: 0, dest: [tx, ty] }; lastPath = path;
+}
+function travelStep() {
+  if (!travel) return;
+  const [nx, ny] = travel.path[travel.i]; const e = enemyAt(nx, ny);
+  if (e) { travel = null; return; }
+  if (map[idx(nx, ny)] === T_TRAP && traps[idx(nx, ny)] === 0 && seenA[idx(nx, ny)]) { /* unknown traps stay hidden */ }
+  const seenBefore = new Set(visibleEnemies());
+  const dx = nx - P.x, dy = ny - P.y; P.x = nx; P.y = ny; P.rest = 0; Kit.sfx("step"); void dx; void dy;
+  computeFov(); onEnter(); if (state === "play") endTurn();
+  if (!travel) return; travel.i++;
+  const now = visibleEnemies(); if (now.some((q) => !seenBefore.has(q))) { travel = null; toast("Enemy in sight!"); Kit.haptic(15); return; }
+  if (now.some((q) => Math.abs(q.x - P.x) + Math.abs(q.y - P.y) <= 1)) { travel = null; return; }
+  if (travel.i >= travel.path.length) travel = null;
+}
+
+// ===================================== items & USE menu =====================================
+function useItem(i) {
+  const it = P.inv[i]; if (!it) return; let used = true;
+  if (it.t === "potion") {
+    if (it.k === "heal") { const h = Math.ceil(P.mhp * .5 * DIFF[diff].heal); P.hp = Math.min(P.mhp, P.hp + h); flo(P.x, P.y, "+" + h, "#9be15d"); msg(`You drink a Health potion (+${h}).`, "#9be15d"); }
+    else if (it.k === "haste") { haste = 30; msg("Time slows around you. You are hasted!", "#7fd3ff"); }
+    else if (it.k === "might") { P.bonus++; msg("You feel stronger. (+1 damage)", "#ffd23f"); }
+    else if (it.k === "vigor") { P.mhp += 5; P.hp = Math.min(P.mhp, P.hp + 5); msg("Your vitality grows. (+5 max HP)", "#9be15d"); }
+    Kit.sfx("power");
+  } else if (it.t === "scroll") {
+    if (it.k === "teleport") { const room = rooms[ri(rngG, 0, rooms.length - 1)]; let p = [room.cx, room.cy]; for (let k = 0; k < 30; k++) { const x = ri(rngG, room.x, room.x + room.w - 1), y = ri(rngG, room.y, room.y + room.h - 1); if (walkable(x, y) && !enemyAt(x, y)) { p = [x, y]; break; } } if (!enemyAt(p[0], p[1])) { P.x = p[0]; P.y = p[1]; P.px = P.x * TS; P.py = P.y * TS; } msg("You vanish and reappear elsewhere.", "#7fd3ff"); computeFov(); Kit.sfx("whoosh"); }
+    else if (it.k === "map") { for (let k = 0; k < MW * MH; k++) if (map[k] !== T_WALL) seenA[k] = 1; msg("The floor plan burns into your mind.", "#7fd3ff"); Kit.sfx("power"); }
+    else if (it.k === "fire") { const vs = visibleEnemies(); msg(vs.length ? "Flames engulf your enemies!" : "The scroll burns up with no targets.", "#ffb347"); for (const e of vs) damageEnemy(e, 8 + depth * 2, false, "Fire burns"); Kit.sfx("boom"); }
+    else if (it.k === "fear") { for (const e of visibleEnemies()) e.flee = 10; msg("Your enemies flee in terror!", "#d98cff"); Kit.sfx("power"); }
+  } else if (it.t === "weapon") { const old = P.w; P.w = { n: it.n, min: it.min, max: it.max, t: "weapon" }; P.inv[i] = { t: "weapon", n: old.n, min: old.min, max: old.max, tip: `Damage ${old.min}-${old.max}` }; msg(`You wield the ${it.n}.`, "#eadfcb"); Kit.sfx("click"); used = false; }
+  else if (it.t === "armor") { const old = P.a; P.a = { n: it.n, ac: it.ac, t: "armor" }; P.inv[i] = { t: "armor", n: old.n, ac: old.ac, tip: `Armor ${old.ac}` }; msg(`You put on the ${it.n}.`, "#eadfcb"); Kit.sfx("click"); used = false; }
+  else if (it.t === "charm") { const old = P.ch; if (old && old.k === "vigor") { P.mhp -= 6; P.hp = Math.min(P.hp, P.mhp); } P.ch = it; if (it.k === "vigor") { P.mhp += 6; P.hp += 6; } P.inv[i] = old ? { t: "charm", n: old.n, k: old.k, tip: old.tip } : null; if (!old) P.inv.splice(i, 1); msg(`You wear the ${it.n}.`, "#eadfcb"); Kit.sfx("click"); used = false; }
+  if (used) P.inv.splice(i, 1);
+  P.inv = P.inv.filter(Boolean); hud();
+  closeMenu(); endTurn();
+}
+function ability() {
+  const c = CLASSES[cls];
+  if (cls === "warrior") { if (P.cd > 0) { toast("Whirlwind ready in " + P.cd); return false; } const adj = enemies.filter((e) => e.hp > 0 && Math.abs(e.x - P.x) + Math.abs(e.y - P.y) === 1); if (!adj.length) { toast("No enemy beside you"); return false; } msg("You spin in a whirlwind!", "#ffb347"); for (const e of adj) playerHit(e, 1.3, "Whirlwind hits"); P.cd = c.abCd; Kit.sfx("whoosh"); shake = .25; }
+  else if (cls === "rogue") { if (P.cd > 0) { toast("Vanish ready in " + P.cd); return false; } P.vanish = 7; P.cd = c.abCd; for (const e of enemies) e.last = [P.x, P.y]; msg("You melt into the shadows. Enemies lose you.", "#7fd3ff"); Kit.sfx("whoosh"); }
+  else { if (P.mana < 4) { toast("Not enough mana (4)"); return false; } const vs = visibleEnemies().filter((e) => Math.abs(e.x - P.x) + Math.abs(e.y - P.y) <= 8).sort((a, b) => (Math.abs(a.x - P.x) + Math.abs(a.y - P.y)) - (Math.abs(b.x - P.x) + Math.abs(b.y - P.y))); if (!vs.length) { toast("No enemy in sight"); return false; } P.mana -= 4; const e = vs[0]; flo(P.x, P.y, "✦", "#7a8cff"); damageEnemy(e, 6 + Math.floor(P.lvl * 1.5) + (P.ch && P.ch.k === "power" ? 2 : 0), false, "Firebolt scorches"); Kit.sfx("shoot"); }
+  return true;
+}
+function closeMenu() { menuOpen = false; document.getElementById("over").hidden = true; }
+function openUse() {
+  if (state !== "play" || document.getElementById("over") && !document.getElementById("over").hidden && !menuOpen) return;
+  menuOpen = true; travel = null; const c = CLASSES[cls];
+  const abLine = cls === "mage" ? `Firebolt · mana ${P.mana}/${P.mmana}` : `${c.ab}${P.cd > 0 ? " · ready in " + P.cd : " · ready"}`;
+  card(`<h1>Pack</h1><p class="sub">${escHTML(P.w.n)} ${P.w.min}-${P.w.max} · ${escHTML(P.a.n)} ${P.a.ac}${P.ch ? " · " + escHTML(P.ch.n) : ""}</p>`, "Close", () => { menuOpen = false; });
+  const cardEl = document.getElementById("card"), go = document.getElementById("go");
+  const add = (label, sub, fn, cls2) => { const b = document.createElement("button"); b.className = "ghost" + (cls2 ? " " + cls2 : ""); b.style.cssText = "height:auto;min-height:44px;padding:6px 12px;text-align:left;font:600 14px system-ui,sans-serif;line-height:1.25"; const l = document.createElement("div"); l.textContent = label; b.append(l); if (sub) { const s = document.createElement("div"); s.textContent = sub; s.style.cssText = "font-weight:400;font-size:12px;opacity:.8"; b.append(s); } b.onclick = () => { Kit.sfx("click"); fn(); }; cardEl.insertBefore(b, go); };
+  const here = itemAt(P.x, P.y);
+  if (here >= 0 && items[here].t !== "gold") add("Pick up: " + items[here].n, items[here].tip, () => { pickUp(here); closeMenu(); endTurn(); });
+  add("Ability: " + abLine, ({ warrior: "Hit every adjacent enemy for 130%", rogue: "Enemies lose track of you for 7 turns", mage: "Bolt the nearest enemy you can see" })[cls], () => { closeMenu(); if (ability()) endTurn(); else openUse(); });
+  if (!P.inv.length) { const p = document.createElement("p"); p.className = "sub"; p.textContent = "Your pack is empty."; cardEl.insertBefore(p, go); }
+  P.inv.forEach((it, i) => add(it.n + (it.t === "weapon" || it.t === "armor" || it.t === "charm" ? "  (equip)" : ""), it.tip, () => useItem(i)));
+}
+
+// ===================================== end of run =====================================
+function die() { if (state !== "play") return; state = "dead"; travel = null; Kit.hideControls(); Kit.sfx("lose"); Kit.haptic(80); finishRun(false); }
+function win() { state = "won"; travel = null; Kit.hideControls(); Kit.sfx("win"); award("win"); finishRun(true); }
+function finishRun(won) {
+  if (doneRun) return; doneRun = true;
+  const score = gold * 2 + kills * 5 + depth * 100 + (won ? 1000 : 0) + P.lvl * 20, b = loadBest();
+  SAVE.best = SAVE.best || {}; if (depth > b.depth) SAVE.best.depth = depth; if (score > b.score) SAVE.best.score = score;
+  if (mode === "daily") { const ds = dailySeed(); if (b.dailyDate !== ds || score > b.daily) { SAVE.best.daily = score; SAVE.best.dailyDate = ds; } }
+  persist(); Kit.record({ win: won ? 1 : 0, score, secs: Math.round((performance.now() - runT) / 1000) });
+  const c = CLASSES[cls], secs = Math.round((performance.now() - runT) / 1000);
+  setTimeout(() => {
+    card(`<h1>${won ? "You escaped!" : "You died"}</h1><p>${won ? "The Hollow King falls and the way out opens." : "Slain by " + escHTML(killedBy || "the dungeon") + " on floor " + depth + "."}</p>
+      <table style="width:100%;font-size:14px;border-collapse:collapse;text-align:left"><tr><td>Class</td><td>${escHTML(c.name)} · level ${P.lvl}</td></tr><tr><td>Floor reached</td><td>${depth} of ${FLOORS}</td></tr><tr><td>Enemies slain</td><td>${kills}</td></tr><tr><td>Gold</td><td>${gold}</td></tr><tr><td>Turns</td><td>${turnNo}</td></tr><tr><td>Time</td><td>${secs}s</td></tr><tr><td>Score</td><td><b>${score}</b></td></tr></table>
+      <p class="sub">${mode === "daily" ? "Daily dungeon " + seed : "Seed " + seed} · best floor ${Math.max(depth, b.depth)} · best score ${Math.max(score, b.score)}</p>`, mode === "daily" ? "Retry the daily" : "New dungeon", () => { newRun(mode === "daily" ? {} : {}); });
+    const m = document.createElement("button"); m.className = "ghost"; m.textContent = "Menu"; m.onclick = () => { document.getElementById("over").hidden = true; openMenu(); }; document.getElementById("card").append(m);
+  }, won ? 600 : 900);
+}
+
+// ===================================== input =====================================
+function tileAt(x, y) { const tx = Math.floor((x + cam[0]) / TS), ty = Math.floor((y - MY + cam[1]) / TS); return inb(tx, ty) && y >= MY && y < MY + VR * TS ? [tx, ty] : null; }
+Kit.play({
+  start(f) { if (state !== "play" || menuOpen || !document.getElementById("over").hidden) f.owner = null; else f.owner = { ok: true }; },
+  end(f) {
+    if (!f.owner || state !== "play" || menuOpen) return; const g = Kit.gesture(f, 20);
+    if (!g.tap) return; const t = tileAt(f.x, f.y); if (!t) return;
+    if (!tapTravel) { toast("Tap-to-travel is off (see settings)"); return; }
+    const [tx, ty] = t, i = idx(tx, ty);
+    if (tx === P.x && ty === P.y) { const it = itemAt(P.x, P.y); if (it >= 0 && items[it].t !== "gold") { pickUp(it); endTurn(); } else wait(); return; }
+    if (!seenA[i] || map[i] === T_WALL) { toast("Can't walk there"); Kit.haptic(8); return; }
+    const e = enemyAt(tx, ty);
+    if (e && vis[i]) { const md = Math.abs(tx - P.x) + Math.abs(ty - P.y); if (md === 1) { step(tx - P.x, ty - P.y); return; } if (cls === "mage" && P.mana >= 4 && md <= 8) { if (ability()) endTurn(); return; } }
+    startTravel(tx, ty);
+  }
+});
+addEventListener("keydown", (e) => {
+  const k = e.key; if (k === "p" || k === "P" || k === "Escape") { Kit.pause(); return; }
+  if (state !== "play" || menuOpen) return;
+  const m = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] }[k];
+  if (m) step(m[0], m[1]); else if (k === " " || k === ".") wait(); else if (k === "Enter" || k === "u") openUse(); else if (k === "e" || k === ">") stairsBtn();
+});
+function showControls() {
+  const pad = Kit.dpad({ on: (dx, dy) => step(dx, dy), repeat: 150, slide: true });
+  const bw = Kit.button(`<span class="big">…</span>WAIT`, { down: () => wait(), cls: "sm", aria: "Wait one turn" });
+  const bu = Kit.button(`<span class="big">☰</span>USE`, { down: () => openUse(), cls: "sm", aria: "Open pack and abilities" });
+  const bs = Kit.button(`<span class="big">▼</span>STAIRS`, { down: () => stairsBtn(), cls: "sm", aria: "Go to or take the stairs" });
+  for (const b of [bw, bu, bs]) { b.style.minWidth = "52px"; b.style.padding = "0"; }
+  Kit.controls([pad], [bw, bu, bs]);
+}
+
+// ===================================== drawing =====================================
+function drawWall(x, y, sx, sy) {
+  ctx.fillStyle = "#2b2438"; ctx.fillRect(sx, sy, TS, TS); ctx.fillStyle = "#3a3150"; ctx.fillRect(sx, sy, TS, 3);
+  ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1; ctx.beginPath(); for (let r = 1; r < 3; r++) { ctx.moveTo(sx, sy + r * 10); ctx.lineTo(sx + TS, sy + r * 10); } const o = (x + y) & 1 ? 0 : 7; ctx.moveTo(sx + 7 + o, sy); ctx.lineTo(sx + 7 + o, sy + 10); ctx.moveTo(sx + 18 - o, sy + 10); ctx.lineTo(sx + 18 - o, sy + 20); ctx.moveTo(sx + 9 + o, sy + 20); ctx.lineTo(sx + 9 + o, sy + 30); ctx.stroke();
+}
+function drawFloor(x, y, sx, sy, t) {
+  ctx.fillStyle = (x + y) & 1 ? "#3a3347" : "#352e42"; ctx.fillRect(sx, sy, TS, TS); ctx.fillStyle = "rgba(255,255,255,.04)"; ctx.fillRect(sx + 2, sy + 2, 2, 2); ctx.fillRect(sx + 18 + ((x * 7) % 8), sy + 14 + ((y * 5) % 9), 2, 2);
+  if (t === T_STAIRS) { ctx.fillStyle = "#1d1726"; ctx.fillRect(sx + 3, sy + 3, TS - 6, TS - 6); ctx.fillStyle = "#ff9a3d"; for (let i = 0; i < 4; i++) ctx.fillRect(sx + 5 + i * 2, sy + 5 + i * 6, TS - 10 - i * 4, 4); }
+  else if (t === T_TRAP && traps[idx(x, y)]) { ctx.fillStyle = "#a597b3"; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(sx + 4 + i * 6, sy + 24); ctx.lineTo(sx + 7 + i * 6, sy + 8); ctx.lineTo(sx + 10 + i * 6, sy + 24); ctx.fill(); } }
+}
+function drawItem(it, cx, cy) {
+  ctx.save(); ctx.translate(cx, cy);
+  if (it.t === "gold") { ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(0, 0, 7, 0, TAU); ctx.fill(); ctx.fillStyle = "#c9a021"; ctx.beginPath(); ctx.arc(0, 0, 4, 0, TAU); ctx.fill(); }
+  else if (it.t === "potion") { ctx.fillStyle = { heal: "#ff5a6a", haste: "#4cd0ff", might: "#ffb347", vigor: "#7be07b" }[it.k]; ctx.beginPath(); ctx.arc(0, 3, 7, 0, TAU); ctx.fill(); ctx.fillStyle = "#cfc8da"; ctx.fillRect(-2, -8, 4, 6); ctx.fillStyle = "rgba(255,255,255,.4)"; ctx.fillRect(-4, 0, 2, 4); }
+  else if (it.t === "scroll") { ctx.fillStyle = "#efe2b8"; rr(-8, -6, 16, 12, 3); ctx.fill(); ctx.fillStyle = "#b5483a"; ctx.fillRect(-8, -1, 16, 2); ctx.fillStyle = "#8a6f3a"; ctx.fillRect(-9, -7, 3, 14); ctx.fillRect(6, -7, 3, 14); }
+  else if (it.t === "weapon") { ctx.rotate(-.7); ctx.fillStyle = "#cfd6e4"; ctx.fillRect(-2, -11, 4, 17); ctx.fillStyle = "#8a6f3a"; ctx.fillRect(-6, 5, 12, 3); ctx.fillRect(-1.5, 7, 3, 5); }
+  else if (it.t === "armor") { ctx.fillStyle = "#9aa7bd"; ctx.beginPath(); ctx.moveTo(-9, -7); ctx.lineTo(-4, -9); ctx.lineTo(4, -9); ctx.lineTo(9, -7); ctx.lineTo(7, 8); ctx.lineTo(-7, 8); ctx.closePath(); ctx.fill(); ctx.fillStyle = "#6e7a90"; ctx.fillRect(-1, -9, 2, 17); }
+  else { ctx.strokeStyle = "#d98cff"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 2, 6, 0, TAU); ctx.stroke(); ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(0, -5, 3, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+function drawEnemy(e, cx, cy) {
+  ctx.save(); ctx.translate(cx, cy); const t = tm * 6 + e.x;
+  if (e.hit > 0) ctx.globalAlpha = .55 + Math.sin(tm * 60) * .25;
+  const eye = (x, y, c = "#fff") => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, 1.8, 0, TAU); ctx.fill(); };
+  switch (e.k) {
+    case "rat": ctx.fillStyle = "#8d8279"; ctx.beginPath(); ctx.ellipse(0, 2, 9, 6, 0, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.arc(8, 0, 4, 0, TAU); ctx.fill(); ctx.strokeStyle = "#c9a0a0"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-9, 2); ctx.quadraticCurveTo(-14, -4 + Math.sin(t) * 3, -12, -8); ctx.stroke(); eye(9, -1, "#ff4d4d"); break;
+    case "bat": { const f = Math.sin(t * 2) * 5; ctx.fillStyle = "#5b3f7a"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-13, -6 - f); ctx.lineTo(-8, 5); ctx.lineTo(-3, 2); ctx.lineTo(0, 6); ctx.lineTo(3, 2); ctx.lineTo(8, 5); ctx.lineTo(13, -6 - f); ctx.closePath(); ctx.fill(); ctx.fillStyle = "#3b2850"; ctx.beginPath(); ctx.arc(0, 0, 5, 0, TAU); ctx.fill(); eye(-2, -1, "#ff4d4d"); eye(2, -1, "#ff4d4d"); break; }
+    case "archer": ctx.fillStyle = "#4e7d3a"; ctx.beginPath(); ctx.moveTo(0, -11); ctx.lineTo(8, 11); ctx.lineTo(-8, 11); ctx.closePath(); ctx.fill(); ctx.fillStyle = "#c9a96b"; ctx.beginPath(); ctx.arc(0, -4, 5, 0, TAU); ctx.fill(); eye(-2, -5, "#222"); eye(2, -5, "#222"); ctx.strokeStyle = "#8a5a2a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(9, 1, 9, -1.2, 1.2); ctx.stroke(); break;
+    case "slime": case "mini": { const s = e.k === "mini" ? .6 : 1, wob = Math.sin(t) * 1.5; ctx.fillStyle = "#58c26a"; ctx.beginPath(); ctx.ellipse(0, 4, 12 * s + wob, 9 * s - wob * .5, 0, Math.PI, 0); ctx.lineTo(12 * s + wob, 4); ctx.ellipse(0, 4, 12 * s + wob, 4, 0, 0, Math.PI); ctx.fill(); ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.beginPath(); ctx.ellipse(-4 * s, -2, 3 * s, 2, 0, 0, TAU); ctx.fill(); eye(-3 * s, 2); eye(3 * s, 2); break; }
+    case "skeleton": ctx.fillStyle = "#e8e2d0"; ctx.beginPath(); ctx.arc(0, -6, 6, 0, TAU); ctx.fill(); ctx.fillRect(-4, -2, 8, 4); ctx.fillStyle = "#222"; ctx.fillRect(-3, -8, 2.5, 3); ctx.fillRect(1, -8, 2.5, 3); ctx.strokeStyle = "#e8e2d0"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, 11); for (let i = 0; i < 3; i++) { ctx.moveTo(-6, 4 + i * 3); ctx.lineTo(6, 4 + i * 3); } ctx.moveTo(-5, 11); ctx.lineTo(-7, 14); ctx.moveTo(5, 11); ctx.lineTo(7, 14); ctx.stroke(); break;
+    case "wraith": ctx.globalAlpha *= .8; ctx.fillStyle = "#7fb0e8"; ctx.beginPath(); ctx.arc(0, -3, 9, Math.PI, 0); ctx.lineTo(9, 11); for (let i = 3; i >= -3; i--) ctx.lineTo(i * 3, 11 + (i & 1 ? 3 : -1) + Math.sin(t + i) * 1.5); ctx.lineTo(-9, 11); ctx.closePath(); ctx.fill(); eye(-3, -4, "#10243a"); eye(3, -4, "#10243a"); break;
+    case "ogre": ctx.fillStyle = "#6f8a3c"; ctx.beginPath(); ctx.ellipse(0, 3, 12, 11, 0, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.arc(0, -8, 7, 0, TAU); ctx.fill(); eye(-3, -9, "#ffd23f"); eye(3, -9, "#ffd23f"); ctx.fillStyle = "#e8e2d0"; ctx.fillRect(-4, -4, 2, 3); ctx.fillRect(2, -4, 2, 3); ctx.strokeStyle = "#7a4e22"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(12, 10); ctx.lineTo(e.wind ? 10 : 14, e.wind ? -14 : -4); ctx.stroke(); if (e.wind) { ctx.strokeStyle = "#ffb347"; ctx.lineWidth = 2; ctx.strokeRect(-13, -14, 26, 28); } break;
+    case "acolyte": ctx.fillStyle = "#6b3f8f"; ctx.beginPath(); ctx.moveTo(0, -11); ctx.lineTo(9, 12); ctx.lineTo(-9, 12); ctx.closePath(); ctx.fill(); ctx.fillStyle = "#1e1030"; ctx.beginPath(); ctx.arc(0, -4, 4.5, 0, TAU); ctx.fill(); eye(-1.5, -4, "#ff7bf0"); eye(1.5, -4, "#ff7bf0"); ctx.fillStyle = "#d98cff"; ctx.beginPath(); ctx.arc(9, -2 + Math.sin(t) * 2, 3, 0, TAU); ctx.fill(); break;
+    case "king": ctx.fillStyle = "#cfc8da"; ctx.beginPath(); ctx.arc(0, -4, 8, 0, TAU); ctx.fill(); ctx.fillRect(-6, 2, 12, 5); ctx.fillStyle = "#1b1220"; ctx.fillRect(-5, -6, 3.5, 4); ctx.fillRect(1.5, -6, 3.5, 4); ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.moveTo(-8, -9); ctx.lineTo(-8, -15); ctx.lineTo(-4, -11); ctx.lineTo(0, -16); ctx.lineTo(4, -11); ctx.lineTo(8, -15); ctx.lineTo(8, -9); ctx.closePath(); ctx.fill(); ctx.fillStyle = "#4a2a6a"; ctx.beginPath(); ctx.moveTo(-10, 7); ctx.lineTo(10, 7); ctx.lineTo(13, 14); ctx.lineTo(-13, 14); ctx.closePath(); ctx.fill(); break;
+  }
+  ctx.restore();
+  if (e.hp > 0 && e.hp < e.mhp) { ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(cx - 11, cy - 17, 22, 4); ctx.fillStyle = e.hp / e.mhp > .5 ? "#9be15d" : "#ff6b6b"; ctx.fillRect(cx - 10, cy - 16, 20 * e.hp / e.mhp, 2); }
+  if (e.flee > 0) tx("~", cx, cy - 18, 12, "#d98cff", "center");
+}
+function drawPlayer(cx, cy) {
+  const c = CLASSES[cls]; ctx.save(); ctx.translate(cx, cy); if (P.vanish > 0) ctx.globalAlpha = .45;
+  ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.beginPath(); ctx.ellipse(0, 11, 9, 3, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = c.col; ctx.beginPath(); ctx.moveTo(-8, 11); ctx.lineTo(-6, -2); ctx.lineTo(6, -2); ctx.lineTo(8, 11); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#f0c8a0"; ctx.beginPath(); ctx.arc(0, -7, 6, 0, TAU); ctx.fill();
+  if (cls === "warrior") { ctx.fillStyle = "#aab4c8"; ctx.beginPath(); ctx.arc(0, -8, 6.5, Math.PI, 0); ctx.fill(); ctx.fillRect(-1, -8, 2, 6); }
+  else if (cls === "rogue") { ctx.fillStyle = "#1f6b4a"; ctx.beginPath(); ctx.arc(0, -8, 7, Math.PI * 1.05, Math.PI * 1.95); ctx.lineTo(0, -1); ctx.fill(); }
+  else { ctx.fillStyle = "#4a56c9"; ctx.beginPath(); ctx.moveTo(-8, -9); ctx.lineTo(0, -21); ctx.lineTo(8, -9); ctx.closePath(); ctx.fill(); ctx.fillRect(-9, -10, 18, 3); }
+  ctx.fillStyle = "#222"; ctx.fillRect(-3, -8, 2, 2); ctx.fillRect(1, -8, 2, 2);
+  ctx.strokeStyle = "#cfd6e4"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(9, 6); ctx.lineTo(13, cls === "mage" ? -16 : -6); ctx.stroke();
+  if (cls === "mage") { ctx.fillStyle = "#7a8cff"; ctx.beginPath(); ctx.arc(13, -17, 3, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+function bar(x, y, w, h, f, col, label) { ctx.fillStyle = "rgba(0,0,0,.5)"; rr(x, y, w, h, 4); ctx.fill(); ctx.fillStyle = col; rr(x + 1, y + 1, Math.max(0, (w - 2) * clamp(f, 0, 1)), h - 2, 3); ctx.fill(); if (label) tx(label, x + w / 2, y + h / 2 + 1, 12, "#fff", "center"); }
+function tx(t, x, y, size, col, align = "left", weight = 700) { ctx.font = `${weight} ${size}px system-ui,-apple-system,sans-serif`; ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = col; ctx.fillText(t, x, y); }
+function draw() {
+  ctx.fillStyle = "#0b0810"; ctx.fillRect(0, 0, LW, LH);
+  if (state === "menu" || !P) return;
+  // camera
+  const tcx = clamp(P.px - (VC * TS - TS) / 2, 0, MW * TS - VC * TS), tcy = clamp(P.py - (VR * TS - TS) / 2, 0, MH * TS - VR * TS); cam[0] += (tcx - cam[0]) * .25; cam[1] += (tcy - cam[1]) * .25;
+  const sh = shake > 0 ? (Math.random() - .5) * 6 * (shake / .2) : 0;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, MY, LW, VR * TS); ctx.clip(); ctx.translate(sh - cam[0], MY + sh - cam[1]);
+  const x0 = Math.max(0, Math.floor(cam[0] / TS)), x1 = Math.min(MW - 1, x0 + VC + 1), y0 = Math.max(0, Math.floor(cam[1] / TS)), y1 = Math.min(MH - 1, y0 + VR + 1);
+  const flick = .92 + Math.sin(tm * 7) * .04;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const i = idx(x, y), sx = x * TS, sy = y * TS, t = map[i];
+    if (!seenA[i]) continue;
+    if (t === T_WALL) { let near = false; for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = x + dx, ny = y + dy; if (inb(nx, ny) && map[idx(nx, ny)] !== T_WALL && seenA[idx(nx, ny)]) { near = true; break; } } if (near) drawWall(x, y, sx, sy); }
+    else drawFloor(x, y, sx, sy, t);
+    if (vis[i]) { const d = Math.hypot(x - P.x, y - P.y); ctx.fillStyle = `rgba(10,6,20,${clamp(d / (SIGHT + 1.5), 0, 1) * .5 * flick})`; ctx.fillRect(sx, sy, TS, TS); }
+    else { ctx.fillStyle = "rgba(8,5,16,.62)"; ctx.fillRect(sx, sy, TS, TS); }
+  }
+  for (const it of items) { const i = idx(it.x, it.y); if (seenA[i]) { ctx.globalAlpha = vis[i] ? 1 : .45; drawItem(it, it.x * TS + TS / 2, it.y * TS + TS / 2 + Math.sin(tm * 3 + it.x) * 1.2); ctx.globalAlpha = 1; } }
+  if (lastPath && travel) { ctx.fillStyle = "rgba(255,154,61,.55)"; for (let k = travel.i; k < travel.path.length; k++) { const [px, py] = travel.path[k]; ctx.beginPath(); ctx.arc(px * TS + TS / 2, py * TS + TS / 2, 3, 0, TAU); ctx.fill(); } const [dx, dy] = travel.dest; ctx.strokeStyle = "#ff9a3d"; ctx.lineWidth = 2; ctx.strokeRect(dx * TS + 3, dy * TS + 3, TS - 6, TS - 6); }
+  for (const e of enemies) { if (e.hp <= 0 && !(e.hit > 0)) continue; if (!vis[idx(e.x, e.y)]) continue; drawEnemy(e, e.px + TS / 2, e.py + TS / 2); }
+  drawPlayer(P.px + TS / 2, P.py + TS / 2);
+  drawParts();
+  for (const f of floaters) { ctx.globalAlpha = clamp(f.a, 0, 1); tx(f.t, f.x * TS + TS / 2, f.y * TS - (1 - f.a) * 24 + 4, 15, f.c, "center", 800); ctx.globalAlpha = 1; }
+  ctx.restore();
+  if (flash > 0) { ctx.fillStyle = `rgba(255,40,40,${flash * 1.2})`; ctx.fillRect(0, MY, LW, VR * TS); }
+  // HUD
+  bar(6, 6, 150, 18, P.hp / P.mhp, P.hp / P.mhp > .35 ? "#d9534f" : "#ff2d2d", `HP ${P.hp}/${P.mhp}`);
+  bar(6, 27, 150, 9, P.xp / (12 + P.lvl * 10), "#ffd23f");
+  tx(`Floor ${depth}`, 168, 12, 14, "#ff9a3d", "left", 800); tx(`Lv ${P.lvl}`, 168, 31, 12, "#eadfcb", "left", 700);
+  const c = CLASSES[cls];
+  if (cls === "mage") bar(236, 6, 118, 18, P.mana / P.mmana, "#5a6cf0", `Mana ${P.mana}`); else bar(236, 6, 118, 18, P.cd > 0 ? 1 - P.cd / c.abCd : 1, P.cd > 0 ? "#6b5a8a" : "#4cc38a", P.cd > 0 ? `${c.ab} ${P.cd}` : `${c.ab} ready`);
+  tx(`⚔ ${P.w.min + atkBonus()}-${P.w.max + atkBonus()}  ▣ ${armorVal()}${haste > 0 ? "  ⚡" + haste : ""}`, 236, 31, 12, "#c9bfd6", "left", 700);
+  // log
+  ctx.fillStyle = "rgba(255,255,255,.04)"; ctx.fillRect(0, MY + VR * TS + 2, LW, LH - MY - VR * TS - 2);
+  for (let k = 0; k < 3; k++) { const m = log[log.length - 1 - k]; if (!m) break; ctx.globalAlpha = k === 0 ? 1 : k === 1 ? .75 : .5; tx(m.t, 8, MY + VR * TS + 15 + (2 - k) * 19, 13, m.c, "left", 600); }
+  ctx.globalAlpha = 1;
+  if (mode === "daily") tx("DAILY", 354, MY + 10, 11, "#ff9a3d", "right", 800);
+}
+function update(dt) {
+  tm += dt; if (shake > 0) shake -= dt; if (flash > 0) flash -= dt;
+  if (!P) return;
+  const k = 1 - Math.pow(.0005, dt); // smooth glide
+  P.px += (P.x * TS - P.px) * k; P.py += (P.y * TS - P.py) * k; if (Math.abs(P.px - P.x * TS) < .5) P.px = P.x * TS; if (Math.abs(P.py - P.y * TS) < .5) P.py = P.y * TS;
+  for (const e of enemies) { e.px += (e.x * TS - e.px) * k; e.py += (e.y * TS - e.py) * k; if (e.hit > 0) e.hit -= dt; }
+  for (const f of floaters) f.a -= dt * .9; floaters = floaters.filter((f) => f.a > 0);
+  if (travel && state === "play" && !menuOpen) { travel.t += dt; if (travel.t >= .1) { travel.t = 0; travelStep(); } }
+}
+loop((dt) => { if (!Kit.isPaused()) { update(dt); stepParts(dt); } draw(); });
+Kit.lifecycle({ pause: () => state === "play" && !menuOpen && document.getElementById("over").hidden, resume: () => {}, menu: openMenu });
+
+function openMenu() {
+  state = "menu"; menuOpen = false; travel = null; Kit.hideControls(); stats({}); P = null; const b = loadBest(), ds = dailySeed();
+  Kit.menu({
+    title: "Deep Delve", hand: true, bestLabel: "Score",
+    html: `<p class="sub">Delve ten floors, find the stairs on each and defeat the Hollow King. Use the D-pad to move and attack, or tap a floor tile to walk there. Death is permanent.</p><p class="sub">Daily dungeon today: seed ${ds}${b.dailyDate === ds && b.daily ? " · your best " + b.daily : ""}. Best floor ${b.depth}.</p>`,
+    settings: [
+      { k: "cls", label: "Class", def: "warrior", opts: [["warrior", "Warrior"], ["rogue", "Rogue"], ["mage", "Mage"]] },
+      { k: "diff", label: "Difficulty", def: "normal", opts: [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]] },
+      { k: "mode", label: "Dungeon", def: "random", opts: [["random", "Random"], ["daily", "Daily"]] },
+      { k: "pick", label: "Auto-pickup", def: "on", opts: [["on", "On"], ["off", "Off"]] },
+      { k: "tap", label: "Tap floor to travel", def: "on", opts: [["on", "On"], ["off", "Off"]] }
+    ],
+    levels: FLOOR_NAMES, challenges: [{ id: "d3", text: "Reach floor 3" }, { id: "d5", text: "Reach floor 5" }, { id: "kills25", text: "Slay 25 enemies in one run" }, { id: "gold250", text: "Collect 250 gold in one run" }, { id: "lv8", text: "Reach character level 8" }, { id: "daily3", text: "Reach floor 3 in the Daily dungeon" }, { id: "win", text: "Defeat the Hollow King" }],
+    play: "Descend"
+  }, (lv) => newRun({ start: lv }));
+}
+window.T = {
+  get state() { return state; }, get hp() { return P ? P.hp : -1; }, get mhp() { return P ? P.mhp : -1; }, get depth() { return depth; }, get x() { return P ? P.x : -1; }, get y() { return P ? P.y : -1; }, get seed() { return seed; },
+  get turn() { return turnNo; }, get kills() { return kills; }, get gold() { return gold; }, get lvl() { return P ? P.lvl : 0; }, get inv() { return P ? P.inv.length : 0; }, get mode() { return mode; },
+  get traveling() { return !!travel; }, get nEnemies() { return enemies.filter((e) => e.hp > 0).length; }, get nVisible() { return visibleEnemies().length; }, get menuOpen() { return menuOpen; },
+  get hash() { let h = 0; for (let i = 0; i < map.length; i++) h = (h * 31 + map[i] + (i % 7)) | 0; for (const e of enemies) h = (h * 31 + e.x * 7 + e.y) | 0; return h; },
+  get stairs() { return stairs.slice(); }, get seen() { let n = 0; for (let i = 0; i < seenA.length; i++) n += seenA[i]; return n; }, get cls() { return cls; }, get autoPick() { return autoPick; },
+  get cam() { return cam.slice(); }, get sc() { return SC; }, get done() { return Object.keys(SAVE.done).join(","); },
+  parseSeed, dailySeed,
+  start(o) { newRun(o); },
+  // test-only helpers
+  hurt(n) { if (P && state === "play") hurtPlayer(n, "Test damage", true); },
+  teleport(x, y) { if (P && walkable(x, y)) { travel = null; P.x = x; P.y = y; P.px = x * TS; P.py = y * TS; computeFov(); distMap(); snapCam(); } },
+  giveItem(k) { if (!P) return; P.inv.push(k === "heal" ? { t: "potion", k: "heal", n: POTIONS.heal[0], tip: POTIONS.heal[1] } : { t: "scroll", k, n: SCROLLS[k][0], tip: SCROLLS[k][1] }); },
+  spawn(kind, dx, dy) { const e = mkEnemy(kind, P.x + dx, P.y + dy, depth); e.awake = true; enemies.push(e); return enemies.length; },
+  tilePage(x, y) { const r = cv.getBoundingClientRect(); return [r.left + ((x * TS + TS / 2 - cam[0])) * SC, r.top + (MY + y * TS + TS / 2 - cam[1]) * SC]; },
+  openRoomTile() { const o = rooms[0]; return [o.x, o.y, o.w, o.h]; },
+  path(tx2, ty2) { const p = findPath(tx2, ty2, true); return p ? p.length : -1; }
+};
+fit(); openMenu();
+
+})();
+</script>
+
+</html>

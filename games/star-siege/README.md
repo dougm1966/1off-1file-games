@@ -14,19 +14,58 @@
 
 ## How it plays
 
-Hold off a descending fleet of original alien designs from behind crumbling pixel shields; shoot the red saucer for a bonus.
+Hold the line against marching alien ranks across 10 sectors, ending with a flagship boss. Shield bunkers wear down as they take hits.
 
-> Hold the line against the descending fleet. Shields soak shots but crumble. Hit the red saucer for a bonus.
-> Slide anywhere to move. Firing is automatic.
+> Hold the line against the descending fleet. Hold ◀ ▶ to move and the big FIRE button to shoot, at the same time. Shields soak shots but crumble. Hit the red saucer for bonus points.
 
 ## Controls
 
-Slide anywhere to move; firing is automatic.
+◀ ▶ hold buttons on the left and a big FIRE button on the right; moving and firing at the same time works. Auto-fire is a setting. An alternative 'Drag ship' mode moves the ship by relative drag with auto-fire.
 
 ## Rules and features
 
-- The fleet speeds up as it thins out; waves start lower each time.
-- Three lives; best score saved.
+- 10 sectors that unlock, and 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Settings
+
+| Setting | Options |
+|---|---|
+| Difficulty | Easy · Normal · Hard |
+| Controls | ◀ ▶ + FIRE · Drag ship |
+| Auto-fire (buttons mode) | Off · On |
+| Lives | 3 · 5 |
+| Shield bunkers | On · Off |
+| Controls side | Buttons right · Buttons left |
+| Sound | On · Off |
+| Vibration | On · Off |
+
+## Levels
+
+1. First Contact
+2. Scout Fleet
+3. Full Armada
+4. Raiders
+5. Armored Ranks
+6. Crossfire
+7. Iron Wall
+8. Low Orbit
+9. Elite Guard
+10. The Flagship
+
+Levels unlock as you clear them.
+
+## Challenges
+
+A checklist in the menu that saves on your device:
+
+- [ ] Clear sector 1
+- [ ] Shoot down the red saucer
+- [ ] Hit 12 shots in a row without a miss
+- [ ] Clear a sector without losing a ship
+- [ ] Clear a sector in under 45 seconds
+- [ ] Score 3000 points in one game
+- [ ] Destroy the Flagship (sector 10)
 
 ## Look and feel
 

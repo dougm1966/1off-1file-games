@@ -9,24 +9,63 @@
 | | |
 |---|---|
 | Type | Arcade |
-| Inspired by | Breakout / Arkanoid |
+| Inspired by | Breakout |
 | Built for | phones (portrait, touch); also works with mouse and keyboard |
 
 ## How it plays
 
-Bounce a ball off your paddle to clear rows of bricks; five rotating layouts, two-hit bricks on later levels and a ball that speeds up.
+Break every brick with the ball across 10 designed levels. Bricks take 1–3 hits; steel bricks need help, bombs clear their neighbours, and falling power-ups give a wide paddle, multi-ball, slow ball, catch or an extra life.
 
-> Clear every brick. Where the ball hits the paddle sets its angle.
-> Slide anywhere to move the paddle, tap to launch.
+> Break every brick with the ball. Drag anywhere on the board to slide the paddle (the finger never has to touch it) and tap to launch. Catch falling capsules for power-ups.
 
 ## Controls
 
-Slide anywhere to move the paddle (relative movement), tap to launch. Arrow keys and space also work.
+Drag anywhere on the board: the paddle moves by however far your finger moves, so your finger never has to sit on the paddle or cover the ball. Tap to launch. A setting swaps to on-screen ◀ ▶ hold buttons and a LAUNCH button.
 
 ## Rules and features
 
-- Where the ball hits the paddle sets its angle.
-- Three lives; best score saved.
+- 10 levels that unlock as you clear them, and 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Settings
+
+| Setting | Options |
+|---|---|
+| Difficulty | Easy · Normal · Hard |
+| Paddle control | Drag (relative) · Buttons |
+| Drag sensitivity | Low · Normal · High |
+| Lives | 3 · 5 · 7 |
+| Power-ups | On · Off |
+| Controls side | Buttons right · Buttons left |
+| Sound | On · Off |
+| Vibration | On · Off |
+
+## Levels
+
+1. First Bricks
+2. Checkerboard
+3. Pyramid
+4. Hard Hats
+5. Fortress
+6. Pillars
+7. Bombs Away
+8. Diamond
+9. Armor Plating
+10. Brick Boss
+
+Levels unlock as you clear them.
+
+## Challenges
+
+A checklist in the menu that saves on your device:
+
+- [ ] Clear a level
+- [ ] Catch a Multi-ball capsule
+- [ ] Break 8 bricks without touching the paddle
+- [ ] Blow up a bomb brick
+- [ ] Clear level 5 without losing a ball
+- [ ] Score 5000 points in one game
+- [ ] Clear Brick Boss (level 10)
 
 ## Look and feel
 

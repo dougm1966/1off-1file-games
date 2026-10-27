@@ -4,23 +4,49 @@ Paste the prompt below into Claude (or another capable coding model) to recreate
 
 ---
 
-Build a complete, polished browser game called **Under the Scope**, inspired by microscope slide identification, as **one self-contained HTML file** (inline CSS and JavaScript, no frameworks or build step; Google Fonts is the only allowed external resource, always with a system-font fallback). Use original characters and artwork drawn in code. Do not copy any trademarked characters, names or logos.
+Build a complete, polished browser game called **Under the Scope**, inspired by microscope identification, as **one self-contained HTML file** (inline CSS and JavaScript, no frameworks or build step; Google Fonts is the only allowed external resource, always with a system-font fallback). Use original characters and artwork drawn in code. Do not copy any trademarked characters, names or logos.
 
 ## The game
 
-Identify what you see in a drawn microscope field: 27 specimens across red-cell morphology, white cells, Gram and acid-fast stains, and urine sediment. Each look is a freshly randomized field with realistic stain backgrounds, platelets, debris and refractile crystals.
+Identify what you see in realistic microscope fields: blood smears, Gram and acid-fast stains, and urine sediment, at student, tech or pathologist level.
+
+Menu text to show the player:
+
+> Name what is under the microscope: blood smears, Gram and acid-fast stains, urine sediment. Tap ZOOM for 2× and drag to pan, then tap one of the answers. Every answer explains the key features.
 
 ## Controls (phone first)
 
-Tap the answer. Another view redraws the same specimen with a new random field.
+Answer buttons under the eyepiece. A Zoom button switches between 1× and 2×; when zoomed, drag one finger to pan.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 
 ## Rules and features
 
-- Difficulty: Student (slide type shown, 4 choices, no clock), Tech (slide type hidden, 25 s clock), Pathologist (6 choices from any bench, 15 s clock).
-- Solo or pass-and-play for two; streak bonuses.
-- Every answer explains the key identifying features.
+- Solo or pass-and-play for 2–4; settings for specimen types, level, number of fields and clock.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Start menu settings
+
+Show a start card with segmented buttons for each setting, remembered between visits:
+
+- **Players**: Solo, 2, 3, 4
+- **Specimens**: All, Blood, Stains, Urine
+- **Level**: Student, Tech, Path
+- **Fields each**: 5, 10, 15, 20
+- **Clock**: By level, Off, 15 s, 30 s, 60 s
+- **Sound**: On, Off
+- **Vibration**: On, Off
+
+## Challenges
+
+A collapsible checklist on the start card. When the player completes one, mark it done, save it, and show a short toast:
+
+- Identify 5 fields in a row
+- Finish a solo round of 5+ fields with none wrong
+- Get 5 right in one round after zooming in on each
+- Identify 5 urine sediment fields in one round
+- Get 5 right at Pathologist level in one round
+- Finish a round with 3 or 4 players
 
 ## Look and feel
 

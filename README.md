@@ -1,6 +1,6 @@
 # 1 Off 1 File Games
 
-**46 browser games, each one a single self-contained HTML file, built to be played on a phone.**
+**53 browser games, each one a single self-contained HTML file, built to be played on a phone.**
 
 Arcade classics reworked for touch, thinking puzzles, two-player games meant to be passed back and forth on one phone, and a set of clinical-lab games (trivia, microscope identification, specimen sorting) made for a hospital lab tech.
 
@@ -19,17 +19,19 @@ Arcade classics reworked for touch, thinking puzzles, two-player games meant to 
 
 ## The games
 
-### Two players (12)
+### Two players (14)
 
 Pass-and-play on one phone, most with a CPU opponent too.
 
 | Game | What it is | |
 |---|---|---|
+| [Artillery Duel](games/artillery-duel/) | Tank artillery, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/artillery-duel/) |
 | [Box Out](games/box-out/) | Dots and Boxes, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/box-out/) |
 | [Drop Four](games/drop-four/) | Connect Four, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/drop-four/) |
 | [Eight & Out](games/eight-and-out/) | 8-ball pool, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/eight-and-out/) |
 | [Fleet Duel](games/fleet-duel/) | Battleship, pass-and-play or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/fleet-duel/) |
 | [Flip Side](games/flip-side/) | Reversi / Othello, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/flip-side/) |
+| [Grand Master](games/grand-master/) | Chess vs a 5-level CPU or a friend | [Play](https://dougm1966.github.io/1off-1file-games/games/grand-master/) |
 | [King Me](games/king-me/) | Checkers, friend or CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/king-me/) |
 | [Oche](games/oche/) | Darts: x01, Cricket, Around the Clock | [Play](https://dougm1966.github.io/1off-1file-games/games/oche/) |
 | [Pocket Puzzle Duel](games/pocket-puzzle-duel/) | Pass-and-play pool trick-shot puzzles | [Play](https://dougm1966.github.io/1off-1file-games/games/pocket-puzzle-duel/) |
@@ -38,7 +40,7 @@ Pass-and-play on one phone, most with a CPU opponent too.
 | [Rink Rivals](games/rink-rivals/) | Air hockey, two players on one phone or a CPU ladder | [Play](https://dougm1966.github.io/1off-1file-games/games/rink-rivals/) |
 | [Roll Call](games/roll-call/) | Five-dice scorecard game for 1–4 or vs CPU | [Play](https://dougm1966.github.io/1off-1file-games/games/roll-call/) |
 
-### Lab (6)
+### Lab (7)
 
 Built for a hospital lab tech: trivia, microscope ID, specimen sorting and word games.
 
@@ -47,19 +49,22 @@ Built for a hospital lab tech: trivia, microscope ID, specimen sorting and word 
 | [Bench Rounds](games/bench-rounds/) | Clinical lab trivia, solo or pass-and-play | [Play](https://dougm1966.github.io/1off-1file-games/games/bench-rounds/) |
 | [Lab Hunt](games/lab-hunt/) | Lab-themed word search | [Play](https://dougm1966.github.io/1off-1file-games/games/lab-hunt/) |
 | [Lab Letters](games/lab-letters/) | Five-letter word guessing with lab words or partner-set words | [Play](https://dougm1966.github.io/1off-1file-games/games/lab-letters/) |
+| [Lab Shift](games/lab-shift/) | Clinical-lab shift simulator | [Play](https://dougm1966.github.io/1off-1file-games/games/lab-shift/) |
 | [Pair Up](games/pair-up/) | Memory match with lab decks, solo or two players | [Play](https://dougm1966.github.io/1off-1file-games/games/pair-up/) |
 | [Sort It Out](games/sort-it-out/) | Speed-sort tubes, organisms and blood cells | [Play](https://dougm1966.github.io/1off-1file-games/games/sort-it-out/) |
 | [Under the Scope](games/under-the-scope/) | Identify blood smears, Gram stains and urine sediment | [Play](https://dougm1966.github.io/1off-1file-games/games/under-the-scope/) |
 
-### Arcade (18)
+### Arcade (20)
 
 Classic arcade action reworked for touch screens, with original characters.
 
 | Game | What it is | |
 |---|---|---|
+| [Beat Tap](games/beat-tap/) | Rhythm game with 10 original songs | [Play](https://dougm1966.github.io/1off-1file-games/games/beat-tap/) |
 | [Brick Bounce](games/brick-bounce/) | Breakout-style brick breaker | [Play](https://dougm1966.github.io/1off-1file-games/games/brick-bounce/) |
 | [Coil](games/coil/) | Snake | [Play](https://dougm1966.github.io/1off-1file-games/games/coil/) |
 | [Cube Hop](games/cube-hop/) | Pyramid cube-hopping | [Play](https://dougm1966.github.io/1off-1file-games/games/cube-hop/) |
+| [Deep Delve](games/deep-delve/) | Turn-based dungeon crawler with a daily dungeon | [Play](https://dougm1966.github.io/1off-1file-games/games/deep-delve/) |
 | [Deep Dig](games/deep-dig/) | Tunnel digging and monster popping | [Play](https://dougm1966.github.io/1off-1file-games/games/deep-dig/) |
 | [Garden Crawl](games/garden-crawl/) | Centipede-style shooter | [Play](https://dougm1966.github.io/1off-1file-games/games/garden-crawl/) |
 | [Last Call](games/last-call/) | Tapper-style bar rush | [Play](https://dougm1966.github.io/1off-1file-games/games/last-call/) |
@@ -76,13 +81,15 @@ Classic arcade action reworked for touch screens, with original characters.
 | [Sunset Run](games/sunset-run/) | Pseudo-3D desert driving | [Play](https://dougm1966.github.io/1off-1file-games/games/sunset-run/) |
 | [Swarm Wing](games/swarm-wing/) | Galaga-style swooping shooter | [Play](https://dougm1966.github.io/1off-1file-games/games/swarm-wing/) |
 
-### Puzzle (10)
+### Puzzle (12)
 
 Thinking games, from Sudoku and nonograms to Sokoban and match-3.
 
 | Game | What it is | |
 |---|---|---|
+| [Card Table](games/card-table/) | Hearts, Spades and Euchre vs CPU players | [Play](https://dougm1966.github.io/1off-1file-games/games/card-table/) |
 | [Crate Crew](games/crate-crew/) | Sokoban crate-pushing puzzles | [Play](https://dougm1966.github.io/1off-1file-games/games/crate-crew/) |
+| [Flow Lines](games/flow-lines/) | Rotate pipes to connect the flow | [Play](https://dougm1966.github.io/1off-1file-games/games/flow-lines/) |
 | [Gem Rush](games/gem-rush/) | Match-3 gems with 15 levels | [Play](https://dougm1966.github.io/1off-1file-games/games/gem-rush/) |
 | [Mine Field](games/mine-field/) | Minesweeper | [Play](https://dougm1966.github.io/1off-1file-games/games/mine-field/) |
 | [Nine Squares](games/nine-squares/) | Sudoku with generated puzzles | [Play](https://dougm1966.github.io/1off-1file-games/games/nine-squares/) |

@@ -1,15 +1,16 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-</head><body>
+<style>[hidden]{display:none!important}</style>
 <title>Cube Hop</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&display=swap">
 <style>
 /* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
 :root{--bg:#101433;--ink:#f1f3ff;--muted:#9aa2d6;--accent:#ffcf33;--f-display:"Baloo 2","Arial Rounded MT Bold",sans-serif;color-scheme:dark}
-html,body{height:100%;background:var(--bg);color:var(--ink)}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
 body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
   padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
 .app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
@@ -24,23 +25,63 @@ canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
 .card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
 .card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
 .card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
-.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#111;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#1a1530;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
 button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#1a1530;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#1a1530}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#1a1530;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
 </style>
 <div class="app">
   <div class="hud"><div class="title">Cube Hop</div><div class="stats" id="stats"></div></div>
   <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
-  <div class="help">Tap diagonally around the hopper to jump that way</div>
+  <div class="help">Arrow buttons hop diagonally · or tap a glowing cube</div><div class="ctl" id="ctl" hidden></div>
 </div>
 <script>
 (()=>{
-const LW=360,LH=560,FONT="'Baloo 2', sans-serif";
+const LW=360,LH=480,FONT="'Baloo 2', sans-serif";
+const TAU=Math.PI*2;
 const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
 function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
   cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
 addEventListener("resize",fit);
-function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
 function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
   document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
 function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
@@ -60,66 +101,495 @@ function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=
 function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
 function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
 
 
-const ROWS=7,CW=46,RH=52,TOPY=96,CX=LW/2;
-const PAL=[["#5b6cff","#ffcf33"],["#ff6b6b","#4ee0b0","#ffcf33"],["#2ec4ff","#ff7ad9"]];
-let cubes,hero,foes,score,lives,level,state="menu",best=getBest("ch-best"),spawnT=0,banner="",bannerT=0,dead=0;
-const cubeXY=(r,c)=>({x:CX+(c-r/2)*CW,y:TOPY+r*RH});
-const on=(r,c)=>r>=0&&r<ROWS&&c>=0&&c<=r;
-function steps(){return level===1?1:level===2?2:1}
-function makeLevel(){cubes=[];for(let r=0;r<ROWS;r++)for(let c=0;c<=r;c++)cubes.push({r,c,s:0});foes=[];hero={r:0,c:0,fr:0,fc:0,t:1,falling:false};spawnT=2.5;banner=`Level ${level}`;bannerT=1.4}
-function pal(){return PAL[(level-1)%PAL.length]}
-function cube(r,c){return cubes.find(q=>q.r===r&&q.c===c)}
-function newGame(){score=0;lives=3;level=1;makeLevel();state="play";hud()}
-function hud(){stats({Score:score,Best:Math.max(best,score),Lvl:level||1,"♥":lives??3})}
-function hop(dr,dc){if(state!=="play"||hero.t<1||hero.falling||bannerT>0||dead>0)return;hero.fr=hero.r;hero.fc=hero.c;hero.r+=dr;hero.c+=dc;hero.t=0;hero.dr=dr;hero.dc=dc}
-pointer({down:l=>{if(!hero)return;const p=pos(hero);const dx=l.x-p.x,dy=l.y-(p.y-10);if(dy<0)hop(-1,dx<0?-1:0);else hop(1,dx<0?0:1)}});
-addEventListener("keydown",e=>{const m={q:[-1,-1],e:[-1,0],a:[1,0],d:[1,1],ArrowUp:[-1,0],ArrowLeft:[-1,-1],ArrowDown:[1,0],ArrowRight:[1,1]}[e.key];if(m)hop(...m)});
-function pos(e){const a=cubeXY(e.fr,e.fc),b=cubeXY(e.r,e.c),t=Math.min(1,e.t);const x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t-Math.sin(t*Math.PI)*26-(e.drop||0);return {x,y:y-14}}
-function land(){const q=cube(hero.r,hero.c);if(!q){hero.falling=true;hero.vy=0;return}
-  const n=steps();if(level>=3){if(q.s===0){q.s=1;score+=25}else q.s=0}else if(q.s<n){q.s++;score+=25}hud();
-  if(cubes.every(k=>k.s===(level>=3?1:steps()))){score+=1000;hud();level++;setTimeout(()=>{makeLevel()},500);state="clear";setTimeout(()=>state="play",500)}}
-function die(){lives--;hud();dead=1;foes=[];if(lives<=0){state="over";if(score>best){best=score;setBest("ch-best",best)}setTimeout(()=>card(`<h1>Toppled</h1><p>Score ${score} · level ${level}</p><p class="sub">Best ${best}</p>`,"Hop again",newGame),900)}}
-function update(dt){if(state!=="play"&&state!=="clear")return;
-  if(bannerT>0){bannerT-=dt;return}
-  if(dead>0){dead-=dt;if(dead<=0&&lives>0){hero={r:0,c:0,fr:0,fc:0,t:1,falling:false}}return}
-  if(hero.falling){hero.vy+=900*dt;hero.drop=(hero.drop||0)-hero.vy*dt;if(hero.drop<-400){hero.falling=false;hero.drop=0;die()}return}
-  if(hero.t<1){hero.t+=dt/0.26;if(hero.t>=1){hero.t=1;land()}}
-  spawnT-=dt;if(spawnT<=0){spawnT=rnd(2,4)/(1+level*.15);const kind=Math.random()<.28&&!foes.some(f=>f.kind==="burr")?"burr":"ball";foes.push({kind,r:1,c:Math.random()<.5?0:1,fr:0,fc:0,t:0,drop:120,wait:0})}
-  for(const f of foes){if(f.drop>0){f.drop=Math.max(0,f.drop-300*dt);f.fr=f.r;f.fc=f.c;f.t=1;continue}
-    if(f.t<1){f.t+=dt/0.3;continue}
-    f.wait+=dt;if(f.wait<(f.kind==="burr"?0.55:0.45)-level*.02)continue;f.wait=0;f.fr=f.r;f.fc=f.c;
-    if(f.kind==="ball"){f.r++;f.c+=Math.random()<.5?0:1;f.t=0}
-    else{if(!f.hunting&&f.r<ROWS-1){f.r++;f.c+=Math.random()<.5?0:1}else{f.hunting=true;const opts=[[-1,-1],[-1,0],[1,0],[1,1]].filter(([a,b])=>on(f.r+a,f.c+b));let bd=1e9,ch=opts[0];for(const o of opts){const p=cubeXY(f.r+o[0],f.c+o[1]),h=cubeXY(hero.r,hero.c),d=Math.hypot(p.x-h.x,p.y-h.y);if(d<bd){bd=d;ch=o}}f.r+=ch[0];f.c+=ch[1]}f.t=0}}
-  foes=foes.filter(f=>!(f.kind==="ball"&&f.r>=ROWS&&f.t>=1));
-  for(const f of foes){if(f.drop>0||hero.t<1)continue;if(f.r===hero.r&&f.c===hero.c&&f.t>=.6){burst(pos(hero).x,pos(hero).y,"#4ee0b0",28,170,1);die();break}}
+// the page shell gives body height:100% plus padding; border-box stops the controls spilling 12px off a phone screen
+document.body.style.boxSizing = "border-box";
+// ---------- constants ----------
+const ROWS = 7, CW = 46, RH = 52, TOPY = 88, CX = LW / 2, HOP = .2;
+// name, mode (1 = one hop, 2 = two hops, 3 = flip on/off), ball spawn gap (s), max burrs, foe speed
+const LV = [
+  ["First Hops", 1, 3.6, 0, 1], ["Rolling Reds", 1, 2.6, 0, 1.05], ["Burr Alert", 1, 3.0, 1, 1],
+  ["Double Colour", 2, 3.0, 0, 1], ["Two-Tone Trouble", 2, 2.6, 1, 1.05], ["Flip Flop", 3, 3.0, 0, 1],
+  ["Flip and Flee", 3, 2.6, 1, 1.1], ["Burr Pair", 2, 2.8, 2, 1.1], ["Fast Flip", 3, 2.2, 2, 1.2], ["Summit Rush", 3, 1.9, 2, 1.3]
+];
+const LEVELS = LV.map((l) => l[0]);
+const PAL = [["#5b6cff", "#ffcf33", "#ff7ad9"], ["#ff6b6b", "#4ee0b0", "#ffcf33"], ["#2ec4ff", "#ff7ad9", "#b8ff5c"]];
+// arrow buttons: [dr, dc, glyph, key letter]
+const DIRS = [[-1, -1, "↖", "q"], [-1, 0, "↗", "w"], [1, 0, "↙", "a"], [1, 1, "↘", "s"]];
+const ARROW_ANG = [-3 * Math.PI / 4, -Math.PI / 4, 3 * Math.PI / 4, Math.PI / 4];
+
+// ---------- state ----------
+let cubes = [], discs = [], foes = [], hero, state = "menu", level = 1, startLvl = 1, lives = 3, score = 0, best = 0;
+let foesOff = false, spawnT = 0, burrT = 0, bannerT = 0, dead = 0, inv = 0, queued = null, runT = 0, lostThisLevel = 0, hops = 0, shake = 0;
+
+// ---------- settings (validated: saved data is untrusted) ----------
+function opt(k, allowed, def) { const v = setting(k, def); return allowed.includes(v) ? v : def; }
+const diffMul = () => ({ easy: .8, normal: 1, hard: 1.25 })[opt("diff", ["easy", "normal", "hard"], "normal")];
+const startLives = () => { const v = setting("lives", 3); return [3, 5, 7].includes(v) ? v : 3; };
+const flag = (k, def) => opt(k, ["on", "off"], def) === "on";
+function loadBest() { const v = SAVE.best && SAVE.best.score; best = Number.isFinite(v) ? clamp(Math.floor(v), 0, 1e9) : 0; }
+
+// ---------- pyramid ----------
+const on = (r, c) => r >= 0 && r < ROWS && c >= 0 && c <= r;
+const cubeAt = (r, c) => (on(r, c) ? cubes[r * (r + 1) / 2 + c] : null);
+const cubeXY = (r, c) => ({ x: CX + (c - r / 2) * CW, y: TOPY + r * RH });
+const pal = () => PAL[(level - 1) % PAL.length];
+const mode = () => LV[level - 1][1];
+const goalS = () => (mode() === 2 ? 2 : 1);
+function discAt(r, c) { return discs.find((d) => d.r === r && d.c === c && !d.used); }
+
+function makeLevel() {
+  cubes = []; for (let r = 0; r < ROWS; r++) for (let c = 0; c <= r; c++) cubes.push({ r, c, s: 0, flash: 0 });
+  discs = flag("discs", "on") ? [{ r: 2, c: -1, used: false }, { r: 3, c: 4, used: false }] : [];
+  foes = []; hero = { r: 0, c: 0, fr: 0, fc: 0, t: 1, dr: 1, dc: 1, falling: false, riding: 0, drop: 0, vy: 0 };
+  spawnT = 2.5; burrT = 5; dead = 0; inv = 0; queued = null; lostThisLevel = 0; bannerT = 1.5; parts.length = 0;
 }
-function drawCube(q){const {x,y}=cubeXY(q.r,q.c),P=pal(),top=P[Math.min(q.s,P.length-1)],h=CW/2;
-  ctx.fillStyle=top;ctx.beginPath();ctx.moveTo(x,y-14);ctx.lineTo(x+h,y);ctx.lineTo(x,y+14);ctx.lineTo(x-h,y);ctx.closePath();ctx.fill();
-  ctx.fillStyle="#2b2f6b";ctx.beginPath();ctx.moveTo(x-h,y);ctx.lineTo(x,y+14);ctx.lineTo(x,y+RH);ctx.lineTo(x-h,y+RH-14);ctx.closePath();ctx.fill();
-  ctx.fillStyle="#1b1e4d";ctx.beginPath();ctx.moveTo(x+h,y);ctx.lineTo(x,y+14);ctx.lineTo(x,y+RH);ctx.lineTo(x+h,y+RH-14);ctx.closePath();ctx.fill();
-  ctx.strokeStyle="rgba(255,255,255,.25)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x-h,y);ctx.lineTo(x,y-14);ctx.lineTo(x+h,y);ctx.stroke()}
-function drawHero(){const p=pos(hero),sq=hero.t<1?1+Math.sin(hero.t*Math.PI)*.12:1;ctx.save();ctx.translate(p.x,p.y);ctx.scale(1/sq,sq);
-  ctx.fillStyle="rgba(0,0,0,.25)";ctx.beginPath();ctx.ellipse(0,14,10,3,0,0,7);ctx.fill();
-  ctx.strokeStyle="#2b8f73";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-5,8);ctx.lineTo(-7,14);ctx.moveTo(5,8);ctx.lineTo(7,14);ctx.stroke();
-  const g=ctx.createRadialGradient(-4,-4,2,0,0,13);g.addColorStop(0,"#9effdf");g.addColorStop(1,"#22b58c");ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,12,0,7);ctx.fill();
-  ctx.strokeStyle="#22b58c";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(2,-11);ctx.quadraticCurveTo(6,-20,10,-18);ctx.stroke();ctx.fillStyle="#ffcf33";ctx.beginPath();ctx.arc(10,-18,3,0,7);ctx.fill();
-  const lx=(hero.dc===0&&hero.dr>0)||(hero.dr<0&&hero.dc<0)?-3:3,ly=hero.dr<0?-3:1;ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(lx*.6,-2,6,0,7);ctx.fill();ctx.fillStyle="#101433";ctx.beginPath();ctx.arc(lx*.6+lx*.7,-2+ly*.7,3,0,7);ctx.fill();ctx.restore()}
-function drawFoe(f){const a=cubeXY(f.fr,f.fc),b=cubeXY(f.r,f.c),t=Math.min(1,f.t);const x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t-Math.sin(t*Math.PI)*22-14-f.drop;
-  if(f.kind==="ball"){const g=ctx.createRadialGradient(x-3,y-3,1,x,y,9);g.addColorStop(0,"#ffb3b3");g.addColorStop(1,"#e62e4d");ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.fill()}
-  else{ctx.fillStyle="#7cd63a";ctx.beginPath();for(let i=0;i<16;i++){const ang=i/16*Math.PI*2,r=i%2?8:13;ctx.lineTo(x+Math.cos(ang+performance.now()/300)*r,y+Math.sin(ang+performance.now()/300)*r)}ctx.closePath();ctx.fill();ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(x-3,y-1,3,0,7);ctx.arc(x+3,y-1,3,0,7);ctx.fill();ctx.fillStyle="#101433";ctx.fillRect(x-4,y-1,2,2);ctx.fillRect(x+2,y-1,2,2)}}
-function draw(){const g=ctx.createLinearGradient(0,0,0,LH);g.addColorStop(0,"#1a1f55");g.addColorStop(1,"#0b0d26");ctx.fillStyle=g;ctx.fillRect(0,0,LW,LH);
-  ctx.fillStyle="rgba(255,255,255,.4)";for(let i=0;i<40;i++)ctx.fillRect((i*89)%LW,(i*53)%LH,1,1);
-  if(cubes){const P=pal(),goal=P[level>=3?1:steps()];text("Make every top",58,26,13,"#9aa2d6");ctx.fillStyle=goal;ctx.beginPath();ctx.moveTo(120,18);ctx.lineTo(132,26);ctx.lineTo(120,34);ctx.lineTo(108,26);ctx.closePath();ctx.fill();
-    for(const q of cubes)drawCube(q);
-    const ents=[...(foes||[]),...(hero&&dead<=0?[hero]:[])].sort((a,b)=>a.r-b.r);for(const e of ents){if(e===hero)drawHero();else drawFoe(e)}}
-  drawParts();if(bannerT>0&&state==="play")text(banner,LW/2,LH-40,26,"#ffcf33")}
-loop(dt=>{update(dt);stepParts(dt);draw()});
-fit();level=1;makeLevel();bannerT=0;hud();
-card(`<h1>Cube Hop</h1><p>Hop on every cube until all the tops match the goal color shown up top. Dodge the red balls and the green burr that hunts you. Don't hop off the edge.</p><p class="sub">Tap above-left, above-right, below-left or below-right of the hopper to jump that way.</p>`,"Hop",newGame);
+function hud() { stats({ Score: score, Lv: level, Lives: Math.max(0, lives | 0) }); }
+function newGame(lv) { startLvl = level = clamp(Math.floor(lv) || 1, 1, 10); lives = startLives(); score = 0; hops = 0; runT = 0; loadBest(); makeLevel(); state = "play"; hud(); }
+
+// ---------- input ----------
+function canHop() { return state === "play" && dead <= 0 && !hero.falling && !hero.riding; }
+function hop(dr, dc) {
+  if (!canHop()) return;
+  if (hero.t < 1) { queued = [dr, dc]; return; }
+  hero.fr = hero.r; hero.fc = hero.c; hero.r += dr; hero.c += dc; hero.dr = dr; hero.dc = dc; hero.t = 0; hops++; Kit.sfx("hop");
+}
+// the four hop targets that make sense right now (a cube, or an unused escape disc)
+function targets() {
+  if (!canHop() || hero.t < 1) return [];
+  return DIRS.map(([dr, dc, g], i) => ({ dr, dc, g, i, r: hero.r + dr, c: hero.c + dc })).filter((t) => on(t.r, t.c) || discAt(t.r, t.c));
+}
+Kit.play({
+  end(f) {
+    if (!flag("tap", "on") || !canHop()) return;
+    const g = Kit.gesture(f, 16); if (!g.tap) return;
+    let bestT = null, bd = 34;
+    for (const t of targets()) { const p = cubeXY(t.r, t.c), d = Math.hypot(f.x - p.x, (f.y - p.y) * 1.25); if (d < bd) { bd = d; bestT = t; } }
+    if (bestT) hop(bestT.dr, bestT.dc);
+  }
+});
+addEventListener("keydown", (e) => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  const m = { q: 0, w: 1, a: 2, s: 3, ArrowLeft: 0, ArrowUp: 1, ArrowDown: 2, ArrowRight: 3 }[k];
+  if (m !== undefined && !e.repeat) hop(DIRS[m][0], DIRS[m][1]);
+  if (k === "p" || k === "Escape") Kit.pause();
+});
+function showControls() {
+  const rep = flag("hold", "off") ? 300 : 0;
+  const wrap = document.createElement("div"); wrap.className = "kdia";
+  wrap.style.cssText = "display:grid;grid-template-columns:repeat(2,72px);grid-template-rows:repeat(2,72px);gap:6px;flex:none";
+  DIRS.forEach(([dr, dc, g, key]) => {
+    const b = Kit.button(`<span class="big" style="font-size:34px">${g}</span><span style="font-size:11px;opacity:.7">${key.toUpperCase()}</span>`, { down: () => hop(dr, dc), repeat: rep, aria: "Hop " + ["up-left", "up-right", "down-left", "down-right"][DIRS.findIndex((d) => d[3] === key)] });
+    b.style.cssText = "min-width:72px;width:72px;height:72px;border-radius:18px;padding:0"; wrap.append(b);
+  });
+  Kit.controls([], [], { center: [wrap] });
+}
+
+// ---------- rules ----------
+function paint(q) {
+  const g = goalS(), before = q.s;
+  if (mode() === 3) q.s = q.s ? 0 : 1; else if (q.s < g) q.s++; else return;
+  score += 25; q.flash = .3;
+  if (q.s === g && before !== g) { const p = cubeXY(q.r, q.c); burst(p.x, p.y, pal()[g], 8, 80, .5); Kit.sfx("step"); }
+  hud();
+}
+function land() {
+  const d = discAt(hero.r, hero.c);
+  if (d) { startRide(d); return; }
+  const q = cubeAt(hero.r, hero.c);
+  if (!q) { hero.falling = true; hero.vy = 0; hero.drop = 0; Kit.sfx("whoosh"); queued = null; return; }
+  paint(q);
+  if (cubes.every((k) => k.s === (mode() === 3 ? 1 : goalS()))) levelDone();
+}
+function startRide(d) {
+  d.used = true; hero.riding = .001; hero.rideFrom = cubeXY(d.r, d.c); queued = null; Kit.sfx("power"); Kit.haptic(20);
+  let n = 0; for (const f of foes) if (f.kind === "burr") { n++; const p = foePos(f); burst(p.x, p.y, "#7cd63a", 22, 150, .8); score += 500; }
+  foes = foes.filter((f) => f.kind !== "burr"); award("disc"); if (n) { award("burr"); toast("Burr swept off! +" + n * 500); }
+  score += 300; hud();
+}
+function die() {
+  if (dead > 0) return; lives--; lostThisLevel++; dead = 1; foes = []; queued = null; Kit.sfx("hit"); Kit.haptic(60); shake = .3; hud();
+}
+function respawn() { hero = { r: 0, c: 0, fr: 0, fc: 0, t: 1, dr: 1, dc: 1, falling: false, riding: 0, drop: 0, vy: 0 }; inv = 1.6; spawnT = 2; burrT = 5; }
+function twoBtn(html, l1, f1, l2, f2) {
+  card(html + `<button class="ghost" id="gm">${l2}</button>`, l1, f1);
+  document.getElementById("gm").onclick = () => { document.getElementById("over").hidden = true; f2(); };
+}
+function levelDone() {
+  state = "between"; Kit.sfx("win"); Kit.haptic(40);
+  const bonus = 1000 + lives * 200 + discs.filter((d) => !d.used).length * 100; score += bonus; hud();
+  for (const k of cubes) { const p = cubeXY(k.r, k.c); burst(p.x, p.y, pal()[2], 3, 110, .8); }
+  unlock(level + 1);
+  if (level >= 3) award("c3"); if (level >= 6) award("c6"); if (level >= 10) award("c10"); if (!lostThisLevel) award("clean"); if (score >= 5000) award("s5k");
+  const fin = level >= 10; const done = level;
+  if (fin) { finishGame(true); }
+  setTimeout(() => {
+    if (fin) twoBtn(`<h1>Summit reached!</h1><p>All ten levels cleared</p><p class="sub">Score ${score}</p>`, "Menu", openMenu, "Play again", () => { Kit.hideControls(); showControls(); newGame(1); });
+    else twoBtn(`<h1>Level clear!</h1><p>${LEVELS[done - 1]}</p><p class="sub">+${bonus} bonus · Score ${score}</p>`, "Next: " + LEVELS[done], () => { level = done + 1; makeLevel(); state = "play"; hud(); }, "Menu", openMenu);
+  }, 700);
+}
+function finishGame(win) {
+  if (score > best) { best = clamp(Math.floor(score), 0, 1e9); SAVE.best.score = best; persist(); }
+  Kit.record({ win: win ? 1 : 0, score, secs: runT });
+}
+function gameOver() {
+  state = "over"; Kit.sfx("lose"); Kit.hideControls(); finishGame(false);
+  twoBtn(`<h1>Toppled</h1><p>Score ${score} · level ${level}</p><p class="sub">Best ${Math.max(best, score)}</p>`, "Retry level " + startLvl, () => { showControls(); newGame(startLvl); }, "Menu", openMenu);
+}
+
+// ---------- foes ----------
+function foePos(f) {
+  const a = cubeXY(f.fr, f.fc), b = cubeXY(f.r, f.c), t = clamp(f.t, 0, 1);
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t - Math.sin(t * Math.PI) * 20 - 12 - f.drop };
+}
+function heroPos() {
+  if (hero.riding) {
+    const k = clamp(hero.riding / .9, 0, 1), a = hero.rideFrom, b = cubeXY(0, 0);
+    return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k - Math.sin(k * Math.PI) * 70 - 14 };
+  }
+  const a = cubeXY(hero.fr, hero.fc), b = cubeXY(hero.r, hero.c), t = clamp(hero.t, 0, 1);
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t - Math.sin(t * Math.PI) * 26 - 14 + hero.drop };
+}
+function updateFoes(dt) {
+  const L = LV[level - 1], sp = L[4] * diffMul();
+  spawnT -= dt * sp;
+  if (spawnT <= 0) { spawnT = rnd(.8, 1.3) * L[2]; foes.push({ kind: "ball", r: 1, c: Math.random() < .5 ? 0 : 1, fr: 0, fc: 0, t: 1, drop: 120, wait: 0 }); }
+  burrT -= dt; if (burrT <= 0 && L[3] > 0 && foes.filter((f) => f.kind === "burr").length < L[3]) { burrT = rnd(5, 8); foes.push({ kind: "burr", r: 1, c: Math.random() < .5 ? 0 : 1, fr: 0, fc: 0, t: 1, drop: 120, wait: 0, hunting: false }); }
+  for (const f of foes) {
+    if (f.drop > 0) { f.drop = Math.max(0, f.drop - 300 * dt); f.fr = f.r; f.fc = f.c; f.t = 1; continue; }
+    if (f.t < 1) { f.t += dt / (f.kind === "burr" ? .3 : .34) * sp; continue; }
+    f.wait += dt * sp; if (f.wait < (f.kind === "burr" ? .5 : .45)) continue; f.wait = 0; f.fr = f.r; f.fc = f.c; f.t = 0;
+    if (f.kind === "ball") { f.r++; f.c += Math.random() < .5 ? 0 : 1; }
+    else if (!f.hunting && f.r < ROWS - 1) { f.r++; f.c += Math.random() < .5 ? 0 : 1; }
+    else {
+      f.hunting = true; const hr = hero.t < 1 ? hero.r : hero.r, hc = hero.c;
+      const opts = DIRS.map((d) => [d[0], d[1]]).filter(([a, b]) => on(f.r + a, f.c + b));
+      let bd = 1e9, ch = opts[0]; const h = cubeXY(hr, hc);
+      for (const o of opts) { const p = cubeXY(f.r + o[0], f.c + o[1]), d = Math.hypot(p.x - h.x, p.y - h.y) + Math.random() * 6; if (d < bd) { bd = d; ch = o; } }
+      f.r += ch[0]; f.c += ch[1];
+    }
+  }
+  foes = foes.filter((f) => !(f.kind === "ball" && f.r >= ROWS && f.t >= 1));
+  if (inv <= 0 && !hero.riding && !hero.falling) {
+    const hp = heroPos();
+    for (const f of foes) { if (f.drop > 0) continue; const p = foePos(f); if (Math.hypot(p.x - hp.x, p.y - hp.y) < 15) { burst(hp.x, hp.y, "#4ee0b0", 28, 170, 1); die(); break; } }
+  }
+}
+function update(dt) {
+  if (state !== "play" || !(dt > 0)) return;
+  runT += dt; if (bannerT > 0) bannerT -= dt; if (inv > 0) inv -= dt; if (shake > 0) shake -= dt;
+  for (const k of cubes) if (k.flash > 0) k.flash -= dt;
+  if (dead > 0) { dead -= dt; if (dead <= 0) { if (lives <= 0) { gameOver(); return; } respawn(); } return; }
+  if (hero.riding) { hero.riding += dt; if (hero.riding >= .9) { hero.riding = 0; hero.r = hero.fr = 0; hero.c = hero.fc = 0; hero.t = 1; inv = .8; const q = cubeAt(0, 0); if (q) paint(q); if (cubes.every((k) => k.s === (mode() === 3 ? 1 : goalS()))) { levelDone(); return; } } }
+  else if (hero.falling) { hero.vy += 900 * dt; hero.drop += hero.vy * dt; if (hero.drop > 420) { hero.falling = false; die(); } }
+  else if (hero.t < 1) {
+    hero.t += dt / HOP;
+    if (hero.t >= 1) { hero.t = 1; land(); if (queued && canHop() && state === "play") { const q = queued; queued = null; hop(q[0], q[1]); } }
+  }
+  if (state === "play" && dead <= 0 && !foesOff) updateFoes(dt);
+  if (state === "play" && score >= 5000) award("s5k");
+}
+
+// ---------- drawing ----------
+function drawCube(q) {
+  const { x, y } = cubeXY(q.r, q.c), P = pal(), top = P[Math.min(q.s, P.length - 1)], h = CW / 2;
+  ctx.fillStyle = top; ctx.beginPath(); ctx.moveTo(x, y - 14); ctx.lineTo(x + h, y); ctx.lineTo(x, y + 14); ctx.lineTo(x - h, y); ctx.closePath(); ctx.fill();
+  if (q.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${q.flash * 2})`; ctx.fill(); }
+  ctx.fillStyle = "#2b2f6b"; ctx.beginPath(); ctx.moveTo(x - h, y); ctx.lineTo(x, y + 14); ctx.lineTo(x, y + RH); ctx.lineTo(x - h, y + RH - 14); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#1b1e4d"; ctx.beginPath(); ctx.moveTo(x + h, y); ctx.lineTo(x, y + 14); ctx.lineTo(x, y + RH); ctx.lineTo(x + h, y + RH - 14); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,.28)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - h, y); ctx.lineTo(x, y - 14); ctx.lineTo(x + h, y); ctx.stroke();
+}
+function drawDisc(d) {
+  const p = cubeXY(d.r, d.c), w = Math.sin(runT * 4) * 1.5;
+  ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(p.x, p.y + 12, 17, 6, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.ellipse(p.x, p.y + w, 18, 8, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = ["#ff6b6b", "#4ee0b0", "#ffcf33", "#2ec4ff"][Math.floor(runT * 6) % 4]; ctx.beginPath(); ctx.ellipse(p.x, p.y + w, 13, 5.5, 0, 0, TAU); ctx.fill();
+}
+function drawHero() {
+  const p = heroPos(), sq = hero.t < 1 ? 1 + Math.sin(hero.t * Math.PI) * .12 : 1;
+  if (inv > 0 && Math.floor(runT * 12) % 2) ctx.globalAlpha = .45;
+  ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1 / sq, sq);
+  ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse(0, 14, 10, 3, 0, 0, TAU); ctx.fill();
+  ctx.strokeStyle = "#2b8f73"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-5, 8); ctx.lineTo(-7, 14); ctx.moveTo(5, 8); ctx.lineTo(7, 14); ctx.stroke();
+  const g = ctx.createRadialGradient(-4, -4, 2, 0, 0, 13); g.addColorStop(0, "#9effdf"); g.addColorStop(1, "#22b58c"); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 12, 0, TAU); ctx.fill();
+  ctx.strokeStyle = "#22b58c"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(2, -11); ctx.quadraticCurveTo(6, -20, 10, -18); ctx.stroke(); ctx.fillStyle = "#ffcf33"; ctx.beginPath(); ctx.arc(10, -18, 3, 0, TAU); ctx.fill();
+  const lx = hero.dc <= 0 && !(hero.dr > 0 && hero.dc > 0) ? -1 : 1, ly = hero.dr < 0 ? -2 : 1.5;
+  ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(lx * 2, -2, 6, 0, TAU); ctx.fill(); ctx.fillStyle = "#101433"; ctx.beginPath(); ctx.arc(lx * 4, -2 + ly, 3, 0, TAU); ctx.fill();
+  ctx.restore(); ctx.globalAlpha = 1;
+}
+function drawFoe(f) {
+  const { x, y } = foePos(f);
+  if (f.kind === "ball") {
+    const g = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, 9); g.addColorStop(0, "#ffb3b3"); g.addColorStop(1, "#e62e4d"); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 9, 0, TAU); ctx.fill();
+  } else {
+    ctx.fillStyle = "#7cd63a"; ctx.beginPath(); for (let i = 0; i < 16; i++) { const an = i / 16 * TAU + runT * 3, r = i % 2 ? 8 : 13; ctx.lineTo(x + Math.cos(an) * r, y + Math.sin(an) * r); } ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x - 3, y - 1, 3, 0, TAU); ctx.arc(x + 3, y - 1, 3, 0, TAU); ctx.fill(); ctx.fillStyle = "#101433"; ctx.fillRect(x - 4, y - 1, 2, 2); ctx.fillRect(x + 2, y - 1, 2, 2);
+  }
+}
+function arrowAt(x, y, ang, s, col) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s * .7, s * .8); ctx.lineTo(-s * .3, 0); ctx.lineTo(-s * .7, -s * .8); ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function draw() {
+  const g = ctx.createLinearGradient(0, 0, 0, LH); g.addColorStop(0, "#1a1f55"); g.addColorStop(1, "#0b0d26"); ctx.fillStyle = g; ctx.fillRect(0, 0, LW, LH);
+  ctx.fillStyle = "rgba(255,255,255,.4)"; for (let i = 0; i < 40; i++) ctx.fillRect((i * 89) % LW, (i * 53) % LH, 1, 1);
+  if (!cubes.length || state === "menu") { drawParts(); return; }
+  ctx.save(); if (shake > 0) ctx.translate(rnd(-3, 3), rnd(-3, 3));
+  // goal strip
+  const P = pal(), m = mode(), goal = P[m === 2 ? 2 : 1];
+  text("GOAL", 36, 24, 13, "#9aa2d6"); ctx.fillStyle = goal; ctx.beginPath(); ctx.moveTo(78, 14); ctx.lineTo(92, 24); ctx.lineTo(78, 34); ctx.lineTo(64, 24); ctx.closePath(); ctx.fill();
+  text(m === 1 ? "hop once on every cube" : m === 2 ? "hop twice on every cube" : "landing flips a cube back", 104, 24, 12, "#c8cdf5", "left");
+  for (const q of cubes) drawCube(q);
+  for (const d of discs) if (!d.used) drawDisc(d);
+  // glowing hop targets while idle
+  if (state === "play" && flag("guide", "on")) {
+    const pulse = .5 + .5 * Math.sin(runT * 6);
+    for (const t of targets()) {
+      const p = cubeXY(t.r, t.c); ctx.strokeStyle = `rgba(255,207,51,${.5 + pulse * .5})`; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y - 14); ctx.lineTo(p.x + CW / 2, p.y); ctx.lineTo(p.x, p.y + 14); ctx.lineTo(p.x - CW / 2, p.y); ctx.closePath(); ctx.stroke();
+      arrowAt(p.x, p.y, ARROW_ANG[t.i], 5, "rgba(255,255,255,.85)");
+    }
+  }
+  const ents = foes.map((f) => ({ r: f.fr + (f.r - f.fr) * clamp(f.t, 0, 1), f })).concat(dead <= 0 ? [{ r: hero.r, hero: 1 }] : []).sort((a, b) => a.r - b.r);
+  for (const e of ents) { if (e.hero) { if (!hero.falling && !hero.riding) drawHero(); } else drawFoe(e.f); }
+  if (hero && dead <= 0 && (hero.falling || hero.riding)) drawHero();
+  drawParts(); ctx.restore();
+  if (bannerT > 0 && state === "play") text(`Level ${level} · ${LEVELS[level - 1]}`, LW / 2, LH - 18, 20, "#ffcf33");
+  else if (state === "play" && dead > 0) text(lives > 0 ? "Ouch!" : "", LW / 2, LH - 18, 22, "#ff8a8a");
+}
+loop((dt) => { if (!Kit.isPaused()) { update(dt); stepParts(dt); } draw(); });
+Kit.lifecycle({ pause: () => state === "play", resume: () => {}, menu: openMenu });
+
+function openMenu() {
+  state = "menu"; Kit.hideControls(); cubes = []; loadBest(); hud();
+  Kit.menu({
+    title: "Cube Hop", bestLabel: "Best",
+    html: `<p class="sub">Hop on every cube until its top matches the goal colour. Use the four diamond buttons under the board: each arrow points the way you hop (keys Q W A S). You can also tap a glowing cube. Dodge red balls and the burr, and don't hop off the edge. Hop onto a spinning disc to ride it to the top.</p>`,
+    settings: [
+      { k: "diff", label: "Difficulty", def: "normal", opts: [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]] },
+      { k: "lives", label: "Lives", def: 3, opts: [[3, "3"], [5, "5"], [7, "7"]] },
+      { k: "discs", label: "Escape discs", def: "on", opts: [["on", "On"], ["off", "Off"]] },
+      { k: "tap", label: "Tap a cube to hop", def: "on", opts: [["on", "On"], ["off", "Off"]] },
+      { k: "hold", label: "Hold button to keep hopping", def: "off", opts: [["off", "Off"], ["on", "On"]] },
+      { k: "guide", label: "Glow on hop targets", def: "on", opts: [["on", "On"], ["off", "Off"]] }
+    ],
+    levels: LEVELS,
+    challenges: [{ id: "c3", text: "Clear Burr Alert (level 3)" }, { id: "c6", text: "Clear Flip Flop (level 6)" }, { id: "c10", text: "Clear Summit Rush (level 10)" }, { id: "disc", text: "Ride an escape disc" }, { id: "burr", text: "Sweep a burr off with a disc" }, { id: "clean", text: "Clear a level without losing a life" }, { id: "s5k", text: "Score 5000 in one game" }],
+    play: "Hop in"
+  }, (lv) => { showControls(); newGame(lv); });
+}
+window.T = {
+  get state() { return state; }, get score() { return score; }, get lives() { return lives; }, get level() { return level; }, get hero() { return hero; },
+  get hops() { return hops; }, get foes() { return foes.length; }, get paused() { return Kit.isPaused(); }, get runT() { return runT; },
+  get done() { return cubes.filter((k) => k.s === goalS()).length; }, get targets() { return targets().length; },
+  // test-only helpers
+  clearAll() { for (const k of cubes) k.s = mode() === 3 ? 1 : goalS(); const q = cubeAt(hero.r, hero.c); if (q) q.s = mode() === 3 ? 0 : goalS() - 1; hero.t = 1; land(); },
+  set foesOff(v) { foesOff = !!v; foes = []; }, kill() { die(); }, spawnBurr() { foes.push({ kind: "burr", r: 5, c: 2, fr: 5, fc: 2, t: 1, drop: 0, wait: 0, hunting: true }); }
+};
+fit(); openMenu();
 
 })();
 </script>
 
-</body></html>
+</html>

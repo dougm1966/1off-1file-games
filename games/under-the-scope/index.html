@@ -1,72 +1,315 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-</head><body>
+<style>[hidden]{display:none!important}</style>
 <title>Under the Scope</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@500;600&display=swap">
 <style>
-/* Layout: eyepiece view with slide label above it, answers below; solo or pass-and-play */
-:root{--bg:#0e1114;--panel:#171c21;--line:#2a323a;--ink:#e9eef2;--muted:#94a2ae;--accent:#7cc7e8;--good:#55c98a;--bad:#ef6a5a;
-  --f-head:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;--f-body:"IBM Plex Sans",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,monospace;color-scheme:dark}
-html,body{background:var(--bg);color:var(--ink)}
-body{font-family:var(--f-body);font-size:16px;line-height:1.45;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px 28px}
-.app{max-width:520px;margin:0 auto;display:grid;gap:10px}
-header{display:flex;justify-content:space-between;align-items:baseline}
-h1{margin:0;font-family:var(--f-head);font-size:24px}
-.tag{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
-.slidebar{display:flex;justify-content:space-between;align-items:center;gap:8px;font-family:var(--f-mono);font-size:12px;color:var(--muted);min-height:20px}
-.slidebar b{color:var(--ink);font-family:var(--f-head);font-size:14px;letter-spacing:.05em;text-transform:uppercase}
-.timer{height:4px;background:var(--line);border-radius:2px;overflow:hidden}.timer i{display:block;height:100%;background:var(--accent)}
-.scope{display:flex;justify-content:center}
-canvas{display:block;width:min(100%,400px);height:auto;aspect-ratio:1;border-radius:50%;box-shadow:0 0 0 9px #1e252c,0 0 0 11px #39434d,0 16px 40px rgba(0,0,0,.6)}
-.opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.opt{text-align:left;font:inherit;font-size:15px;line-height:1.25;background:var(--panel);color:var(--ink);border:1.5px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;min-height:56px}
-.opt:hover{border-color:var(--accent)}
-.opt.right{border-color:var(--good);background:color-mix(in srgb,var(--good) 18%,var(--panel))}
-.opt.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 16%,var(--panel))}
-.why{border-left:3px solid var(--accent);padding:4px 0 4px 12px;font-size:15px}
-.why strong{display:block;font-family:var(--f-head);text-transform:uppercase;letter-spacing:.05em;font-size:13px}
-.btn{height:48px;border:0;border-radius:10px;background:var(--accent);color:#06222e;font-family:var(--f-head);font-weight:700;font-size:17px;cursor:pointer;padding:0 18px}
-.btn.ghost{background:none;border:1.5px solid var(--line);color:var(--ink)}
-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.scores{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.score{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.score.on{border-color:var(--accent)}
-.score .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;font-weight:600}
-.score .v{font-family:var(--f-mono);font-size:20px;font-variant-numeric:tabular-nums}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px}
-.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.seg button{flex:1;height:42px;border:0;background:var(--bg);color:var(--ink);font:inherit;font-weight:600;cursor:pointer;font-size:14px}
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#0e1114;--ink:#e9eef2;--muted:#9aa8b4;--accent:#7cc7e8;--f-display:"Barlow Condensed","Arial Narrow",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#06222e;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+body{box-sizing:border-box}.ctl .kgrp{flex:1}.ctl .kgrp.r:empty{display:none}.sc{width:100%;display:grid;gap:5px}.sc-top{display:flex;gap:6px}.sc-top button{flex:1;height:44px;border-radius:12px;border:2px solid color-mix(in srgb,var(--accent) 65%,transparent);background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink);font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.04em;cursor:pointer;touch-action:manipulation}.sc-top button.on{background:var(--accent);color:var(--btnink)}.sc-top button:disabled{opacity:.4}.sc-top button:active{transform:scale(.97)}.sc-ans{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:5px;height:166px}.sc-ans.six{grid-auto-rows:1fr}.ans{display:flex;align-items:center;text-align:left;padding:0 10px;border-radius:12px;border:2px solid color-mix(in srgb,var(--accent) 55%,transparent);background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink);font:600 13.5px/1.15 'Barlow',system-ui,sans-serif;cursor:pointer;touch-action:manipulation;min-height:44px}.ans span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.ans:active,.ans.pick{background:var(--accent);color:var(--btnink)}.nextbtn{width:100%;height:166px;border-radius:16px;border:0;background:var(--accent);color:var(--btnink);font:700 26px 'Barlow Condensed',sans-serif;letter-spacing:.05em;cursor:pointer;touch-action:manipulation}.nextbtn.wait{opacity:.55}.nextbtn:active{transform:scale(.98)}.pnames{display:grid;gap:4px;text-align:left}.pnames label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.pnames input{height:42px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--ink);font:600 16px system-ui,sans-serif;padding:0 12px;user-select:text;-webkit-user-select:text}
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#06222e;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
 .seg button[aria-pressed=true]{background:var(--accent);color:#06222e}
-.lbl{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
-.row{display:flex;gap:8px;flex-wrap:wrap}
-.field{display:grid;gap:4px;flex:1;min-width:130px}.field span{font-size:12px;color:var(--muted);font-family:var(--f-mono)}
-.field input{font:inherit;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
-.cats{display:flex;flex-wrap:wrap;gap:6px}
-.cats label{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:14px;cursor:pointer;background:var(--bg)}
-.big{font-family:var(--f-head);font-size:26px;font-weight:700;margin:0;text-align:center}
-.muted{color:var(--muted);margin:0;text-align:center}
-.note{font-size:13px;color:var(--muted);margin:0}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#06222e;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
 </style>
 <div class="app">
-  <header><h1>Under the Scope</h1><span class="tag" id="tag">Identify the field</span></header>
-  <div class="scores" id="scores" hidden></div>
-  <div class="slidebar" id="slide"></div>
-  <div class="timer" id="timer" hidden><i id="tbar"></i></div>
-  <div class="scope"><canvas id="cv" width="760" height="760" aria-label="Microscope field"></canvas></div>
-  <div id="view"></div>
+  <div class="hud"><div class="title">Under the Scope</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Drag to pan when zoomed in · pick what you see</div><div class="ctl" id="ctl" hidden></div>
 </div>
 <script>
 (()=>{
+const LW=360,LH=440,FONT="'Barlow', system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
 // ================= rendering engine =================
-const S=760,R=380,OUT=document.getElementById("cv"),og=OUT.getContext("2d");
+const S=760,R=380,OUT=document.createElement("canvas");OUT.width=OUT.height=S;const og=OUT.getContext("2d");
 const mk=()=>{const c=document.createElement("canvas");c.width=c.height=S;return c};
 const MAIN=mk(),SOFT=mk(),NOISE=mk();
 let g=MAIN.getContext("2d");
 (()=>{const n=NOISE.getContext("2d"),d=n.createImageData(S,S);for(let i=0;i<d.data.length;i+=4){const v=120+Math.random()*135|0;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255}n.putImageData(d,0,0)})();
-const rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.random()*a.length|0],TAU=Math.PI*2;
 const hex=c=>{const n=parseInt(c.slice(1),16);return [n>>16,n>>8&255,n&255]};
 const rgb=(a,al=1)=>`rgba(${a[0]|0},${a[1]|0},${a[2]|0},${al})`;
 const mix=(a,b,t)=>{a=typeof a==="string"?hex(a):a;b=typeof b==="string"?hex(b):b;return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t]};
@@ -231,50 +474,198 @@ const SPEC=[
 ];
 function diplo(x,y){const a=rnd(0,TAU),c=jit("#b8275a",10);for(const s of [-1,1]){g.save();g.translate(x+Math.cos(a)*s*3.2,y+Math.sin(a)*s*3.2);g.rotate(a);g.fillStyle=rgb(c);g.beginPath();g.ellipse(0,0,2.9,4.6,0,s<0?Math.PI*.5:-Math.PI*.5,s<0?Math.PI*1.5:Math.PI*.5);g.closePath();g.fill();g.restore()}}
 const GROUPS={rbc:"Red cell morphology",wbc:"White cells",bug:"Stains & bugs",urine:"Urine sediment"};
+
 // ================= game =================
-const $=id=>document.getElementById(id);const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
-const LEVELS={student:{name:"Student",label:true,choices:4,time:0,pts:10},tech:{name:"Tech",label:false,choices:4,time:25,pts:15},path:{name:"Pathologist",label:false,choices:6,time:15,pts:25}};
-let ST={mode:"duo",names:["Player 1","Player 2"],groups:Object.keys(GROUPS),per:6,lvl:"tech"};try{Object.assign(ST,JSON.parse(localStorage.getItem("uts-setup2")||"{}"))}catch(e){}
-let G=null,tick=null;
-function slideLabel(sp,show){const [a,b]=sp.slide.split("|");$("slide").innerHTML=show?`<span><b>${a}</b></span><span>${b}</span>`:`<span><b>Unknown slide</b></span><span>${b.split(" · ").pop()}</span>`}
-function setup(){$("scores").hidden=true;$("timer").hidden=true;$("tag").textContent=`${SPEC.length} fields`;const sp=SPEC[Math.random()*SPEC.length|0];render(sp);slideLabel(sp,true);
-  $("view").innerHTML=`<div class="panel"><p style="margin:0">Name what you see in the field. Every answer explains the key features.</p>
-  <div class="lbl">Players</div><div class="seg"><button id="m1" aria-pressed="${ST.mode==='solo'}">Solo</button><button id="m2" aria-pressed="${ST.mode==='duo'}">Two players</button></div>
-  ${ST.mode==='duo'?`<div class="row"><label class="field"><span>Player 1</span><input id="n1" maxlength="14" value="${esc(ST.names[0])}"></label><label class="field"><span>Player 2</span><input id="n2" maxlength="14" value="${esc(ST.names[1])}"></label></div>`:""}
-  <div class="lbl">Difficulty</div><div class="seg">${Object.entries(LEVELS).map(([k,v])=>`<button data-l="${k}" aria-pressed="${ST.lvl===k}">${v.name}</button>`).join("")}</div>
-  <p class="note">${{student:"Slide type shown · 4 choices · no clock",tech:"Slide type hidden · 4 choices · 25-second clock",path:"Slide type hidden · 6 choices from any bench · 15-second clock"}[ST.lvl]}</p>
-  <div class="cats">${Object.entries(GROUPS).map(([k,v])=>`<label><input type="checkbox" value="${k}" ${ST.groups.includes(k)?"checked":""}>${v}</label>`).join("")}</div>
-  <label class="field"><span>Fields each</span><input id="per" type="number" min="3" max="20" value="${ST.per}"></label>
-  <button class="btn" id="go">Start</button></div>`;
-  const keep=()=>{if($("n1"))ST.names=[$("n1").value.trim()||"Player 1",$("n2").value.trim()||"Player 2"];ST.groups=[...document.querySelectorAll(".cats input:checked")].map(i=>i.value);if(!ST.groups.length)ST.groups=Object.keys(GROUPS);ST.per=Math.max(3,Math.min(20,+$("per").value||6))};
-  $("m1").onclick=()=>{keep();ST.mode="solo";setup()};$("m2").onclick=()=>{keep();ST.mode="duo";setup()};
-  document.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{keep();ST.lvl=b.dataset.l;setup()});
-  $("go").onclick=()=>{keep();try{localStorage.setItem("uts-setup2",JSON.stringify(ST))}catch(e){}start()}}
-function start(){const P=ST.mode==="solo"?1:2;const pool=SPEC.filter(s=>ST.groups.includes(s.grp));const need=ST.per*P,deck=[];while(deck.length<need)deck.push(...shuffle(pool));
-  G={P,deck:deck.slice(0,need),i:0,score:Array(P).fill(0),right:Array(P).fill(0),streak:Array(P).fill(0)};$("scores").hidden=false;next()}
-const cur=()=>G.i%G.P;
-function scores(){$("scores").style.gridTemplateColumns=G.P===1?"1fr":"1fr 1fr";$("scores").innerHTML=G.score.map((s,p)=>`<div class="score ${p===cur()&&G.i<G.deck.length?"on":""}"><span class="n">${esc(G.P===1?"Score":ST.names[p])}</span><span class="v">${s}</span></div>`).join("")}
-function next(){scores();clearInterval(tick);$("timer").hidden=true;if(G.i>=G.deck.length)return done();
-  if(G.P===2){og.clearRect(0,0,S,S);$("slide").innerHTML="";$("view").innerHTML=`<div class="panel"><p class="big">${esc(ST.names[cur()])}, you're up</p><p class="muted">Pass the phone, then tap to look.</p><button class="btn" id="rdy">Look in the scope</button></div>`;$("rdy").onclick=ask}else ask()}
-function ask(){const L=LEVELS[ST.lvl],sp=G.deck[G.i];render(sp);slideLabel(sp,L.label);$("tag").textContent=G.P===2?`Round ${Math.floor(G.i/2)+1}/${ST.per}`:`Field ${G.i+1}/${ST.per}`;
-  const same=shuffle(SPEC.filter(s=>s.grp===sp.grp&&s.id!==sp.id)),other=shuffle(SPEC.filter(s=>s.grp!==sp.grp));
-  const wrong=L.choices===6?[...same.slice(0,3),...other.slice(0,2)]:same.slice(0,3);while(wrong.length<L.choices-1)wrong.push(other.pop());
-  const opts=shuffle([sp,...wrong]);
-  $("view").innerHTML=`<div class="opts">${opts.map(o=>`<button class="opt" data-id="${o.id}">${esc(o.name)}</button>`).join("")}</div><div id="after" style="margin-top:12px"></div>`;
-  document.querySelectorAll(".opt").forEach(b=>b.onclick=()=>answer(b.dataset.id));
-  if(L.time){$("timer").hidden=false;const t0=performance.now();$("tbar").style.width="100%";tick=setInterval(()=>{const f=1-(performance.now()-t0)/(L.time*1000);$("tbar").style.width=Math.max(0,f*100)+"%";if(f<=0)answer(null)},100)}}
-function answer(id){clearInterval(tick);const L=LEVELS[ST.lvl],sp=G.deck[G.i],ok=id===sp.id,p=cur();
-  document.querySelectorAll(".opt").forEach(b=>{b.disabled=true;if(b.dataset.id===sp.id)b.classList.add("right");else if(b.dataset.id===id)b.classList.add("wrong")});
-  if(ok){G.streak[p]++;G.score[p]+=L.pts+Math.min(G.streak[p]-1,4)*5;G.right[p]++}else G.streak[p]=0;scores();slideLabel(sp,true);
-  $("after").innerHTML=`<div class="why"><strong style="color:${ok?"var(--good)":"var(--bad)"}">${ok?"Correct"+(G.streak[p]>1?` · streak ${G.streak[p]}`:""):id===null?"Time's up · it's "+esc(sp.name):"It's "+esc(sp.name)}</strong>${esc(sp.info)}</div><div style="margin-top:12px;display:flex;gap:8px"><button class="btn" id="nx">${G.i+1>=G.deck.length?"See results":G.P===2?"Next player":"Next field"}</button><button class="btn ghost" id="again">Another view</button></div>`;
-  $("nx").onclick=()=>{G.i++;next()};$("again").onclick=()=>render(sp)}
-function done(){$("tag").textContent="Round complete";const head=G.P===1?`${G.right[0]} of ${ST.per} correct`:G.score[0]===G.score[1]?"It's a tie":`${esc(ST.names[G.score[0]>G.score[1]?0:1])} wins`;
-  $("view").innerHTML=`<div class="panel"><p class="big">${head}</p>${G.score.map((s,p)=>`<p class="muted">${esc(G.P===1?"Score":ST.names[p])}: ${s} pts · ${G.right[p]}/${ST.per}</p>`).join("")}<div class="row" style="justify-content:center"><button class="btn" id="pa">Play again</button><button class="btn ghost" id="cs">Change setup</button></div></div>`;
-  $("pa").onclick=start;$("cs").onclick=setup}
-window.__uts={SPEC,render};
-setup();
+const SETS = { all: ["rbc", "wbc", "bug", "urine"], blood: ["rbc", "wbc"], stain: ["bug"], urine: ["urine"] };
+const LV = { student: { name: "Student", label: true, choices: 4, time: 0, pts: 10 }, tech: { name: "Tech", label: false, choices: 4, time: 25, pts: 15 }, path: { name: "Pathologist", label: false, choices: 6, time: 15, pts: 25 } };
+const opt = (k, allowed, def) => { const v = setting(k, def); return allowed.includes(v) ? v : def; };
+const cleanName = (s, fb) => { if (typeof s !== "string") return fb; const t = s.replace(/[\u0000-\u001f\u007f-\u009f]/g, "").replace(/\s+/g, " ").trim().slice(0, 14); return t || fb; };
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]]; } return a; };
+const nPlayers = () => opt("mode", [1, 2, 3, 4], 1), perPlayer = () => opt("per", [5, 10, 15, 20], 10), level = () => LV[opt("lvl", ["student", "tech", "path"], "tech")];
+const clockSecs = () => { const c = opt("clock", [-1, 0, 15, 30, 60], -1); return c === -1 ? level().time : c; };
+function dataObj() { const d = SAVE.data; return d && typeof d === "object" && !Array.isArray(d) ? d : {}; }
+function savedNames() { const d = dataObj(), out = []; for (let i = 0; i < 4; i++) out.push(cleanName(Array.isArray(d.names) ? d.names[i] : null, "Player " + (i + 1))); return out; }
+
+// view geometry (logical canvas units)
+const VX = 180, VY = 216, VR = 166;
+let state = "menu", G = null, names = [], opts = [], pickId = null, tLeft = 0, tFull = 0, zoomT = 1, zoom = 1, cx = 380, cy = 380, showInfo = true, zoomedThis = false, wrapEl = null, zoomBtn = null, extraBtn = null, nextReady = 0, infoLines = [], lastKey = "", fpan = null;
+let curSpec = null;
+
+function scaleZ(z) { return 2 * VR * z / S; }                       // source px -> logical px
+function clampPan() { const half = VR / scaleZ(zoom); cx = clamp(cx, half, S - half); cy = clamp(cy, half, S - half); }
+function setZoom(z) { zoomT = z; if (z === 1) { cx = cy = S / 2; } Kit.sfx("click"); syncTop(); }
+
+function buildDeck(n) {
+  const pool = SPEC.filter(s => SETS[opt("types", ["all", "blood", "stain", "urine"], "all")].includes(s.grp)), out = [];
+  while (out.length < n) { const sh = shuffle(pool); if (out.length && sh[0] === out[out.length - 1]) sh.push(sh.shift()); out.push(...sh); }
+  return out.slice(0, n);
+}
+function startGame() {
+  const P = nPlayers(); G = { P, per: perPlayer(), deck: buildDeck(P * perPlayer()), i: 0, score: Array(P).fill(0), right: Array(P).fill(0), streak: Array(P).fill(0), best: Array(P).fill(0), urine: Array(P).fill(0), zoomRight: Array(P).fill(0), pathRight: Array(P).fill(0) };
+  names = P === 1 ? ["You"] : savedNames().slice(0, P); nextQuestion();
+}
+const cur = () => G.i % G.P;
+function nextQuestion() {
+  if (G.i >= G.deck.length) return finish();
+  if (G.P > 1) { state = "pass"; Kit.hideControls(); updateHud(); card(`<p class="sub">Field ${Math.floor(G.i / G.P) + 1} of ${G.per}</p><h1>Pass to ${escHTML(names[cur()])}</h1><p class="sub">Pass the phone, then tap to look in the scope.</p>`, "Look in the scope", ask); return; }
+  ask();
+}
+function ask() {
+  const L = level(), sp = G.deck[G.i]; curSpec = sp; lastKey = ""; render(sp);
+  const same = shuffle(SPEC.filter(s => s.grp === sp.grp && s.id !== sp.id)), other = shuffle(SPEC.filter(s => s.grp !== sp.grp));
+  const wrong = L.choices === 6 ? [...same.slice(0, 3), ...other.slice(0, 2)] : same.slice(0, 3); while (wrong.length < L.choices - 1) wrong.push(other.pop());
+  opts = shuffle([sp, ...wrong]); pickId = null; tFull = clockSecs(); tLeft = tFull; zoom = zoomT = 1; cx = cy = S / 2; zoomedThis = false; showInfo = true; state = "ask";
+  buildControls(); updateHud();
+}
+function correctIdx() { return opts.findIndex(o => o.id === curSpec.id); }
+function answer(id) {
+  if (state !== "ask") return; const L = level(), sp = curSpec, p = cur(), ok = id === sp.id;
+  pickId = id; state = "review"; showInfo = true; lastKey = ""; let pts = 0;
+  if (ok) {
+    G.streak[p]++; G.best[p] = Math.max(G.best[p], G.streak[p]); pts = L.pts + Math.min(G.streak[p] - 1, 4) * 5; G.score[p] += pts; G.right[p]++;
+    if (sp.grp === "urine") G.urine[p]++; if (zoomedThis) G.zoomRight[p]++; if (L === LV.path) G.pathRight[p]++;
+    if (G.streak[p] >= 5) award("streak5"); if (G.urine[p] >= 5) award("urine5"); if (G.zoomRight[p] >= 5) award("zoom5"); if (G.pathRight[p] >= 5) award("path5");
+    Kit.sfx("coin"); Kit.haptic(20); burst(VX, VY, "#7cc7e8", 20, 160, .7);
+  } else { G.streak[p] = 0; Kit.sfx(id === null ? "tick" : "lose"); Kit.haptic(id === null ? 15 : 45); }
+  G.last = { ok, pts, timeout: id === null }; showNextControls(); updateHud();
+}
+function finish() {
+  state = "over"; Kit.hideControls(); updateHud(); const P = G.P, best = Math.max(...G.score), win = G.score.map((s, i) => s === best ? i : -1).filter(i => i >= 0);
+  const head = P === 1 ? `${G.right[0]} of ${G.per} correct` : win.length > 1 ? "It's a tie" : names[win[0]] + " wins";
+  if (P === 1 && G.right[0] === G.per && G.per >= 5) award("perfect"); if (P >= 3) award("party");
+  Kit.record({ win: P === 1 ? (G.right[0] >= G.per * .7 ? 1 : 0) : 1, score: best }); persist(); Kit.sfx("win");
+  card(`<h1>${escHTML(head)}</h1>${G.score.map((s, p) => `<p class="sub">${escHTML(P === 1 ? "Score" : names[p])}: <b style="color:var(--ink)">${s}</b> pts · ${G.right[p]}/${G.per} right · best streak ${G.best[p]}</p>`).join("")}`, "Play again", () => startGame());
+  const b = document.createElement("button"); b.className = "ghost"; b.textContent = "Menu"; b.onclick = () => { document.getElementById("over").hidden = true; openMenu(); }; document.getElementById("card").append(b);
+}
+function updateHud() { if (!G || state === "menu") return stats({}); const n = Math.min(Math.floor(G.i / G.P) + 1, G.per); if (G.P === 1) stats({ Field: `${n}/${G.per}`, Score: G.score[0] }); else stats({ Field: `${n}/${G.per}`, Turn: names[cur()] }); }
+
+// ---------- controls: Zoom toggle on top, answers (or Next) underneath ----------
+function mkTop() {
+  const row = document.createElement("div"); row.className = "sc-top";
+  zoomBtn = document.createElement("button"); zoomBtn.type = "button"; zoomBtn.id = "zoombtn"; zoomBtn.onclick = () => { if (state === "ask" || state === "review") { if (zoomT === 1) { zoomedThis = true; setZoom(2); } else setZoom(1); } };
+  extraBtn = document.createElement("button"); extraBtn.type = "button"; extraBtn.id = "extrabtn"; extraBtn.onclick = () => {
+    if (state === "ask") { cx = cy = S / 2; Kit.sfx("click"); syncTop(); } else if (state === "review") { render(curSpec); lastKey = ""; Kit.sfx("whoosh"); }
+  };
+  row.append(zoomBtn, extraBtn); syncTop(); return row;
+}
+function syncTop() {
+  if (!zoomBtn) return; const z = zoomT > 1; zoomBtn.textContent = z ? "ZOOM 2× · tap for 1×" : "ZOOM 1× · tap for 2×"; zoomBtn.classList.toggle("on", z); zoomBtn.setAttribute("aria-pressed", String(z));
+  extraBtn.textContent = state === "review" ? "ANOTHER VIEW" : "RE-CENTER"; extraBtn.disabled = state === "ask" && zoomT === 1;
+}
+function buildControls() {
+  const wrap = document.createElement("div"); wrap.className = "sc"; wrapEl = wrap; wrap.append(mkTop());
+  const grid = document.createElement("div"); grid.className = "sc-ans" + (opts.length === 6 ? " six" : "");
+  opts.forEach((o, k) => { const b = document.createElement("button"); b.type = "button"; b.className = "ans"; b.dataset.id = o.id; b.setAttribute("aria-label", "Answer: " + o.name); const s = document.createElement("span"); s.textContent = o.name; b.append(s); b.onclick = () => { if (state !== "ask") return; b.classList.add("pick"); Kit.sfx("click"); Kit.haptic(10); answer(o.id); }; grid.append(b); });
+  wrap.append(grid); Kit.controls([wrap], []);
+}
+function showNextControls() {
+  const wrap = document.createElement("div"); wrap.className = "sc"; wrap.append(mkTop());
+  const b = document.createElement("button"); b.type = "button"; b.className = "nextbtn wait"; b.id = "nextq"; b.textContent = G.i + 1 >= G.deck.length ? "See results" : G.P > 1 ? "Next player ▶" : "Next field ▶";
+  nextReady = performance.now() + 650; setTimeout(() => b.classList.remove("wait"), 650);
+  b.onclick = () => { if (state === "review" && performance.now() >= nextReady) { Kit.sfx("click"); G.i++; nextQuestion(); } };
+  wrap.append(b); Kit.controls([wrap], []);
+}
+
+// ---------- pan (one finger, only when zoomed) and tap to hide/show the explanation ----------
+Kit.play({
+  start(f) { if (state !== "ask" && state !== "review") return; f.owner = "scope"; f.cx0 = cx; f.cy0 = cy; },
+  move(f) { if (f.owner !== "scope" || zoom < 1.05) return; const s = scaleZ(zoom); cx = f.cx0 - (f.x - f.x0) / s; cy = f.cy0 - (f.y - f.y0) / s; clampPan(); },
+  end(f) { if (f.owner !== "scope") return; f.owner = null; if (state === "review" && Math.hypot(f.x - f.x0, f.y - f.y0) < 10 && f.dt < 350) { showInfo = !showInfo; Kit.sfx("click"); } }
+});
+Kit.lifecycle({ pause: () => state === "ask" || state === "review", resume: () => {}, menu: openMenu });
+addEventListener("keydown", e => {
+  if (e.target && e.target.tagName === "INPUT") { if (e.key === "Enter") { const g = document.getElementById("go"); if (g && !document.getElementById("over").hidden) g.click(); } return; }
+  if (e.key === "p" || e.key === "P" || e.key === "Escape") { Kit.pause(); return; }
+  const o = document.getElementById("over");
+  if (o && !o.hidden) { if ((e.key === "Enter" || e.key === " ") && !(e.target.closest && e.target.closest("button"))) { const g = document.getElementById("go"); if (g) g.click(); } return; }
+  if (e.key === "z" || e.key === "Z") { if (state === "ask" || state === "review") { if (zoomT === 1) { zoomedThis = true; setZoom(2); } else setZoom(1); } return; }
+  if (state === "ask") { const k = "1234567".indexOf(e.key); if (k >= 0 && k < opts.length) answer(opts[k].id); else if (zoom > 1.05) { const s = 18 / scaleZ(zoom); if (e.key === "ArrowLeft") cx -= s; else if (e.key === "ArrowRight") cx += s; else if (e.key === "ArrowUp") cy -= s; else if (e.key === "ArrowDown") cy += s; clampPan(); } }
+  else if (state === "review" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); if (performance.now() >= nextReady) { G.i++; nextQuestion(); } }
+});
+
+// ---------- drawing ----------
+function wrapText(str, font, maxW) { ctx.font = font; const words = String(str).split(" "), lines = []; let c = ""; for (const w of words) { const t = c ? c + " " + w : w; if (ctx.measureText(t).width > maxW && c) { lines.push(c); c = w; } else c = t; } if (c) lines.push(c); return lines; }
+function fitText(str, font, maxW) { ctx.font = font; if (ctx.measureText(str).width <= maxW) return str; let s = str; while (s.length > 1 && ctx.measureText(s + "…").width > maxW) s = s.slice(0, -1); return s + "…"; }
+function slideParts(sp, show) { const [a, b] = sp.slide.split("|"); return show ? [a, b] : ["Unknown slide", b.split(" · ").pop()]; }
+function draw() {
+  ctx.fillStyle = "#0e1114"; ctx.fillRect(0, 0, LW, LH);
+  if (!G || state === "menu" || !curSpec) { ctx.fillStyle = "#171c21"; ctx.beginPath(); ctx.arc(VX, VY, VR + 6, 0, TAU); ctx.fill(); ctx.fillStyle = "#e9eef2"; ctx.font = `700 22px "Barlow Condensed", ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("Under the Scope", VX, VY); return; }
+  const sp = curSpec, L = level(), show = L.label || state === "review" || state === "over", [t1, t2] = slideParts(sp, show);
+  // slide label strip
+  ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = "#e9eef2"; ctx.font = `700 17px "Barlow Condensed", ${FONT}`; ctx.fillText(t1.toUpperCase(), 12, 16);
+  ctx.fillStyle = "#9aa8b4"; ctx.font = `600 12px ${FONT}`; ctx.fillText(t2, 12, 34);
+  ctx.textAlign = "right"; ctx.fillStyle = "#7cc7e8"; ctx.font = `700 13px "Barlow Condensed", ${FONT}`; ctx.fillText((L.name + (G.P > 1 ? " · " + fitText(names[cur()], `700 13px ${FONT}`, 90) : "")).toUpperCase(), LW - 12, 16);
+  ctx.fillStyle = "#9aa8b4"; ctx.font = `600 12px ${FONT}`; ctx.fillText(zoomT > 1 ? "2× zoom" : "1× view", LW - 12, 34);
+  // eyepiece
+  ctx.fillStyle = "#2a323a"; ctx.beginPath(); ctx.arc(VX, VY, VR + 7, 0, TAU); ctx.fill(); ctx.fillStyle = "#06080a"; ctx.beginPath(); ctx.arc(VX, VY, VR + 2, 0, TAU); ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.arc(VX, VY, VR, 0, TAU); ctx.clip();
+  const s = scaleZ(zoom), half = VR / s; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(OUT, cx - half, cy - half, 2 * half, 2 * half, VX - VR, VY - VR, 2 * VR, 2 * VR);
+  if (state === "review" && showInfo && G.last) drawInfo();
+  ctx.restore();
+  // minimap while zoomed
+  if (zoom > 1.05) { const mx = LW - 32, my = 62, mr = 22; ctx.fillStyle = "rgba(14,17,20,.85)"; ctx.beginPath(); ctx.arc(mx, my, mr + 3, 0, TAU); ctx.fill(); ctx.strokeStyle = "#9aa8b4"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(mx, my, mr, 0, TAU); ctx.stroke(); const w = 2 * half / S * 2 * mr; ctx.strokeStyle = "#7cc7e8"; ctx.lineWidth = 2; ctx.strokeRect(mx - mr + (cx - half) / S * 2 * mr, my - mr + (cy - half) / S * 2 * mr, w, w); }
+  // hint, clock and scoreboard strip
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#9aa8b4"; ctx.font = `600 12px ${FONT}`;
+  const hint = state === "ask" ? (zoom > 1.05 ? "Drag the picture to pan" : "Tap ZOOM below to look closer") : state === "review" ? (zoom > 1.05 ? "Drag to pan · tap picture to " : "Tap the picture to ") + (showInfo ? "hide" : "show") + " the notes" : "";
+  if (hint) ctx.fillText(hint, VX, 396);
+  if (tFull && state === "ask") { const f = clamp(tLeft / tFull, 0, 1); ctx.fillStyle = "#2a323a"; rr(12, 405, LW - 24, 6, 3); ctx.fill(); ctx.fillStyle = f < .25 ? "#ef6a5a" : "#7cc7e8"; if (f > 0) { rr(12, 405, (LW - 24) * f, 6, 3); ctx.fill(); } }
+  const n = G.P, gap = 6, tw = (LW - 24 - gap * (n - 1)) / n;
+  for (let p = 0; p < n; p++) { const x = 12 + p * (tw + gap), on = p === cur(); ctx.fillStyle = on ? "#1d2a33" : "#171c21"; rr(x, 414, tw, 24, 8); ctx.fill(); ctx.strokeStyle = on ? "#7cc7e8" : "#2a323a"; ctx.lineWidth = on ? 1.5 : 1; ctx.stroke(); ctx.textAlign = "left"; ctx.fillStyle = "#e9eef2"; ctx.font = `700 12px ${FONT}`; ctx.fillText(fitText(n === 1 ? "Score" : names[p], `700 12px ${FONT}`, tw - 44), x + 8, 426); ctx.textAlign = "right"; ctx.fillStyle = "#7cc7e8"; ctx.font = `700 14px ${FONT}`; ctx.fillText(String(G.score[p]), x + tw - 8, 426); }
+  drawParts();
+}
+function drawInfo() {
+  const L = G.last, sp = curSpec; const key = state + G.i + (pickId || "") ; if (key !== lastKey) { lastKey = key; infoLines = wrapText(sp.info, `500 12.5px ${FONT}`, 228); }
+  const lines = infoLines, h = 36 + lines.length * 16 + 8, y0 = VY + VR - h - 14;
+  ctx.fillStyle = "rgba(10,13,16,.9)"; ctx.fillRect(VX - VR, y0, 2 * VR, h + 10);
+  const col = L.ok ? "#55c98a" : L.timeout ? "#f0b34a" : "#ef6a5a"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = col; ctx.font = `700 15px "Barlow Condensed", ${FONT}`;
+  ctx.fillText((L.ok ? "CORRECT +" + L.pts : L.timeout ? "TIME'S UP" : "NOT QUITE") + " · " + fitText(sp.name, `700 15px ${FONT}`, 215), VX, y0 + 14);
+  ctx.fillStyle = "#e9eef2"; ctx.font = `500 12.5px ${FONT}`; lines.forEach((l, i) => ctx.fillText(l, VX, y0 + 36 + i * 16));
+}
+loop(dt => {
+  if (!Kit.isPaused()) {
+    stepParts(dt);
+    zoom += (zoomT - zoom) * Math.min(1, dt * 10); if (Math.abs(zoom - zoomT) < .02) zoom = zoomT; clampPan();
+    if (state === "ask" && tFull) { tLeft -= dt; if (tLeft <= 0) { tLeft = 0; answer(null); } }
+  }
+  draw();
+});
+
+// ---------- setup flow ----------
+function setupCard() {
+  const P = nPlayers(); if (P === 1) return startGame();
+  const nm = savedNames(); let html = `<h1>Who's looking?</h1><div class="pnames">`; for (let i = 0; i < P; i++) html += `<label for="pn${i}">Player ${i + 1}</label><input type="text" id="pn${i}" maxlength="14" autocomplete="off">`; html += `</div>`;
+  card(html, "Start round", () => { const ns = []; for (let i = 0; i < 4; i++) { const el = document.getElementById("pn" + i); ns.push(el ? cleanName(el.value, "Player " + (i + 1)) : nm[i]); } SAVE.data = { names: ns }; persist(); startGame(); });
+  for (let i = 0; i < P; i++) document.getElementById("pn" + i).value = nm[i];
+}
+function openMenu() {
+  state = "menu"; G = null; curSpec = null; Kit.hideControls(); stats({});
+  Kit.menu({
+    title: "Under the Scope", hand: false, bestLabel: "Best score",
+    html: `<p class="sub">Name what is under the microscope: blood smears, Gram and acid-fast stains, urine sediment. Tap ZOOM for 2× and drag to pan, then tap one of the answers. Every answer explains the key features.</p>`,
+    settings: [
+      { k: "mode", label: "Players", def: 1, opts: [[1, "Solo"], [2, "2"], [3, "3"], [4, "4"]] },
+      { k: "types", label: "Specimens", def: "all", opts: [["all", "All"], ["blood", "Blood"], ["stain", "Stains"], ["urine", "Urine"]] },
+      { k: "lvl", label: "Level", def: "tech", opts: [["student", "Student"], ["tech", "Tech"], ["path", "Path"]] },
+      { k: "per", label: "Fields each", def: 10, opts: [[5, "5"], [10, "10"], [15, "15"], [20, "20"]] },
+      { k: "clock", label: "Clock", def: -1, opts: [[-1, "By level"], [0, "Off"], [15, "15 s"], [30, "30 s"], [60, "60 s"]] }
+    ],
+    levels: null,
+    challenges: [{ id: "streak5", text: "Identify 5 fields in a row" }, { id: "perfect", text: "Finish a solo round of 5+ fields with none wrong" }, { id: "zoom5", text: "Get 5 right in one round after zooming in on each" }, { id: "urine5", text: "Identify 5 urine sediment fields in one round" }, { id: "path5", text: "Get 5 right at Pathologist level in one round" }, { id: "party", text: "Finish a round with 3 or 4 players" }],
+    play: "Start"
+  }, () => setupCard());
+}
+window.T = {
+  get state() { return state; }, get score() { return G ? G.score.slice() : null; }, get i() { return G ? G.i : -1; }, get specId() { return curSpec && curSpec.id; }, get optIds() { return opts.map(o => o.id); },
+  get zoom() { return zoom; }, get zoomT() { return zoomT; }, get pan() { return { x: cx, y: cy }; }, get tLeft() { return tLeft; }, get paused() { return Kit.isPaused(); }, get names() { return names.slice(); },
+  get streak() { return G ? G.streak.slice() : null; }, get right() { return G ? G.right.slice() : null; }, get done() { return Object.keys(SAVE.done); }, get nSpec() { return SPEC.length; }, get nOpts() { return opts.length; },
+  get cur() { return G ? cur() : -1; }, setTime(s) { tLeft = s; }, get spt() { return scaleZ(2); }, get shown() { return showInfo; },
+  correctIdx() { return correctIdx(); }, renderSpec(id) { const sp = SPEC.find(x => x.id === id); render(sp); const d = og.getImageData(0, 0, S, S).data; let sum = 0, sum2 = 0, n = 0; for (let i = 0; i < d.length; i += 4 * 97) { const v = d[i] + d[i + 1] + d[i + 2]; sum += v; sum2 += v * v; n++; } const m = sum / n; return { mean: m, sd: Math.sqrt(sum2 / n - m * m) }; },
+  get specIds() { return SPEC.map(s => s.id); }
+};
+fit(); openMenu();
+
 })();
 </script>
 
-</body></html>
+</html>

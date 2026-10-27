@@ -12,13 +12,18 @@ Air hockey on one phone: two players each hold an end, or one player climbs a te
 
 Menu text to show the player:
 
-> Knock the puck into the other goal. Solo, work up a ladder of 10 CPU opponents. Two players, hold the phone flat between you, one at each end.
+> Drag a finger on your half and your paddle follows just ahead of it. Hit the puck into the other goal. Two players: lay the phone flat, one at each end, and play at the same time. Solo: climb 10 CPU opponents.
 
 ## Controls (phone first)
 
-Drag your paddle within your half. In two-player mode each person uses their own finger at their own end (multi-touch).
+Each half of the rink is tinted in its player's colour and labelled. A finger belongs to the half where it first touched and keeps controlling that paddle until it lifts, even if it crosses the centre line, so two players never interfere. The paddle sits a little ahead of your finger so you can see it.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
+
+## Rules and features
+
+- Settings for mode, score to win and puck speed; 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
 
 ## Start menu settings
 
@@ -27,6 +32,9 @@ Show a start card with segmented buttons for each setting, remembered between vi
 - **Mode**: Vs CPU ladder, Two players
 - **First to**: 5, 7, 11
 - **Puck**: Chill, Normal, Fast
+- **Paddle size**: Normal, Big
+- **Sound**: On, Off
+- **Vibration**: On, Off
 
 ## Levels
 
@@ -51,8 +59,8 @@ A collapsible checklist on the start card. When the player completes one, mark i
 - Win after being down by 3
 - Score within 3.5 seconds of a faceoff
 - Score with a top-speed shot
-- Beat the Semi-pro
-- Beat the Legend
+- Beat the Semi-pro (level 5)
+- Beat the Legend (level 10)
 - Finish a two-player match
 
 ## Look and feel

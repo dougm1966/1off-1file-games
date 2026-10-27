@@ -1,15 +1,16 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-</head><body>
+<style>[hidden]{display:none!important}</style>
 <title>Swarm Wing</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@800;900&display=swap">
 <style>
 /* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
 :root{--bg:#06040f;--ink:#f1ecff;--muted:#9a8fc4;--accent:#ffd23f;--f-display:"Exo 2","Arial Black",sans-serif;color-scheme:dark}
-html,body{height:100%;background:var(--bg);color:var(--ink)}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
 body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
   padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
 .app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
@@ -24,23 +25,63 @@ canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
 .card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
 .card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
 .card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
-.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#111;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2a2000;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
 button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+body{box-sizing:border-box}.card{gap:7px;padding:16px}.card #go{position:sticky;bottom:-16px;box-shadow:0 -10px 10px var(--bg);flex:none}.seg button{height:34px}
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#2a2000;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
 
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#2a2000}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#2a2000;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
 </style>
 <div class="app">
   <div class="hud"><div class="title">Swarm Wing</div><div class="stats" id="stats"></div></div>
   <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
-  <div class="help">Slide anywhere to move · twin cannons fire on their own</div>
+  <div class="help">Hold ◀ ▶ to move · hold FIRE to shoot</div><div class="ctl" id="ctl" hidden></div>
 </div>
 <script>
 (()=>{
-const LW=360,LH=620,FONT="'Exo 2', sans-serif";
+const LW=360,LH=570,FONT="'Exo 2', sans-serif";
+const TAU=Math.PI*2;
 const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
 function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
   cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
 addEventListener("resize",fit);
-function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
 function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
   document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
 function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
@@ -60,62 +101,445 @@ function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=
 function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
 function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
 
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
 
-const KIND=[{c1:"#ff4f8b",c2:"#ffd23f",hp:2,pts:150,dive:400},{c1:"#9b6bff",c2:"#5ef2ff",hp:1,pts:80,dive:160},{c1:"#3fd0ff",c2:"#ffe08a",hp:1,pts:50,dive:100}];
-let ship,foes,shots,eshots,score,lives,wave,state="menu",best=getBest("sw-best"),fireT=0,sway=0,diveT=0,inv=0,banner="",bannerT=0;
-const stars=Array.from({length:90},()=>({x:rnd(0,LW),y:rnd(0,LH),s:rnd(20,90)}));
-const slot=f=>({x:LW/2+(f.c-3.5)*36+Math.sin(sway)*14,y:70+f.r*34});
-function bez(p0,p1,p2,p3,t){const u=1-t;return u*u*u*p0+3*u*u*t*p1+3*u*t*t*p2+t*t*t*p3}
-function makeWave(){foes=[];const rows=[[0,[2,3,4,5]],[1,[0,1,2,3,4,5,6,7]],[1,[0,1,2,3,4,5,6,7]],[2,[0,1,2,3,4,5,6,7]],[2,[0,1,2,3,4,5,6,7]]];
-  let i=0;rows.forEach(([k,cols],r)=>cols.forEach(c=>{const side=(i%2)?1:-1;foes.push({k,r,c,hp:KIND[k].hp,st:"enter",t:-(Math.floor(i/2))*0.12-(r*0.35),side,x:-50,y:-50});i++}));
-  shots=[];eshots=[];banner=`Wave ${wave}`;bannerT=1.6}
-function newGame(){score=0;lives=3;wave=1;ship={x:LW/2,y:575};makeWave();state="play";inv=1;hud()}
-function hud(){stats({Score:score,Best:Math.max(best,score),Wave:wave||1,"♥":lives??3})}
-pointer({move:(l,dx)=>{if(state==="play")ship.x=clamp(ship.x+dx*1.2,16,LW-16)}});
-function update(dt){
-  for(const s of stars){s.y+=s.s*dt;if(s.y>LH){s.y=0;s.x=rnd(0,LW)}}
-  if(state!=="play")return;sway+=dt*1.3;
-  const kx=(keys.ArrowLeft?-1:0)+(keys.ArrowRight?1:0);if(kx)ship.x=clamp(ship.x+kx*280*dt,16,LW-16);
-  fireT-=dt;if(fireT<=0&&shots.length<4){shots.push({x:ship.x-7,y:ship.y-10},{x:ship.x+7,y:ship.y-10});fireT=.32}
-  for(const s of shots)s.y-=520*dt;shots=shots.filter(s=>s.y>-10);
-  for(const f of foes){const sl=slot(f);
-    if(f.st==="enter"){f.t+=dt*0.55;if(f.t<0)continue;const t=Math.min(1,f.t);const sx=f.side<0?-30:LW+30;
-      f.x=bez(sx,LW/2-f.side*-140,LW/2+f.side*120,sl.x,t);f.y=bez(-30,420,260,sl.y,t);if(t>=1)f.st="form"}
-    else if(f.st==="form"){f.x=sl.x;f.y=sl.y}
-    else if(f.st==="dive"){f.t+=dt;f.vx+=clamp((ship.x-f.x)*2.2,-260,260)*dt;f.vx*=.985;f.x+=f.vx*dt+Math.sin(f.t*4+f.c)*90*dt;f.y+=(170+wave*10)*dt;
-      if(!f.shot&&f.y>200&&f.y<420&&Math.random()<dt*1.6){eshots.push({x:f.x,y:f.y+10,vx:(ship.x-f.x)*.25});f.shot=Math.random()<.5}
-      if(f.y>LH+30){f.st="return";f.y=-30}}
-    else if(f.st==="return"){const dx=sl.x-f.x,dy=sl.y-f.y,d=Math.hypot(dx,dy);if(d<4)f.st="form";else{f.x+=dx/d*Math.min(d,220*dt);f.y+=dy/d*Math.min(d,220*dt)}}
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
   }
-  diveT-=dt;const formed=foes.filter(f=>f.st==="form");
-  if(diveT<=0&&formed.length&&!foes.some(f=>f.st==="enter"&&f.t<1)){const n=Math.min(formed.length,1+Math.floor(Math.random()*Math.min(3,1+wave/2)));
-    for(let i=0;i<n;i++){const f=pick(formed.filter(x=>x.st==="form"));if(!f)break;f.st="dive";f.t=0;f.vx=f.x<LW/2?60:-60;f.shot=false}diveT=rnd(1.4,2.8)/(1+wave*.1)}
-  for(const s of eshots){s.y+=230*dt;s.x+=s.vx*dt}eshots=eshots.filter(s=>s.y<LH+10);
-  for(const s of shots)for(const f of foes){if(f.dead||f.st==="enter"&&f.t<=0)continue;if(Math.abs(s.x-f.x)<13&&Math.abs(s.y-f.y)<12){s.y=-99;f.hp--;
-    if(f.hp<=0){f.dead=true;const p=KIND[f.k].pts*(f.st==="dive"?2:1);score+=p;burst(f.x,f.y,KIND[f.k].c1,18,170);burst(f.x,f.y,KIND[f.k].c2,8,120);hud()}else burst(f.x,f.y,"#fff",6,80);break}}
-  foes=foes.filter(f=>!f.dead);
-  inv=Math.max(0,inv-dt);
-  if(!inv){let hit=eshots.find(s=>Math.abs(s.x-ship.x)<11&&Math.abs(s.y-ship.y)<12)||foes.find(f=>Math.abs(f.x-ship.x)<20&&Math.abs(f.y-ship.y)<18);
-    if(hit){if(hit.k!==undefined){hit.dead=true;foes=foes.filter(f=>!f.dead)}burst(ship.x,ship.y,"#ffd23f",36,220,1);lives--;inv=2.2;eshots=[];hud();
-      if(lives<=0){state="over";if(score>best){best=score;setBest("sw-best",best)}setTimeout(()=>card(`<h1>Shot down</h1><p>Score ${score} · wave ${wave}</p><p class="sub">Best ${best}</p>`,"Fly again",newGame),900)}}}
-  if(!foes.length){wave++;score+=300;hud();makeWave()}
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ---------- data ----------
+const KIND = [{ c1: "#ff4f8b", c2: "#ffd23f", hp: 2, pts: 150 }, { c1: "#9b6bff", c2: "#5ef2ff", hp: 1, pts: 80 }, { c1: "#3fd0ff", c2: "#ffe08a", hp: 1, pts: 50 }];
+const ROWS = [[0, [2, 3, 4, 5]], [1, [0, 1, 2, 3, 4, 5, 6, 7]], [1, [0, 1, 2, 3, 4, 5, 6, 7]], [2, [0, 1, 2, 3, 4, 5, 6, 7]], [2, [0, 1, 2, 3, 4, 5, 6, 7]]];
+// rows: how many formation rows; dive: seconds between dive calls; maxDive: divers at once; shot: enemy fire rate
+const STAGES = [
+  { n: "Warm-up", rows: 3, dive: 3.2, maxDive: 1, shot: .5 },
+  { n: "Swoop", rows: 4, dive: 2.8, maxDive: 2, shot: .6 },
+  { n: "Pincer", rows: 5, dive: 2.5, maxDive: 2, shot: .7 },
+  { n: "Challenge I", chal: 1 },
+  { n: "Dive Bombers", rows: 5, dive: 1.9, maxDive: 3, shot: .8 },
+  { n: "Crossfire", rows: 5, dive: 1.8, maxDive: 3, shot: 1.1 },
+  { n: "Leaders' Guard", rows: 5, dive: 1.6, maxDive: 4, shot: 1.0, guard: 1 },
+  { n: "Challenge II", chal: 1 },
+  { n: "Storm", rows: 5, dive: 1.3, maxDive: 4, shot: 1.3, guard: 1 },
+  { n: "Final Swarm", rows: 5, dive: 1.1, maxDive: 5, shot: 1.5, guard: 1 }
+];
+// challenge-stage flight paths: x0..x3, y0..y3 (cubic bezier)
+const PATHS = [
+  [-30, 380, -20, 120, 80, 150, 340, 650], [390, -20, 380, 240, 80, 150, 340, 650],
+  [180, 420, -60, 60, -30, 210, 310, 650], [180, -60, 420, 300, -30, 210, 310, 650], [-30, 220, 140, 330, 120, 50, 420, 650]
+];
+const DIFF = { easy: { dive: 1.3, shot: .7, sp: .9 }, normal: { dive: 1, shot: 1, sp: 1 }, hard: { dive: .8, shot: 1.3, sp: 1.12 } };
+
+// ---------- safe settings ----------
+const opt = (k, list, d) => { const v = setting(k, d); return list.includes(v) ? v : d; };
+const diff = () => DIFF[opt("diff", ["easy", "normal", "hard"], "normal")];
+const ctlMode = () => opt("ctl", ["buttons", "drag"], "buttons");
+const autoOn = () => opt("auto", ["on", "off"], "off") === "on";
+const startLives = () => opt("lives", [3, 5], 3);
+const chalOn = () => opt("chal", ["on", "off"], "on") === "on";
+const bestGet = () => { const v = SAVE.best && SAVE.best.sw; return Number.isFinite(v) ? clamp(Math.floor(v), 0, 1e9) : 0; };
+
+// ---------- state ----------
+let ship, foes = [], shots = [], eshots = [], caps = [], lives, score, level = 1, state = "menu", runT = 0, levelT = 0, fireT = 0, sway = 0, diveT = 2, inv = 0, banner = "", bannerT = 0, hold = { l: 0, r: 0, f: 0 };
+let fired = 0, gameSecs = 0, lostShip = false, diveKills = 0, chalHits = 0, chalTotal = 0, isChal = false, floats = [];
+const stars = Array.from({ length: 90 }, () => ({ x: rnd(0, LW), y: rnd(0, LH), s: rnd(20, 90) }));
+const slot = (f) => ({ x: LW / 2 + (f.c - 3.5) * 36 + Math.sin(sway) * 14, y: 74 + f.r * 33 });
+const bez = (p0, p1, p2, p3, t) => { const u = 1 - t; return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3; };
+const S = () => STAGES[level - 1];
+
+function makeStage() {
+  foes = []; shots = []; eshots = []; caps = []; floats = []; levelT = 0; lostShip = false; diveKills = 0; chalHits = 0;
+  isChal = !!S().chal && chalOn();
+  if (isChal) {
+    chalTotal = 40;
+    for (let g = 0; g < 5; g++) for (let i = 0; i < 8; i++) foes.push({ k: [2, 1, 2, 1, 0][g], r: 0, c: i, hp: 1, st: "chal", g, t: -(g * 2.1 + i * .22) / 4.6, x: -50, y: -50 });
+    banner = "CHALLENGE STAGE"; chalTotal = foes.length;
+  } else {
+    const st = S().chal ? { rows: 5, dive: 2.2, maxDive: 3, shot: .8, guard: 1 } : S(), rows = ROWS.slice(0, st.rows); let i = 0;
+    rows.forEach(([k, cols], r) => cols.forEach((c) => {
+      const side = (i % 2) ? 1 : -1;
+      foes.push({ k, r, c, hp: KIND[k].hp + (st.guard && r < 2 ? 0 : 0), st: "enter", t: -(Math.floor(i / 2)) * .12 - r * .35, side, x: -50, y: -50 }); i++;
+    }));
+    banner = "Stage " + level;
+  }
+  bannerT = 1.8; diveT = 3; ship.x = LW / 2; inv = 1.2;
 }
-function foe(f){const K=KIND[f.k],flap=Math.sin(performance.now()/90+f.c)*.35;ctx.save();ctx.translate(f.x,f.y);if(f.st==="dive")ctx.rotate(Math.PI-clamp((f.vx||0)/400,-.7,.7));
-  ctx.fillStyle=K.c2;for(const s of [-1,1]){ctx.save();ctx.scale(s,1);ctx.rotate(flap);ctx.beginPath();ctx.moveTo(2,-2);ctx.quadraticCurveTo(16,-14,17,2);ctx.quadraticCurveTo(10,6,2,4);ctx.fill();ctx.restore()}
-  ctx.fillStyle=K.c1;ctx.beginPath();ctx.ellipse(0,0,6,10,0,0,7);ctx.fill();if(f.hp>1){ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke()}
-  ctx.fillStyle="#fff";ctx.fillRect(-4,-5,3,3);ctx.fillRect(1,-5,3,3);ctx.strokeStyle=K.c1;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(-2,-9);ctx.lineTo(-5,-14);ctx.moveTo(2,-9);ctx.lineTo(5,-14);ctx.stroke();ctx.restore()}
-function draw(){ctx.fillStyle="#06040f";ctx.fillRect(0,0,LW,LH);for(const s of stars){ctx.fillStyle=`rgba(220,210,255,${s.s/110})`;ctx.fillRect(s.x,s.y,1.2,s.s/40)}
-  if(foes)for(const f of foes)if(!(f.st==="enter"&&f.t<=0))foe(f);
-  if(shots){ctx.fillStyle="#ffe7a0";for(const s of shots)ctx.fillRect(s.x-1,s.y-7,2,9);ctx.fillStyle="#ff4f8b";for(const s of eshots){ctx.beginPath();ctx.arc(s.x,s.y,3,0,7);ctx.fill()}}
-  if(ship&&state==="play"&&!(inv>0&&Math.floor(inv*10)%2)){const x=ship.x,y=ship.y;ctx.fillStyle="#e9e6ff";ctx.beginPath();ctx.moveTo(x,y-16);ctx.lineTo(x+5,y-4);ctx.lineTo(x+16,y+6);ctx.lineTo(x+16,y+11);ctx.lineTo(x+4,y+7);ctx.lineTo(x,y+12);ctx.lineTo(x-4,y+7);ctx.lineTo(x-16,y+11);ctx.lineTo(x-16,y+6);ctx.lineTo(x-5,y-4);ctx.closePath();ctx.fill();
-    ctx.fillStyle="#ff4f8b";ctx.fillRect(x-1.5,y-8,3,6);ctx.fillStyle="#5ef2ff";ctx.fillRect(x-14,y+5,3,4);ctx.fillRect(x+11,y+5,3,4)}
-  drawParts();if(bannerT>0)text(banner,LW/2,LH/2,30,"#ffd23f")}
-loop(dt=>{update(dt);stepParts(dt);bannerT=Math.max(0,bannerT-dt);draw()});
-fit();hud();
-card(`<h1>Swarm Wing</h1><p>The swarm loops in, forms up, then peels off to dive at you. Hits during a dive score double.</p><p class="sub">Slide anywhere to move. Twin cannons fire on their own. Pink leaders take two hits.</p>`,"Launch",newGame);
+function hud() { stats({ Stage: level, Score: score, "♥": lives }); }
+function newGame(lv) {
+  level = lv; lives = startLives(); score = 0; gameSecs = 0; fired = 0; parts.length = 0;
+  ship = { x: LW / 2, y: LH - 44, dual: false }; hold = { l: 0, r: 0, f: 0 }; makeStage(); state = "play"; applyControls(); hud();
+}
+
+// ---------- input ----------
+Kit.play({ move(f) { if (state === "play" && !Kit.isPaused() && ctlMode() === "drag") ship.x = clamp(ship.x + f.dx * 1.3, 18, LW - 18); } });
+addEventListener("keydown", (e) => { if (e.key === "p" || e.key === "P" || e.key === "Escape") Kit.pause(); });
+function applyControls() {
+  const hp = document.querySelector(".help");
+  if (hp) hp.textContent = ctlMode() === "buttons" ? "Hold ◀ ▶ to move · hold FIRE to shoot" + (autoOn() ? " (auto-fire is on: FIRE = rapid fire)" : "") : "Drag anywhere to slide your ship · it fires on its own";
+  if (ctlMode() === "buttons") {
+    const l = Kit.button(`<span class="big">◀</span>LEFT`, { down: () => hold.l = 1, up: () => hold.l = 0, cls: "wide", aria: "Move left" });
+    const r = Kit.button(`<span class="big">▶</span>RIGHT`, { down: () => hold.r = 1, up: () => hold.r = 0, cls: "wide", aria: "Move right" });
+    const f = Kit.button(`<span class="big">●</span>FIRE`, { down: () => hold.f = 1, up: () => hold.f = 0, cls: "wide", aria: "Fire" });
+    l.style.minWidth = r.style.minWidth = "62px"; f.style.minWidth = "96px"; f.style.height = "80px";
+    Kit.controls([l, r], [f]);
+  } else Kit.hideControls();
+}
+
+// ---------- rules ----------
+function volley() {
+  const offs = ship.dual ? [-21, -8, 8, 21] : [-7, 7];
+  for (const o of offs) shots.push({ x: ship.x + o, y: ship.y - 10 }); fired++; Kit.sfx("shoot");
+}
+function killFoe(f) {
+  f.dead = true; const K = KIND[f.k], diving = f.st === "dive", p = f.st === "chal" ? 100 : K.pts * (diving ? 2 : 1);
+  score += p; if (score >= 5000) award("s5000"); burst(f.x, f.y, K.c1, 18, 170); burst(f.x, f.y, K.c2, 8, 120); Kit.sfx("hit"); Kit.haptic(6);
+  if (diving) { diveKills++; if (diveKills >= 8) award("dive8"); floats.push({ x: f.x, y: f.y, t: 1, s: p }); }
+  if (f.st === "chal") { chalHits++; }
+  if (f.k === 0 && f.st !== "chal" && (diving || Math.random() < .22) && !ship.dual && !caps.length) caps.push({ x: f.x, y: f.y });
+  hud();
+}
+function givePU() { ship.dual = true; award("wing"); Kit.sfx("power"); Kit.haptic(20); toast("Wingman joined!"); }
+function hitShip() {
+  if (inv > 0 || state !== "play") return;
+  burst(ship.x, ship.y, "#ffd23f", 36, 220, 1); Kit.sfx("boom"); Kit.haptic(70); eshots = []; inv = 2.2;
+  if (ship.dual) { ship.dual = false; toast("Wingman lost"); return; }
+  lives--; lostShip = true; hud(); if (lives <= 0) gameOver();
+}
+function stageDone() {
+  state = "between"; shots = []; eshots = []; caps = []; hold = { l: 0, r: 0, f: 0 }; Kit.sfx("win"); Kit.haptic(40);
+  let extra = "";
+  if (isChal) {
+    const b = chalHits >= chalTotal ? 3000 : chalHits * 50; score += b; extra = `<p class="sub">Hit ${chalHits} of ${chalTotal}${chalHits >= chalTotal ? " · PERFECT" : ""} · bonus ${b}</p>`;
+    if (chalHits >= 30) award("chal30"); if (chalHits >= chalTotal) award("perfect");
+  } else { score += 300 + level * 50; if (!lostShip) award("clean"); }
+  hud(); unlock(level + 1); award("first"); if (level >= 10) award("l10");
+  const fin = level >= STAGES.length; SAVE.best.sw = Math.max(bestGet(), score); persist(); if (fin) Kit.record({ win: 1, score, secs: gameSecs });
+  setTimeout(() => card(`<h1>${fin ? "Swarm crushed!" : isChal ? "Challenge over" : "Stage clear"}</h1><p>${STAGES[level - 1].n}</p>${extra}<p class="sub">Score ${score}</p>`, fin ? "Menu" : "Next: " + STAGES[level].n,
+    () => { if (fin) openMenu(); else { level++; makeStage(); state = "play"; hud(); } }), 600);
+}
+function gameOver() {
+  state = "over"; Kit.hideControls(); Kit.record({ score, secs: gameSecs }); SAVE.best.sw = Math.max(bestGet(), score); persist(); Kit.sfx("lose");
+  setTimeout(() => {
+    card(`<h1>Shot down</h1><p>Score ${score}</p><p class="sub">Fell in ${STAGES[level - 1].n}</p><button class="ghost" id="swmenu">Menu</button>`, "Retry stage " + level, () => newGame(level));
+    const m = document.getElementById("swmenu"); if (m) m.onclick = () => { document.getElementById("over").hidden = true; openMenu(); };
+  }, 900);
+}
+function update(dt) {
+  for (const s of stars) { s.y += s.s * dt; if (s.y > LH) { s.y = 0; s.x = rnd(0, LW); } }
+  if (state !== "play" || dt <= 0) return;
+  runT += dt; levelT += dt; gameSecs += dt; sway += dt * 1.3; inv = Math.max(0, inv - dt);
+  const dir = ((hold.r || keys.ArrowRight || keys.d || keys.D) ? 1 : 0) - ((hold.l || keys.ArrowLeft || keys.a || keys.A) ? 1 : 0);
+  if (dir) ship.x = clamp(ship.x + dir * 245 * dt, 18, LW - 18);
+  fireT -= dt;
+  const auto = autoOn() || ctlMode() === "drag", held = hold.f || keys[" "] || keys.Enter;
+  if ((held || auto) && fireT <= 0 && shots.length < 9) { volley(); fireT = held ? (auto ? .17 : .22) : .34; }
+  for (const s of shots) s.y -= 520 * dt; shots = shots.filter((s) => s.y > -10);
+  const st = S(), D = diff();
+  for (const f of foes) {
+    if (f.dead) continue;
+    const sl = slot(f);
+    if (f.st === "chal") {
+      f.t += dt / 4.6; if (f.t < 0) continue; const P = PATHS[f.g];
+      f.x = bez(P[0], P[1], P[2], P[3], f.t) + (f.g < 4 ? 0 : Math.sin(f.t * 20 + f.c) * 8); f.y = bez(P[4], P[5], P[6], P[7], f.t); if (f.t >= 1) f.dead = true;
+    } else if (f.st === "enter") {
+      f.t += dt * .55; if (f.t < 0) continue; const t = Math.min(1, f.t), sx = f.side < 0 ? -30 : LW + 30;
+      f.x = bez(sx, LW / 2 + 140 * f.side, LW / 2 + 120 * f.side, sl.x, t); f.y = bez(-30, 420, 260, sl.y, t); if (t >= 1) f.st = "form";
+    } else if (f.st === "form") { f.x = sl.x; f.y = sl.y; }
+    else if (f.st === "dive") {
+      f.t += dt; f.vx += clamp((ship.x - f.x) * 2.2, -260, 260) * dt; f.vx *= .985; f.x += f.vx * dt + Math.sin(f.t * 4 + f.c) * 90 * dt; f.y += (165 + level * 9) * D.sp * dt;
+      if (!f.shot && f.y > 190 && f.y < 420 && Math.random() < dt * 1.6 * st.shot * D.shot) { eshots.push({ x: f.x, y: f.y + 10, vx: (ship.x - f.x) * .25 }); f.shot = Math.random() < .5; }
+      if (f.y > LH + 30) { f.st = "return"; f.y = -30; }
+    } else if (f.st === "return") {
+      const dx = sl.x - f.x, dy = sl.y - f.y, d = Math.hypot(dx, dy); if (d < 4) f.st = "form"; else { f.x += dx / d * Math.min(d, 220 * dt); f.y += dy / d * Math.min(d, 220 * dt); }
+    }
+  }
+  if (!isChal) {
+    diveT -= dt; const formed = foes.filter((f) => f.st === "form" && !f.dead), diving = foes.filter((f) => f.st === "dive").length;
+    if (diveT <= 0 && formed.length && !foes.some((f) => f.st === "enter" && f.t < 1)) {
+      const n = Math.min(formed.length, 1 + Math.floor(Math.random() * Math.min(3, 1 + level / 2)), Math.max(0, st.maxDive - diving));
+      for (let i = 0; i < n; i++) { const f = pick(formed.filter((x) => x.st === "form")); if (!f) break; f.st = "dive"; f.t = 0; f.vx = f.x < LW / 2 ? 60 : -60; f.shot = false; Kit.sfx("whoosh"); }
+      diveT = rnd(.8, 1.4) * st.dive * D.dive;
+    }
+    // occasional shots from the formation too
+    const Fm = foes.filter((f) => f.st === "form");
+    if (Fm.length && Math.random() < dt * .25 * st.shot * D.shot && eshots.length < 5) { const f = pick(Fm); eshots.push({ x: f.x, y: f.y + 10, vx: (ship.x - f.x) * .15 }); }
+  }
+  for (const s of eshots) { s.y += 220 * D.sp * dt; s.x += s.vx * dt; } eshots = eshots.filter((s) => s.y < LH + 10);
+  for (const s of shots) for (const f of foes) {
+    if (f.dead || s.y < -50 || (f.st === "enter" && f.t <= 0) || (f.st === "chal" && f.t <= 0)) continue;
+    if (Math.abs(s.x - f.x) < 13 && Math.abs(s.y - f.y) < 12) {
+      s.y = -99; f.hp--; if (f.hp <= 0) killFoe(f); else { burst(f.x, f.y, "#fff", 6, 80); Kit.sfx("bounce"); } break;
+    }
+  }
+  foes = foes.filter((f) => !f.dead);
+  for (let i = caps.length - 1; i >= 0; i--) { const c = caps[i]; c.y += 80 * dt; if (Math.abs(c.x - ship.x) < 22 && Math.abs(c.y - ship.y) < 18) { givePU(); caps.splice(i, 1); } else if (c.y > LH + 10) caps.splice(i, 1); }
+  if (!isChal && !inv) {
+    const hw = ship.dual ? 24 : 11, hit = eshots.find((s) => Math.abs(s.x - ship.x) < hw && Math.abs(s.y - ship.y) < 12) || foes.find((f) => f.st !== "enter" && f.st !== "chal" && Math.abs(f.x - ship.x) < hw + 9 && Math.abs(f.y - ship.y) < 18);
+    if (hit) { if (hit.k !== undefined) { hit.dead = true; foes = foes.filter((f) => !f.dead); } hitShip(); }
+  }
+  if (state === "play" && !foes.length) stageDone();
+}
+
+// ---------- drawing ----------
+function drawFoe(f) {
+  const K = KIND[f.k], flap = Math.sin(performance.now() / 90 + f.c) * .35; ctx.save(); ctx.translate(f.x, f.y); if (f.st === "dive") ctx.rotate(Math.PI - clamp((f.vx || 0) / 400, -.7, .7));
+  ctx.fillStyle = K.c2; for (const s of [-1, 1]) { ctx.save(); ctx.scale(s, 1); ctx.rotate(flap); ctx.beginPath(); ctx.moveTo(2, -2); ctx.quadraticCurveTo(16, -14, 17, 2); ctx.quadraticCurveTo(10, 6, 2, 4); ctx.fill(); ctx.restore(); }
+  ctx.fillStyle = K.c1; ctx.beginPath(); ctx.ellipse(0, 0, 6, 10, 0, 0, TAU); ctx.fill(); if (f.hp > 1) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke(); }
+  ctx.fillStyle = "#fff"; ctx.fillRect(-4, -5, 3, 3); ctx.fillRect(1, -5, 3, 3); ctx.strokeStyle = K.c1; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-2, -9); ctx.lineTo(-5, -14); ctx.moveTo(2, -9); ctx.lineTo(5, -14); ctx.stroke(); ctx.restore();
+}
+function drawShip(x, y, small) {
+  ctx.save(); ctx.translate(x, y); if (small) ctx.scale(.8, .8);
+  ctx.fillStyle = "#e9e6ff"; ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(5, -4); ctx.lineTo(16, 6); ctx.lineTo(16, 11); ctx.lineTo(4, 7); ctx.lineTo(0, 12); ctx.lineTo(-4, 7); ctx.lineTo(-16, 11); ctx.lineTo(-16, 6); ctx.lineTo(-5, -4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#ff4f8b"; ctx.fillRect(-1.5, -8, 3, 6); ctx.fillStyle = "#5ef2ff"; ctx.fillRect(-14, 5, 3, 4); ctx.fillRect(11, 5, 3, 4); ctx.restore();
+}
+function draw() {
+  ctx.fillStyle = "#06040f"; ctx.fillRect(0, 0, LW, LH);
+  for (const s of stars) { ctx.fillStyle = `rgba(220,210,255,${s.s / 110})`; ctx.fillRect(s.x, s.y, 1.2, s.s / 40); }
+  if (state === "menu") return;
+  for (const f of foes) if (!(f.st === "enter" && f.t <= 0) && !(f.st === "chal" && f.t <= 0)) drawFoe(f);
+  for (const c of caps) { ctx.fillStyle = "#5ef2ff"; rr(c.x - 14, c.y - 9, 28, 18, 9); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke(); drawShip(c.x, c.y + 1, true); ctx.save(); ctx.globalAlpha = 0; ctx.restore(); }
+  ctx.fillStyle = "#ffe7a0"; for (const s of shots) ctx.fillRect(s.x - 1, s.y - 7, 2, 9);
+  ctx.fillStyle = "#ff4f8b"; for (const s of eshots) { ctx.beginPath(); ctx.arc(s.x, s.y, 3.5, 0, TAU); ctx.fill(); }
+  if (ship && (state === "play" || state === "between") && !(inv > 0 && Math.floor(inv * 10) % 2)) {
+    if (ship.dual) { drawShip(ship.x - 15, ship.y + 2, true); drawShip(ship.x + 15, ship.y + 2, true); } else drawShip(ship.x, ship.y);
+  }
+  for (let i = floats.length - 1; i >= 0; i--) { const f = floats[i]; f.t -= 1 / 60; text(String(f.s), f.x, f.y - (1 - f.t) * 20, 13, "#ffd23f"); if (f.t <= 0) floats.splice(i, 1); }
+  drawParts();
+  if (bannerT > 0 && state === "play") { ctx.globalAlpha = Math.min(1, bannerT); text(banner, LW / 2, LH / 2 - 20, 26, "#ffd23f"); if (isChal) text("No return fire · shoot them all!", LW / 2, LH / 2 + 10, 13, "#f1ecff"); ctx.globalAlpha = 1; }
+  if (isChal && state === "play") text(`Hits ${chalHits}/${chalTotal}`, 60, LH - 70, 13, "#5ef2ff");
+  if (state === "play" && ctlMode() === "drag" && levelT < 5) { ctx.globalAlpha = .6; text("◀  drag anywhere to move  ▶", LW / 2, LH - 14, 12, "#9a8fc4"); ctx.globalAlpha = 1; }
+}
+loop((dt) => { if (!Kit.isPaused()) { update(dt); stepParts(dt); bannerT = Math.max(0, bannerT - dt); } draw(); });
+Kit.lifecycle({ pause: () => state === "play", resume: () => { hold = { l: 0, r: 0, f: 0 }; }, menu: openMenu });
+
+function openMenu() {
+  state = "menu"; Kit.hideControls(); hold = { l: 0, r: 0, f: 0 };
+  const hp = document.querySelector(".help"); if (hp) hp.textContent = "Hold ◀ ▶ to move · hold FIRE to shoot";
+  Kit.menu({
+    title: "Swarm Wing", hand: true, bestLabel: "Best score",
+    html: `<p class="sub">The swarm loops in, forms up, then peels off to dive at you. Hold ◀ ▶ to move and the big FIRE button to shoot, at the same time. Diving hits score double. Catch the cyan capsule for a wingman.</p>`,
+    settings: [
+      { k: "diff", label: "Difficulty", def: "normal", opts: [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]] },
+      { k: "ctl", label: "Controls", def: "buttons", opts: [["buttons", "◀ ▶ + FIRE"], ["drag", "Drag ship"]] },
+      { k: "auto", label: "Auto-fire (buttons mode)", def: "off", opts: [["off", "Off"], ["on", "On"]] },
+      { k: "lives", label: "Lives", def: 3, opts: [[3, "3"], [5, "5"]] },
+      { k: "chal", label: "Challenge stages", def: "on", opts: [["on", "On"], ["off", "Off"]] }
+    ],
+    levels: STAGES.map((s) => s.n),
+    challenges: [
+      { id: "first", text: "Clear stage 1" }, { id: "wing", text: "Catch a wingman capsule" }, { id: "dive8", text: "Shoot 8 diving enemies in one stage" },
+      { id: "clean", text: "Clear a stage without losing a ship" }, { id: "chal30", text: "Hit 30 of 40 in a challenge stage" }, { id: "perfect", text: "Perfect a challenge stage (40 of 40)" }, { id: "l10", text: "Clear the Final Swarm (stage 10)" }
+    ],
+    play: "Launch"
+  }, (lv) => newGame(lv));
+}
+window.T = {
+  get state() { return state; }, get score() { return score; }, get lives() { return lives; }, get level() { return level; }, get shipX() { return ship ? ship.x : -1; },
+  get shots() { return shots.length; }, get fired() { return fired; }, get foes() { return foes.length; }, get runT() { return runT; }, get mode() { return ctlMode(); }, get dual() { return !!(ship && ship.dual); },
+  get chal() { return isChal; }, get chalHits() { return chalHits; }, get diving() { return foes.filter((f) => f.st === "dive").length; },
+  killAll() { for (const f of foes) f.dead = true; }, hit() { inv = 0; hitShip(); }, give() { givePU(); },
+  sim(n, god) { for (let i = 0; i < n && state === "play"; i++) { if (god) inv = 9; const A = foes.filter((f) => !(f.st === "enter" && f.t <= 0) && !(f.st === "chal" && f.t <= 0)); let tx = ship.x; if (A.length) tx = A.sort((a, b) => b.y - a.y || Math.abs(a.x - ship.x) - Math.abs(b.x - ship.x))[0].x; ship.x += clamp(tx - ship.x, -4, 4); hold.f = 1; update(1 / 60); } hold.f = 0; return state; }
+};
+fit(); openMenu();
 
 })();
 </script>
 
-</body></html>
+</html>

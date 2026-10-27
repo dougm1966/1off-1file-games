@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}</style>
+<title>Card Table</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;800&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#0d2a1f;--ink:#f3efe2;--muted:#9fc0ad;--accent:#f2c14e;--f-display:"Fraunces",Georgia,serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#1c1606;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#1c1606;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#1c1606}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#1c1606;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Card Table</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Tap a card to raise it, tap it again (or press PLAY) to play it</div><div class="ctl" id="ctl" hidden></div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=560,FONT="'Fraunces', Georgia, serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ===================================== constants & helpers =====================================
+const SUITN = ["Clubs", "Diamonds", "Spades", "Hearts"], SUITSORT = [2, 3, 0, 1];
+const RL = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+const NAMES = ["You", "Wren", "Moss", "Sage"];
+const mkc = (s, r) => (s << 4) | r, sOf = (c) => c >> 4, rOf = (c) => c & 15, isRedS = (s) => (s & 1) === 1;
+const TARGETS = { hearts: [50, 100, 150], spades: [200, 300, 500], euchre: [5, 10, 15] };
+const LENKEY = ["short", "normal", "long"];
+const HY = 462, CW = 56, CH = 80, SLOT = { 0: [180, 300], 1: [126, 236], 2: [180, 176], 3: [234, 236] }, ORIG = { 0: [180, 480], 1: [30, 250], 2: [180, 90], 3: [330, 250] };
+const choice = (k, allowed, def) => { const v = setting(k, def); return allowed.includes(v) ? v : def; };
+
+const SUITP = [null, null, new Path2D("M50 6 C20 38 8 52 24 69 C34 77 44 71 48 63 C47 77 42 87 33 94 H67 C58 87 53 77 52 63 C56 71 66 77 76 69 C92 52 80 38 50 6 Z"),
+  new Path2D("M50 92 C10 60 4 36 20 21 C33 9 46 18 50 31 C54 18 67 9 80 21 C96 36 90 60 50 92 Z")];
+function suitGlyph(s, x, y, sz) {
+  ctx.save(); ctx.translate(x - sz / 2, y - sz / 2); ctx.scale(sz / 100, sz / 100);
+  if (s === 0) { ctx.beginPath(); for (const [cx, cy] of [[50, 28], [26, 60], [74, 60]]) { ctx.moveTo(cx + 20, cy); ctx.arc(cx, cy, 20, 0, TAU); } ctx.moveTo(41, 55); ctx.lineTo(34, 95); ctx.lineTo(66, 95); ctx.lineTo(59, 55); ctx.closePath(); ctx.fill(); }
+  else if (s === 1) { ctx.beginPath(); ctx.moveTo(50, 4); ctx.lineTo(88, 50); ctx.lineTo(50, 96); ctx.lineTo(12, 50); ctx.closePath(); ctx.fill(); }
+  else ctx.fill(SUITP[s]);
+  ctx.restore();
+}
+const BACKS = { blue: ["#1f4e9c", "#8fb4ee"], red: ["#9b2226", "#f1a7a0"], green: ["#17704a", "#8fe0b4"], gold: ["#3a2a10", "#f2c14e"] };
+function drawBack(x, y, w, h) {
+  const [bg, fg] = BACKS[backStyle] || BACKS.blue;
+  ctx.save(); rr(x, y, w, h, 5); ctx.fillStyle = "#f6f1e2"; ctx.fill(); ctx.clip();
+  ctx.fillStyle = bg; ctx.fillRect(x + 3, y + 3, w - 6, h - 6);
+  ctx.strokeStyle = fg; ctx.globalAlpha = .55; ctx.lineWidth = 1;
+  ctx.beginPath(); for (let i = -h; i < w + h; i += 7) { ctx.moveTo(x + i, y); ctx.lineTo(x + i + h, y + h); ctx.moveTo(x + i + h, y); ctx.lineTo(x + i, y + h); } ctx.stroke();
+  ctx.globalAlpha = 1; ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(x + w / 2, y + h / 2, Math.min(w, h) * .16, 0, TAU); ctx.fill();
+  ctx.restore(); ctx.strokeStyle = "rgba(0,0,0,.45)"; ctx.lineWidth = 1; rr(x, y, w, h, 5); ctx.stroke();
+}
+function tx(t, x, y, size, col, align = "left", weight = 700) { ctx.font = `${weight} ${size}px system-ui,-apple-system,sans-serif`; ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = col; ctx.fillText(t, x, y); }
+function drawCard(c, x, y, w, h, o = {}) {
+  const s = sOf(c), r = rOf(c), col = isRedS(s) ? "#c62828" : "#1b1b1b";
+  ctx.save();
+  if (o.shadow) { ctx.fillStyle = "rgba(0,0,0,.35)"; rr(x + 2, y + 3, w, h, 6); ctx.fill(); }
+  rr(x, y, w, h, 6); ctx.fillStyle = "#fbf8ee"; ctx.fill();
+  ctx.strokeStyle = o.glow ? "#f2c14e" : "rgba(0,0,0,.5)"; ctx.lineWidth = o.glow ? 3 : 1; ctx.stroke();
+  const big = w >= 50, fs = big ? 17 : 15;
+  ctx.fillStyle = col; tx(RL[r], x + 4, y + 11, fs, col, "left", 800);
+  suitGlyph(s, x + (w >= 50 ? 11 : 10), y + (big ? 29 : 28), big ? 14 : 13);
+  if (w >= 44) { if (r >= 9 && r <= 11) tx(RL[r], x + w / 2 + 4, y + h / 2 + 8, 26, col, "center", 800); suitGlyph(s, x + w / 2 + (r >= 9 && r <= 11 ? 4 : 4), y + h - (big ? 22 : 18), r >= 9 && r <= 11 ? 18 : 26); }
+  if (o.dim) { rr(x, y, w, h, 6); ctx.fillStyle = "rgba(10,20,15,.5)"; ctx.fill(); }
+  ctx.restore();
+}
+
+// ===================================== state =====================================
+let game = "hearts", state = "menu", phase = "", target = 100, skill = 1, backStyle = "blue", spd = 1;
+let hands = [[], [], [], []], trick = [], leader = 0, turn = 0, dealer = 0, handNo = 0, trickNo = 0, tricksWon = [0, 0, 0, 0], taken = [[], [], [], []], seen = {};
+let scores = [0, 0, 0, 0], bags = [0, 0], raised = -1, passSel = [], wait = 0, nextFn = null, sweep = null, shake = 0, tm = 0, autoPlay = false, newCards = [];
+let heartsBroken = false, passDir = 0, spadesBroken = false, bids = [null, null, null, null], bidSel = 3;
+let upcard = -1, kitty = [], bidRound = 1, bidder = 0, trump = -1, maker = -1, alone = false, sitOut = -1, aloneToggle = false, euLog = "";
+let humanWonGame = false, handPtsLast = null, statsDone = false, startT = 0, dealAgain = false, madeNil = false, modalKey = 0;
+const delay = (s) => s * spd;
+const next = (p) => { let n = (p + 1) % 4; if (n === sitOut) n = (n + 1) % 4; return n; };
+const team = (p) => p & 1;
+const need = () => (sitOut >= 0 ? 3 : 4);
+function sortHand(h) { h.sort((a, b) => (SUITSORT.indexOf(sOf(a)) - SUITSORT.indexOf(sOf(b))) || (rOf(b) - rOf(a))); }
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function after(sec, fn) { wait = sec; nextFn = fn; }
+const cnt = (p, s) => hands[p].reduce((n, c) => n + (sOf(c) === s ? 1 : 0), 0);
+
+// ===================================== rules: effective suits & legality =====================================
+const mate = (s) => s ^ 2;
+const effSuit = (c) => (game === "euchre" && trump >= 0 && rOf(c) === 9 && sOf(c) === mate(trump)) ? trump : sOf(c);
+function leadSuit() { return trick.length ? (game === "euchre" ? effSuit(trick[0].c) : sOf(trick[0].c)) : -1; }
+function power(c, ls) { // higher wins; -1 can't win
+  if (game === "euchre") {
+    const s = sOf(c), r = rOf(c);
+    if (r === 9 && s === trump) return 100;
+    if (r === 9 && s === mate(trump)) return 99;
+    const e = effSuit(c); if (e === trump) return 50 + r; if (e === ls) return r; return -1;
+  }
+  const s = sOf(c);
+  if (game === "spades" && s === 2) return 50 + rOf(c);
+  return s === ls ? rOf(c) : -1;
+}
+function trickWinner() { let best = -2, w = trick[0].p; const ls = leadSuit(); for (const t of trick) { const pw = power(t.c, ls); if (pw > best) { best = pw; w = t.p; } } return w; }
+function legalCards(p) {
+  const h = hands[p];
+  if (game === "hearts") {
+    if (!trick.length) {
+      if (trickNo === 0) { const t = h.filter((c) => c === 0); if (t.length) return t; }
+      const nh = h.filter((c) => sOf(c) !== 3); return (!heartsBroken && nh.length) ? nh : h;
+    }
+    const ls = sOf(trick[0].c), f = h.filter((c) => sOf(c) === ls); if (f.length) return f;
+    if (trickNo === 0) { const np = h.filter((c) => sOf(c) !== 3 && c !== 42); if (np.length) return np; }
+    return h;
+  }
+  if (game === "spades") {
+    if (!trick.length) { const ns = h.filter((c) => sOf(c) !== 2); return (!spadesBroken && ns.length) ? ns : h; }
+    const ls = sOf(trick[0].c), f = h.filter((c) => sOf(c) === ls); return f.length ? f : h;
+  }
+  if (!trick.length) return h;
+  const ls = leadSuit(), f = h.filter((c) => effSuit(c) === ls); return f.length ? f : h;
+}
+function whyIllegal(c) {
+  if (game === "hearts") {
+    if (!trick.length) return trickNo === 0 ? "Start with the 2 of clubs" : "Hearts haven't been broken yet";
+    return sOf(trick[0].c) !== sOf(c) && hands[0].some((x) => sOf(x) === sOf(trick[0].c)) ? "Follow suit: " + SUITN[sOf(trick[0].c)] : "No points on the first trick";
+  }
+  if (!trick.length) return "Spades haven't been broken yet";
+  return "Follow suit: " + SUITN[leadSuit()];
+}
+
+// ===================================== flow =====================================
+function setStats() { stats({ Hand: handNo, Target: target }); }
+function startMatch() {
+  game = choice("game", ["hearts", "spades", "euchre"], "hearts"); const li = Math.max(0, LENKEY.indexOf(choice("len", LENKEY, "normal"))); target = TARGETS[game][li];
+  skill = ({ easy: 0, normal: 1, hard: 2 })[choice("skill", ["easy", "normal", "hard"], "normal")]; backStyle = choice("back", Object.keys(BACKS), "blue");
+  spd = ({ slow: 1.6, normal: 1, fast: .4 })[choice("speed", ["slow", "normal", "fast"], "normal")];
+  scores = [0, 0, 0, 0]; bags = [0, 0]; handNo = 0; dealer = Math.floor(Math.random() * 4); state = "play"; statsDone = false; startT = performance.now(); madeNil = false; dealAgain = false;
+  parts.length = 0; showControls(); newHand();
+}
+function newHand() {
+  if (!dealAgain) { if (handNo > 0) dealer = (dealer + 1) % 4; handNo++; } else dealer = (dealer + 1) % 4;
+  dealAgain = false;
+  trick = []; sweep = null; trickNo = 0; tricksWon = [0, 0, 0, 0]; taken = [[], [], [], []]; seen = {}; raised = -1; passSel = []; newCards = []; heartsBroken = false; spadesBroken = false; bids = [null, null, null, null];
+  trump = -1; maker = -1; alone = false; sitOut = -1; aloneToggle = false; kitty = []; upcard = -1; euLog = ""; hideCard();
+  let deck = [];
+  for (let s = 0; s < 4; s++) for (let r = (game === "euchre" ? 7 : 0); r < 13; r++) deck.push(mkc(s, r));
+  shuffle(deck);
+  const per = game === "euchre" ? 5 : 13;
+  hands = [0, 1, 2, 3].map((p) => deck.slice(p * per, p * per + per));
+  if (game === "euchre") kitty = deck.slice(20);
+  hands.forEach(sortHand); setStats(); Kit.sfx("whoosh");
+  if (game === "hearts") {
+    passDir = [1, 3, 2, 0][(handNo - 1) % 4];
+    if (passDir === 0) startHearts(); else { phase = "pass"; turn = 0; }
+  } else if (game === "spades") { phase = "bid"; bidder = (dealer + 1) % 4; spBidTurn(); }
+  else { upcard = kitty[0]; bidRound = 1; bidder = (dealer + 1) % 4; phase = "bid"; euBidTurn(); }
+}
+function startHearts() {
+  const h = hands.findIndex((x) => x.includes(0)); leader = turn = h; phase = "play"; trickNo = 0; heartsBroken = false; beginTurn();
+}
+function beginTurn() {
+  raised = -1;
+  if (turn === 0) { if (autoPlay) after(.05, () => { const l = legalCards(0); playCard(0, l[0]); }); return; }
+  after(delay(.75), cpuMove);
+}
+function cpuMove() { if (state !== "play") return; const l = legalCards(turn); let c; if (game === "hearts") c = cpuHearts(turn, l); else if (game === "spades") c = cpuSpades(turn, l); else c = cpuEuchre(turn, l); if (c === undefined || !l.includes(c)) c = l[0]; playCard(turn, c); }
+function playCard(p, c) {
+  const i = hands[p].indexOf(c); if (i < 0) return; hands[p].splice(i, 1);
+  trick.push({ p, c, t: 0 }); seen[c] = 1; raised = -1;
+  if (game === "hearts" && sOf(c) === 3) heartsBroken = true;
+  if (game === "spades" && sOf(c) === 2) spadesBroken = true;
+  Kit.sfx(p === 0 ? "hop" : "step");
+  if (trick.length >= need()) { phase = "trickEnd"; after(delay(1.0), collect); return; }
+  turn = next(p); beginTurn();
+}
+function collect() {
+  const w = trickWinner(); tricksWon[w]++; taken[w].push(...trick.map((t) => t.c));
+  sweep = { t: 0, to: w, cards: trick.slice() }; trick = []; phase = "sweep"; leader = turn = w; trickNo++;
+  Kit.sfx(w === 0 || (game !== "hearts" && team(w) === 0) ? "coin" : "tick");
+  after(delay(.4), () => { sweep = null; if (hands.every((h, i) => i === sitOut || !h.length)) endHand(); else { phase = "play"; beginTurn(); } });
+}
+
+// ----- hearts -----
+function passCardsCpu(p) {
+  const h = hands[p], ns = cnt(p, 2);
+  const sc = (c) => { const s = sOf(c), r = rOf(c); let v = r; if (c === 42) v += ns < 5 ? 60 : 0; else if (s === 2 && r >= 11) v += ns < 5 ? 30 : 0; else if (s === 3) v += r >= 9 ? 14 : r * .6; if (skill > 0 && s !== 2 && s !== 3 && cnt(p, s) <= 2) v += 12; return v + Math.random() * (skill === 0 ? 20 : 2); };
+  return h.slice().sort((a, b) => sc(b) - sc(a)).slice(0, 3);
+}
+function doPassing() {
+  const out = [0, 1, 2, 3].map((p) => (p === 0 ? passSel.map((i) => hands[0][i]) : passCardsCpu(p)));
+  for (let p = 0; p < 4; p++) hands[p] = hands[p].filter((c) => !out[p].includes(c));
+  for (let p = 0; p < 4; p++) hands[(p + passDir) % 4].push(...out[p]);
+  newCards = out[(0 - passDir + 4) % 4].slice();
+  hands.forEach(sortHand); passSel = []; raised = -1; Kit.sfx("whoosh"); startHearts();
+}
+function cpuHearts(p, legal) {
+  if (skill === 0 && Math.random() < .4) return pick(legal);
+  const pts = (c) => (sOf(c) === 3 ? 1 : c === 42 ? 13 : 0), h = hands[p];
+  const asc = (a, b) => rOf(a) - rOf(b);
+  if (!trick.length) {
+    let best = legal[0], bs = 1e9;
+    for (const c of legal) {
+      const s = sOf(c), r = rOf(c); let sc = r; if (s === 3) sc += 12; if (c === 42) sc += 100;
+      if (s === 2 && !seen[42]) { const hi = h.some((x) => sOf(x) === 2 && rOf(x) >= 10); if (hi) sc += 40; else if (skill > 0) sc -= 6; }
+      sc += cnt(p, s) > 4 ? .5 : -.5;
+      if (sc < bs) { bs = sc; best = c; }
+    }
+    return best;
+  }
+  const ls = sOf(trick[0].c), follow = legal.filter((c) => sOf(c) === ls);
+  let win = trick[0].c; for (const t of trick) if (sOf(t.c) === ls && rOf(t.c) > rOf(win)) win = t.c;
+  const tp = trick.reduce((n, t) => n + pts(t.c), 0);
+  if (follow.length) {
+    const lower = follow.filter((c) => rOf(c) < rOf(win)).sort((a, b) => rOf(b) - rOf(a));
+    if (lower.length) return lower[0];
+    const srt = follow.slice().sort(asc), last = trick.length === 3;
+    if (last) { const safe = srt.filter((c) => c !== 42); return (safe.length ? safe : srt).pop(); }
+    return srt[0];
+  }
+  if (legal.includes(42)) return 42;
+  if (!seen[42]) { const hs = legal.filter((c) => sOf(c) === 2 && rOf(c) >= 11).sort(asc); if (hs.length) return hs[hs.length - 1]; }
+  const hr = legal.filter((c) => sOf(c) === 3).sort((a, b) => rOf(b) - rOf(a)); if (hr.length) return hr[0];
+  void tp;
+  return legal.slice().sort((a, b) => rOf(b) - rOf(a))[0];
+}
+function endHandHearts() {
+  const pts = [0, 0, 0, 0], jd = choice("jd", ["off", "on"], "off") === "on";
+  for (let p = 0; p < 4; p++) { for (const c of taken[p]) { if (sOf(c) === 3) pts[p]++; else if (c === 42) pts[p] += 13; else if (jd && c === 25) pts[p] -= 10; } }
+  let moon = -1; for (let p = 0; p < 4; p++) if (taken[p].filter((c) => sOf(c) === 3 || c === 42).length === 14) moon = p;
+  let hand = pts.slice();
+  if (moon >= 0) { hand = [26, 26, 26, 26]; hand[moon] = 0; if (moon === 0) award("moon"); }
+  if (hand[0] === 0 && moon < 0) award("clean");
+  for (let p = 0; p < 4; p++) scores[p] += hand[p];
+  const over = scores.some((s) => s >= target); let low = Math.min(...scores), winners = scores.map((s, i) => (s === low ? i : -1)).filter((i) => i >= 0);
+  const fin = over && winners.length === 1;
+  const rows = [0, 1, 2, 3].map((p) => `<tr><td style="text-align:left">${NAMES[p]}${taken[p].length ? "" : ""}</td><td>${hand[p] > 0 ? "+" : ""}${hand[p]}</td><td><b>${scores[p]}</b></td></tr>`).join("");
+  const msg = moon >= 0 ? `<p><b>${NAMES[moon]} shot the moon!</b></p>` : "";
+  summary(`<h1>Hand ${handNo}</h1>${msg}<table style="width:100%;font-size:15px;border-collapse:collapse"><tr style="color:#9fc0ad"><td></td><td>Hand</td><td>Total</td></tr>${rows}</table>`, fin, fin ? winners[0] === 0 : false, fin ? (winners[0] === 0 ? "You win the game!" : NAMES[winners[0]] + " wins the game") : "Lowest score wins. Game ends at " + target + ".");
+}
+// ----- spades -----
+function spEstimate(p) {
+  const h = hands[p], ns = cnt(p, 2); let b = 0;
+  for (const c of h) {
+    const s = sOf(c), r = rOf(c), len = cnt(p, s);
+    if (s === 2) { if (r === 12) b += 1; else if (r === 11) b += ns >= 2 ? .95 : .45; else if (r === 10) b += ns >= 3 ? .8 : .3; else if (r === 9 && ns >= 4) b += .5; }
+    else { if (r === 12) b += .9; else if (r === 11) b += len >= 2 ? .6 : .15; else if (r === 10 && len >= 3) b += .25; }
+  }
+  if (ns > 3) b += (ns - 3) * .55;
+  if (ns >= 3) for (let s = 0; s < 4; s++) if (s !== 2) { const l = cnt(p, s); if (l === 0) b += 1.2; else if (l === 1) b += .5; }
+  return b;
+}
+function spBidFor(p) {
+  const e = spEstimate(p), h = hands[p], ns = cnt(p, 2), hiSp = h.some((c) => sOf(c) === 2 && rOf(c) >= 9), aces = h.filter((c) => rOf(c) === 12).length;
+  if (e < (skill === 0 ? 1.2 : 1.0) && !hiSp && ns <= 3 && aces <= 1 && (skill > 0 || Math.random() < .5)) return 0;
+  let b = Math.round(e + (skill === 0 ? (Math.random() - .5) * 2 : 0)); return clamp(b, 1, 10);
+}
+function spBidTurn() {
+  if (bids.every((b) => b !== null)) { phase = "play"; leader = turn = (dealer + 1) % 4; trickNo = 0; beginTurn(); return; }
+  if (bidder === 0) { phase = "bid"; bidSel = clamp(spBidFor(0) || 1, 1, 13); if (autoPlay) after(.05, () => spBid(0, spBidFor(0))); return; }
+  after(delay(.8), () => spBid(bidder, spBidFor(bidder)));
+}
+function spBid(p, b) { bids[p] = b; Kit.sfx("click"); if (p === 0 && b === 0) madeNil = true; bidder = (p + 1) % 4; if (bids.every((x) => x !== null)) { phase = "bidDone"; after(delay(.9), () => { phase = "play"; leader = turn = (dealer + 1) % 4; trickNo = 0; beginTurn(); }); } else spBidTurn(); }
+function cpuSpades(p, legal) {
+  if (skill === 0 && Math.random() < .3) return pick(legal);
+  const asc = (a, b) => (power(a, leadSuit()) - power(b, leadSuit())) || (rOf(a) - rOf(b)), sorted = legal.slice().sort((a, b) => (sOf(a) === 2 ? 50 : 0) + rOf(a) - ((sOf(b) === 2 ? 50 : 0) + rOf(b)));
+  const my = bids[p], nil = my === 0, pnil = bids[(p + 2) % 4] === 0, mt = team(p), got = tricksWon[mt] + tricksWon[mt + 2];
+  const tbid = [bids[mt], bids[mt + 2]].reduce((n, b) => n + (b || 0), 0), satisfied = got >= tbid && tbid > 0;
+  if (!trick.length) {
+    if (nil) return sorted[0];
+    const side = legal.filter((c) => sOf(c) !== 2);
+    if (side.length && !satisfied) { const top = side.slice().sort((a, b) => rOf(b) - rOf(a))[0]; if (rOf(top) >= 11) return top; }
+    if (side.length) return side.slice().sort((a, b) => rOf(a) - rOf(b))[0];
+    return satisfied || nil ? sorted[0] : sorted[sorted.length - 1];
+  }
+  const ls = leadSuit(); let wp = trickWinner(), wc = trick.find((t) => t.p === wp).c, wpow = power(wc, ls);
+  const winning = legal.filter((c) => power(c, ls) > wpow).sort((a, b) => power(a, ls) - power(b, ls)), losing = legal.filter((c) => power(c, ls) < wpow).sort((a, b) => power(b, ls) - power(a, ls));
+  const lowest = () => legal.slice().sort((a, b) => ((power(a, ls) < 0 ? 0 : 1) - (power(b, ls) < 0 ? 0 : 1)) || (sOf(a) === 2 ? 1 : 0) - (sOf(b) === 2 ? 1 : 0) || rOf(a) - rOf(b))[0];
+  if (nil) return losing.length ? losing[0] : lowest();
+  if (pnil) { if (wp === (p + 2) % 4 && winning.length) return winning[0]; if (!trick.some((t) => t.p === (p + 2) % 4) && winning.length) return winning[winning.length - 1]; }
+  if (wp === (p + 2) % 4 && bids[wp] !== 0) return lowest();
+  if (satisfied && skill > 0) return losing.length ? losing[0] : lowest();
+  if (winning.length) return winning[0];
+  return lowest();
+}
+function endHandSpades() {
+  const res = [];
+  for (let t = 0; t < 2; t++) {
+    const m = [t, t + 2], r = { d: 0, note: [] };
+    let B = 0, T = 0, extraBags = 0;
+    for (const p of m) { if (bids[p] === 0) { if (tricksWon[p] === 0) { r.d += 100; r.note.push(NAMES[p] + " nil made +100"); if (p === 0) award("nil"); } else { r.d -= 100; extraBags += tricksWon[p]; r.note.push(NAMES[p] + " nil failed -100"); } } else { B += bids[p]; T += tricksWon[p]; } }
+    if (B > 0) { if (T >= B) { r.d += 10 * B + (T - B); extraBags += T - B; r.note.push(`Made ${B}, took ${T}`); } else { r.d -= 10 * B; r.note.push(`Set: bid ${B}, took ${T}`); } }
+    bags[t] += extraBags; if (bags[t] >= 10) { bags[t] -= 10; r.d -= 100; r.note.push("10 bags: -100"); }
+    scores[t] += r.d; res.push(r);
+  }
+  const s0 = scores[0], s1 = scores[1]; let fin = false, youWin = false, msg = "First to " + target + " wins.";
+  if (s0 >= target || s1 >= target || s0 <= -200 || s1 <= -200) {
+    const a = s0 <= -200 ? -1e9 : s0, b = s1 <= -200 ? -1e9 : s1;
+    if (a !== b) { fin = true; youWin = a > b; msg = youWin ? "Your team wins!" : "Wren & Sage win"; }
+  }
+  const row = (t, nm) => `<tr><td style="text-align:left">${nm}</td><td>${res[t].d > 0 ? "+" : ""}${res[t].d}</td><td><b>${scores[t]}</b></td><td>${bags[t]}</td></tr>`;
+  const notes = res.map((r, t) => `<div class="sub">${t ? "Wren & Sage" : "You & Moss"}: ${r.note.map(escHTML).join(" · ") || "no bid"}</div>`).join("");
+  summary(`<h1>Hand ${handNo}</h1><table style="width:100%;font-size:15px;border-collapse:collapse"><tr style="color:#9fc0ad"><td></td><td>Hand</td><td>Total</td><td>Bags</td></tr>${row(0, "You & Moss")}${row(1, "Wren & Sage")}</table>${notes}`, fin, youWin, msg);
+}
+// ----- euchre -----
+function euStrength(h, s) {
+  let v = 0, trumps = 0;
+  for (const c of h) { const cs = sOf(c), r = rOf(c); if (r === 9 && cs === s) { v += 3.2; trumps++; } else if (r === 9 && cs === mate(s)) { v += 2.6; trumps++; } else if (cs === s) { trumps++; v += ({ 12: 2.1, 11: 1.6, 10: 1.2, 8: 1, 7: .8 })[r] || 1; } else if (r === 12) v += 1; }
+  const suits = new Set(h.map((c) => sOf(c))); if (trumps >= 3) v += (4 - suits.size) * .4;
+  return v;
+}
+function euBidTurn() {
+  if (bidder === 0) { phase = "bid"; aloneToggle = false; if (autoPlay) after(.05, () => euPass(0)); return; }
+  after(delay(.9), () => cpuEuBid(bidder));
+}
+function cpuEuBid(p) {
+  const h = hands[p].slice(), thr = (skill === 0 ? 5.6 : 6.4) + (Math.random() - .5) * (skill === 0 ? 1.6 : .6);
+  if (bidRound === 1) {
+    const s = sOf(upcard); let hh = h; if (p === dealer) hh = h.concat([upcard]);
+    let v = euStrength(hh, s) + (team(p) === team(dealer) ? (p === dealer ? 0 : .5) : -.3); if (p === dealer) v -= .5;
+    if (v >= thr) { euCall(p, s, v > 12.5 && skill > 0); return; }
+    euPass(p);
+  } else {
+    let best = -1, bv = -1; for (let s = 0; s < 4; s++) { if (s === sOf(upcard)) continue; const v = euStrength(h, s); if (v > bv) { bv = v; best = s; } }
+    const stick = choice("stick", ["on", "off"], "on") === "on";
+    if (bv >= thr - .7 || (p === dealer && stick)) { euCall(p, best, bv > 12.5 && skill > 0); return; }
+    euPass(p);
+  }
+}
+function euPass(p) {
+  Kit.sfx("click"); euLog = NAMES[p] + " passes";
+  if (bidRound === 1) { if (p === dealer) { bidRound = 2; bidder = (dealer + 1) % 4; euLog = "Card turned down — name a suit"; } else bidder = (p + 1) % 4; }
+  else if (p === dealer) { dealAgain = true; euLog = "Everyone passed — new deal"; phase = "msg"; after(delay(1.2), newHand); return; }
+  else bidder = (p + 1) % 4;
+  euBidTurn();
+}
+function euCall(p, s, solo) {
+  trump = s; maker = p; alone = !!solo; sitOut = solo ? (p + 2) % 4 : -1; euLog = `${NAMES[p]} ${bidRound === 1 ? "ordered up" : "called"} ${SUITN[s]}${solo ? " · going alone" : ""}`;
+  Kit.sfx("power"); Kit.haptic(20);
+  hands.forEach((h) => h.length);
+  if (bidRound === 1 && dealer !== sitOut) {
+    hands[dealer].push(upcard); sortHand(hands[dealer]);
+    if (dealer === 0) { phase = "discard"; raised = -1; if (autoPlay) after(.05, () => euDiscard(hands[0][0])); return; }
+    euDiscard(cpuDiscard(dealer), true); return;
+  }
+  euStartPlay();
+}
+function cpuDiscard(p) {
+  const h = hands[p], val = (c) => { const e = effSuit(c), r = rOf(c); let v = r; if (e === trump) v += 30 + (r === 9 ? (sOf(c) === trump ? 40 : 20) : 0); else if (r === 12) v += 12; else if (cnt(p, sOf(c)) === 1) v -= 3; return v; };
+  return h.slice().sort((a, b) => val(a) - val(b))[0];
+}
+function euDiscard(c, cpu) { const p = dealer; const i = hands[p].indexOf(c); if (i < 0) return; hands[p].splice(i, 1); raised = -1; if (!cpu) Kit.sfx("click"); euStartPlay(); }
+function euStartPlay() {
+  let l = (dealer + 1) % 4; if (l === sitOut) l = (l + 1) % 4; leader = turn = l; phase = "play"; trickNo = 0;
+  if (sitOut === 0) euLog = "Your partner is going alone — you sit out"; beginTurn();
+}
+function cpuEuchre(p, legal) {
+  if (skill === 0 && Math.random() < .3) return pick(legal);
+  const ls = leadSuit(), isMaker = team(p) === team(maker), pw = (c) => power(c, ls);
+  const trumpsIn = legal.filter((c) => effSuit(c) === trump).sort((a, b) => pw(b) - pw(a));
+  if (!trick.length) {
+    const right = legal.find((c) => rOf(c) === 9 && sOf(c) === trump);
+    if (isMaker && (right || trumpsIn.length >= 2)) return trumpsIn[0];
+    const aces = legal.filter((c) => rOf(c) === 12 && effSuit(c) !== trump); if (aces.length) return aces[0];
+    const off = legal.filter((c) => effSuit(c) !== trump).sort((a, b) => rOf(a) - rOf(b)); if (off.length) return isMaker ? off[off.length - 1] : off[0];
+    return trumpsIn[trumpsIn.length - 1];
+  }
+  const w = trickWinner(), wc = trick.find((t) => t.p === w).c, wpow = pw(wc);
+  const winning = legal.filter((c) => pw(c) > wpow).sort((a, b) => pw(a) - pw(b));
+  const low = legal.slice().sort((a, b) => (effSuit(a) === trump ? 1 : 0) - (effSuit(b) === trump ? 1 : 0) || rOf(a) - rOf(b))[0];
+  if (team(w) === team(p) && w !== p) return low;
+  if (winning.length) return winning[0];
+  return low;
+}
+function endHandEuchre() {
+  const mt = team(maker), tk = [0, 0]; for (let p = 0; p < 4; p++) tk[team(p)] += tricksWon[p];
+  let pts = [0, 0], note;
+  if (tk[mt] >= 5) { pts[mt] = alone ? 4 : 2; note = alone ? "Alone march: 4 points" : "March: all five tricks, 2 points"; if (mt === 0) { if (!alone) award("march"); } }
+  else if (tk[mt] >= 3) { pts[mt] = 1; note = "Makers took " + tk[mt] + ": 1 point"; }
+  else { pts[1 - mt] = 2; note = "Euchre! Makers took only " + tk[mt] + ": 2 points"; if (mt === 1) award("euchre"); }
+  if (alone && mt === 0 && tk[0] >= 3) award("alone");
+  scores[0] += pts[0]; scores[1] += pts[1];
+  const fin = scores[0] >= target || scores[1] >= target, youWin = scores[0] >= target && scores[0] > scores[1] || (fin && scores[0] > scores[1]);
+  const row = (t, nm) => `<tr><td style="text-align:left">${nm}</td><td>${tk[t]}</td><td>${pts[t] ? "+" + pts[t] : "0"}</td><td><b>${scores[t]}</b></td></tr>`;
+  summary(`<h1>Hand ${handNo}</h1><p class="sub">Trump: ${SUITN[trump]} · ${NAMES[maker]} ${alone ? "went alone" : "made it"}</p><table style="width:100%;font-size:15px;border-collapse:collapse"><tr style="color:#9fc0ad"><td></td><td>Tricks</td><td>Pts</td><td>Total</td></tr>${row(0, "You & Moss")}${row(1, "Wren & Sage")}</table><p class="sub">${escHTML(note)}</p>`, fin, youWin, fin ? (youWin ? "Your team wins!" : "Wren & Sage win") : "First to " + target + " wins.");
+}
+// ----- hand end / game end -----
+function endHand() {
+  phase = "handEnd"; Kit.sfx("win");
+  if (game === "hearts") endHandHearts(); else if (game === "spades") endHandSpades(); else endHandEuchre();
+}
+function hideCard() { document.getElementById("over").hidden = true; }
+function summary(html, fin, youWin, msg) {
+  if (fin) {
+    state = "over"; phase = "gameOver"; Kit.hideControls();
+    if (!statsDone) { statsDone = true; Kit.record({ win: youWin ? 1 : 0, secs: Math.round((performance.now() - startT) / 1000) }); if (youWin) { award(game === "hearts" ? "hwin" : game === "spades" ? "swin" : "ewin"); } }
+    Kit.sfx(youWin ? "win" : "lose"); Kit.haptic(60); if (youWin) burst(180, 280, "#f2c14e", 40, 180, 1);
+    card(html + `<p><b>${escHTML(msg)}</b></p>`, "Play again", () => { startMatch(); });
+    const b = document.createElement("button"); b.className = "ghost"; b.textContent = "Menu"; b.onclick = () => { hideCard(); openMenu(); }; document.getElementById("card").append(b);
+  } else {
+    card(html + `<p class="sub">${escHTML(msg)}</p>`, "Next hand", () => { newHand(); });
+    if (autoPlay) setTimeout(() => { const g = document.getElementById("go"); if (g && state === "play") g.click(); }, 60); // test-only auto mode
+  }
+}
+
+// ===================================== input =====================================
+function layout() { const n = hands[0].length, step = n > 1 ? Math.min(52, (344 - CW) / (n - 1)) : 0, total = CW + step * (n - 1); return { n, step, x0: (LW - total) / 2 }; }
+function idxAt(x, y) {
+  const L = layout(); if (!L.n || y < HY - 34 || y > HY + CH + 30) return -1;
+  if (x < L.x0 - 6 || x > L.x0 + L.step * (L.n - 1) + CW + 6) return -1;
+  return clamp(Math.floor((x - L.x0) / (L.step || 1)), 0, L.n - 1);
+}
+const humanCanAct = () => state === "play" && !sitsOut() && ((phase === "play" && turn === 0 && !trick.some((t) => t.p === 0)) || phase === "pass" || phase === "discard");
+const sitsOut = () => sitOut === 0;
+function modalButtons() {
+  const out = [];
+  if (state !== "play" || sitsOut() && phase === "bid") return out;
+  if (phase === "bid" && bidder === 0) {
+    if (game === "spades") {
+      out.push({ x: 18, y: 160, w: 324, h: 232, modal: true });
+      const labels = ["Nil"].concat(Array.from({ length: 13 }, (_, i) => String(i + 1)));
+      labels.forEach((l, i) => { const col = i % 5, row = (i / 5) | 0; out.push({ x: 30 + col * 60, y: 218 + row * 52, w: 54, h: 46, label: l, v: i === 0 ? 0 : i, sel: (i === 0 ? 0 : i) === bidSel, fn: () => spBid(0, i === 0 ? 0 : i) }); });
+    } else if (game === "euchre") {
+      out.push({ x: 18, y: 160, w: 324, h: 232, modal: true });
+      if (bidRound === 1) {
+        out.push({ x: 34, y: 272, w: 292, h: 46, label: "Order it up", fn: () => euCall(0, sOf(upcard), aloneToggle) });
+        const dealerStick = false; void dealerStick;
+        out.push({ x: 34, y: 326, w: 292, h: 46, label: "Pass", fn: () => euPass(0) });
+      } else {
+        const sl = [0, 1, 2, 3].filter((s) => s !== sOf(upcard));
+        sl.forEach((s, i) => out.push({ x: 30 + i * 100, y: 236, w: 94, h: 50, label: SUITN[s], suit: s, fn: () => euCall(0, s, aloneToggle) }));
+        if (!(dealer === 0 && choice("stick", ["on", "off"], "on") === "on")) out.push({ x: 34, y: 344, w: 292, h: 40, label: "Pass", fn: () => euPass(0) });
+      }
+      out.push({ x: 34, y: bidRound === 1 ? 222 : 294, w: 292, h: 40, label: "Go alone: " + (aloneToggle ? "ON" : "off"), toggle: true, sel: aloneToggle, fn: () => { aloneToggle = !aloneToggle; } });
+    }
+  }
+  return out;
+}
+function tryPlayIdx(i) {
+  const c = hands[0][i]; if (c === undefined) return;
+  if (!legalCards(0).includes(c)) { shake = .3; Kit.haptic(30); Kit.sfx("thud"); toast(whyIllegal(c)); return; }
+  raised = -1; playCard(0, c);
+}
+function confirmAction() {
+  if (state !== "play") return;
+  if (phase === "pass") { if (passSel.length === 3) { Kit.sfx("click"); doPassing(); } else toast("Pick 3 cards to pass"); }
+  else if (phase === "discard") { if (raised >= 0) euDiscard(hands[0][raised]); else toast("Raise the card you want to discard"); }
+  else if (phase === "play" && turn === 0 && !sitsOut()) { if (raised >= 0) tryPlayIdx(raised); else toast("Tap a card to raise it first"); }
+  else if (phase === "bid" && bidder === 0 && game === "spades") spBid(0, bidSel);
+  else if (phase === "trickEnd" || phase === "play") wait = Math.min(wait, .05);
+}
+function moveSel(d) {
+  if (!humanCanAct() || !hands[0].length) return;
+  if (phase === "pass") { raised = clamp((raised < 0 ? (d > 0 ? -1 : hands[0].length) : raised) + d, 0, hands[0].length - 1); return; }
+  raised = clamp((raised < 0 ? (d > 0 ? -1 : hands[0].length) : raised) + d, 0, hands[0].length - 1); Kit.sfx("tick");
+}
+let playBtn = null;
+function showControls() {
+  const l = Kit.button(`<span class="big">◀</span>`, { down: () => moveSel(-1), repeat: 170, cls: "sm", aria: "Select previous card" });
+  const r = Kit.button(`<span class="big">▶</span>`, { down: () => moveSel(1), repeat: 170, cls: "sm", aria: "Select next card" });
+  playBtn = Kit.button(`<span class="big">▲</span>PLAY`, { down: () => confirmAction(), cls: "wide", aria: "Play the raised card" });
+  Kit.controls([l, r], [playBtn]);
+}
+Kit.play({
+  start(f) {
+    if (state !== "play" || !document.getElementById("over").hidden) { f.owner = null; return; }
+    const mb = modalButtons();
+    if (mb.length) { f.owner = { k: "modal", hit: mb.find((b) => !b.modal && f.x >= b.x && f.x <= b.x + b.w && f.y >= b.y && f.y <= b.y + b.h) }; if (f.owner.hit) f.owner.hit.down = true; return; }
+    if (phase === "trickEnd" || (phase === "play" && wait > 0 && turn !== 0)) { wait = Math.min(wait, .08); }
+    if (!humanCanAct()) { f.owner = null; return; }
+    const i = idxAt(f.x, f.y); if (i < 0) { f.owner = null; return; }
+    const was = phase === "pass" ? passSel.includes(i) : raised === i;
+    if (phase !== "pass" && !was) { raised = i; Kit.sfx("tick"); Kit.haptic(6); }
+    f.owner = { k: "hand", was, i, moved: false };
+  },
+  move(f) {
+    const o = f.owner; if (!o || o.k !== "hand") return;
+    if (Math.abs(f.x - f.x0) > 8) o.moved = true;
+    if (o.moved && phase !== "pass") { const i = idxAt(f.x, HY + 20); if (i >= 0 && i !== raised) { raised = i; Kit.sfx("tick"); } }
+  },
+  end(f) {
+    const o = f.owner; if (!o || state !== "play") return;
+    if (o.k === "modal") { const h = o.hit; if (h) { h.down = false; if (f.x >= h.x && f.x <= h.x + h.w && f.y >= h.y && f.y <= h.y + h.h) { Kit.sfx("click"); Kit.haptic(10); h.fn(); } } return; }
+    if (o.k === "hand") {
+      if (phase === "pass") { const i = idxAt(f.x, HY + 20); if (i < 0 || o.moved) return; const k = passSel.indexOf(i); if (k >= 0) passSel.splice(k, 1); else if (passSel.length < 3) passSel.push(i); else { toast("Only 3 cards: tap one to put it back"); Kit.haptic(20); } Kit.sfx("tick"); }
+      else if (!o.moved && o.was && humanCanAct() && phase === "play") tryPlayIdx(o.i);
+      else if (!o.moved && o.was && phase === "discard") euDiscard(hands[0][o.i]);
+    }
+  }
+});
+addEventListener("keydown", (e) => {
+  const k = e.key; if (k === "p" || k === "P" || k === "Escape") { Kit.pause(); return; }
+  if (state !== "play" || !document.getElementById("over").hidden) return;
+  if (phase === "bid" && bidder === 0 && game === "spades") { if (k === "ArrowRight" || k === "ArrowUp") bidSel = Math.min(13, bidSel + 1); else if (k === "ArrowLeft" || k === "ArrowDown") bidSel = Math.max(0, bidSel - 1); else if (k === "Enter" || k === " ") spBid(0, bidSel); return; }
+  if (k === "ArrowLeft" || k === "a") moveSel(-1); else if (k === "ArrowRight" || k === "d") moveSel(1); else if (k === "Enter" || k === " ") {
+    if (phase === "pass" && raised >= 0) { const k2 = passSel.indexOf(raised); if (k2 >= 0) passSel.splice(k2, 1); else if (passSel.length < 3) passSel.push(raised); else confirmAction(); }
+    else confirmAction();
+  }
+});
+
+// ===================================== draw =====================================
+function seatBacks() {
+  const mk = (p, x, y, vertical) => {
+    const n = hands[p].length; if (p === sitOut) { tx("sitting out", vertical ? x : x, y, 12, "#9fc0ad", vertical ? "left" : "center", 600); return; }
+    for (let i = 0; i < n; i++) { if (vertical) drawBack(x, y + i * 9, 36, 50); else drawBack(x - ((n - 1) * 10 + 36) / 2 + i * 10, y, 36, 50); }
+  };
+  if (!hands[1]) return;
+  mk(2, 180, 64, false); mk(1, 6, 176, true); mk(3, 318, 176, true);
+}
+function seatTag(p) {
+  let a = NAMES[p] + (p === dealer ? " ·D" : ""), b = "";
+  if (game === "hearts") b = (taken[p].filter((c) => sOf(c) === 3 || c === 42).length ? (taken[p].reduce((n, c) => n + (sOf(c) === 3 ? 1 : c === 42 ? 13 : 0), 0)) + " pts" : "");
+  else { if (game === "spades" && bids[p] !== null) b = "bid " + (bids[p] === 0 ? "Nil" : bids[p]) + " · " + tricksWon[p]; else if (game === "euchre" && phase !== "bid" && trump >= 0) b = tricksWon[p] + " won" + (p === maker ? " · maker" : ""); }
+  return [a, b];
+}
+function draw() {
+  ctx.fillStyle = "#0d2a1f"; ctx.fillRect(0, 0, LW, LH);
+  const g = ctx.createRadialGradient(180, 250, 20, 180, 250, 300); g.addColorStop(0, "#17503a"); g.addColorStop(1, "#0d2a1f"); ctx.fillStyle = g; ctx.fillRect(0, 0, LW, LH);
+  ctx.strokeStyle = "rgba(255,255,255,.07)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(180, 236, 100, 82, 0, 0, TAU); ctx.stroke();
+  if (state === "menu") return;
+  // scores
+  if (game === "hearts") { for (let p = 0; p < 4; p++) { const x = 6 + p * 87; ctx.fillStyle = p === 0 ? "rgba(242,193,78,.2)" : "rgba(255,255,255,.07)"; rr(x, 4, 83, 28, 8); ctx.fill(); tx(NAMES[p], x + 6, 18, 12, "#c9dccf", "left", 600); tx(String(scores[p]), x + 77, 18, 15, "#f3efe2", "right", 800); } }
+  else for (let t = 0; t < 2; t++) { const x = 6 + t * 177; ctx.fillStyle = t === 0 ? "rgba(242,193,78,.2)" : "rgba(255,255,255,.07)"; rr(x, 4, 171, 28, 8); ctx.fill(); tx(t ? "Wren & Sage" : "You & Moss", x + 8, 18, 12, "#c9dccf", "left", 600); tx(String(scores[t]) + (game === "spades" ? " · " + bags[t] + " bags" : ""), x + 164, 18, 14, "#f3efe2", "right", 800); }
+  seatBacks();
+  for (const p of [1, 2, 3]) { const [a, b] = seatTag(p); const x = p === 1 ? 6 : p === 3 ? 354 : 180, al = p === 1 ? "left" : p === 3 ? "right" : "center", y = p === 2 ? 50 : 146; ctx.globalAlpha = turn === p && phase === "play" ? 1 : .85; tx(a, x, y, 13, turn === p && (phase === "play" || phase === "bid") && state === "play" ? "#f2c14e" : "#f3efe2", al, 800); if (b) tx(b, x, y + 14, 12, "#c9dccf", al, 600); ctx.globalAlpha = 1; }
+  // trick
+  const src = sweep ? sweep.cards : trick;
+  for (const t of src) {
+    const [sx, sy] = SLOT[t.p], [ox, oy] = ORIG[t.p]; let x = sx, y = sy;
+    if (!sweep) { t.t = Math.min(1, t.t + .06); const k = t.t * (2 - t.t); x = ox + (sx - ox) * k; y = oy + (sy - oy) * k; }
+    else { const k = Math.min(1, sweep.t / .35), [tx2, ty2] = ORIG[sweep.to]; x = sx + (tx2 - sx) * k; y = sy + (ty2 - sy) * k; }
+    drawCard(t.c, x - 23, y - 32, 46, 64, { shadow: true, glow: !sweep && phase === "trickEnd" && t.p === trickWinner() });
+  }
+  if (game === "euchre" && trump >= 0 && state === "play") { ctx.fillStyle = "rgba(0,0,0,.35)"; rr(122, 346, 116, 24, 12); ctx.fill(); ctx.fillStyle = isRedS(trump) ? "#ff7b72" : "#f3efe2"; suitGlyph(trump, 142, 358, 15); tx("Trump " + SUITN[trump], 154, 358, 13, "#f3efe2", "left", 700); }
+  if (game === "euchre" && phase === "bid" && upcard >= 0 && bidRound === 1 && bidder !== 0) drawCard(upcard, 154, 146, 52, 72, { shadow: true });
+  // status
+  let st = "";
+  if (phase === "pass") st = `Pass 3 cards ${["", "to your left (Wren)", "across (Moss)", "to your right (Sage)"][passDir === 1 ? 1 : passDir === 2 ? 2 : 3]} · ${passSel.length}/3`;
+  else if (phase === "discard") st = "You picked it up: raise a card to discard";
+  else if (phase === "bid") st = bidder === 0 ? "Your bid" : `${NAMES[bidder]} is thinking…`;
+  else if (phase === "play") st = turn === 0 ? (sitsOut() ? "You are sitting out this hand" : "Your turn: tap a card, tap again to play") : `${NAMES[turn]} is thinking…`;
+  else if (phase === "trickEnd") st = `${NAMES[trickWinner()]} takes the trick`;
+  else if (phase === "bidDone") st = "Bids are in";
+  else if (phase === "msg") st = euLog;
+  if (st && !(phase === "bid" && bidder === 0 && state === "play")) tx(st, 180, 392, 14, "#f2c14e", "center", 800);
+  if (game === "euchre" && euLog && phase !== "msg" && !(phase === "bid" && bidder === 0)) tx(euLog, 180, 410, 12, "#c9dccf", "center", 600);
+  // hand
+  if (!sitsOut() && hands[0]) {
+    const L = layout(), legal = state === "play" && phase === "play" && turn === 0 && !trick.some((t) => t.p === 0) ? legalCards(0) : null;
+    for (let i = 0; i < L.n; i++) {
+      const c = hands[0][i], isRaised = (phase === "pass" ? passSel.includes(i) : raised === i); if (isRaised) continue;
+      drawCard(c, L.x0 + i * L.step + (shake > 0 && legal ? Math.sin(tm * 60) * 2 : 0), HY + (phase === "pass" && raised === i ? -10 : 0), CW, CH, { dim: legal && !legal.includes(c), glow: newCards.includes(c) && phase === "play" && trickNo < 2 });
+    }
+    for (let i = 0; i < L.n; i++) {
+      const isRaised = (phase === "pass" ? passSel.includes(i) : raised === i); if (!isRaised) continue;
+      const c = hands[0][i]; drawCard(c, L.x0 + i * L.step, HY - 26, CW, CH, { shadow: true, glow: true, dim: legal && !legal.includes(c) });
+    }
+    if (phase === "pass" && raised >= 0) { const L2 = layout(); ctx.strokeStyle = "#f2c14e"; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); rr(L2.x0 + raised * L2.step - 1, HY - 1, CW + 2, CH + 2, 6); ctx.stroke(); ctx.setLineDash([]); }
+    const [a, b] = seatTag(0); void a; if (b) tx(b, 8, 428, 12, "#c9dccf", "left", 700);
+  } else if (sitsOut()) tx("Your partner is going alone", 180, 480, 15, "#c9dccf", "center", 700);
+  // modals
+  for (const b of modalButtons()) {
+    if (b.modal) { ctx.fillStyle = "rgba(6,18,12,.9)"; rr(b.x, b.y, b.w, b.h, 14); ctx.fill(); ctx.strokeStyle = "#f2c14e"; ctx.lineWidth = 2; rr(b.x, b.y, b.w, b.h, 14); ctx.stroke();
+      if (game === "spades") { tx("Your bid", 180, 182, 17, "#f2c14e", "center", 800); tx("Tricks you and Moss will take. Nil = take none.", 180, 202, 12, "#c9dccf", "center", 600); }
+      else { tx(bidRound === 1 ? "Order up " + SUITN[sOf(upcard)] + "?" : "Name trump", 180, 182, 17, "#f2c14e", "center", 800); if (bidRound === 1) { tx(`Dealer ${NAMES[dealer]} picks up the card`, 170, 208, 12, "#c9dccf", "center", 600); } else tx("Not " + SUITN[sOf(upcard)] + " · pick a suit", 180, 208, 12, "#c9dccf", "center", 600); }
+      continue; }
+    ctx.fillStyle = b.down ? "#f2c14e" : b.sel ? "rgba(242,193,78,.35)" : "rgba(255,255,255,.1)"; rr(b.x, b.y, b.w, b.h, 10); ctx.fill(); ctx.strokeStyle = b.sel || b.down ? "#f2c14e" : "rgba(242,193,78,.5)"; ctx.lineWidth = 1.5; rr(b.x, b.y, b.w, b.h, 10); ctx.stroke();
+    const col = b.down ? "#1c1606" : "#f3efe2";
+    if (b.suit !== undefined) { ctx.fillStyle = isRedS(b.suit) ? (b.down ? "#8b1a1a" : "#ff7b72") : col; suitGlyph(b.suit, b.x + 20, b.y + b.h / 2, 22); tx(b.label, b.x + 36, b.y + b.h / 2, 14, col, "left", 800); }
+    else tx(b.label, b.x + b.w / 2, b.y + b.h / 2, game === "spades" ? 18 : 16, col, "center", 800);
+  }
+  if (game === "euchre" && phase === "bid" && bidRound === 1 && bidder === 0 && state === "play") drawCard(upcard, 284, 166, 44, 62, { shadow: true });
+  if (game === "spades" && phase === "bid" && bidder === 0) tx(`Suggested: ${spBidFor(0) === 0 ? "Nil" : spBidFor(0)}`, 180, 378, 12, "#f2c14e", "center", 700);
+  drawParts();
+}
+function update(dt) {
+  tm += dt; if (shake > 0) shake -= dt;
+  if (sweep) sweep.t += dt;
+  if (state === "play" && wait > 0) { wait -= dt; if (wait <= 0) { wait = 0; const f = nextFn; nextFn = null; f && f(); } }
+  if (autoPlay && state === "play" && wait <= 0 && !document.getElementById("over").hidden === false) { // test-only auto mode: act for the human
+    if (phase === "pass") { passSel = [0, 1, 2]; doPassing(); } else if (phase === "discard") euDiscard(hands[0][0]);
+    else if (phase === "bid" && bidder === 0) { if (game === "spades") spBid(0, spBidFor(0)); else euPass(0); }
+    else if (phase === "play" && turn === 0 && !sitsOut() && !trick.some((t) => t.p === 0)) playCard(0, legalCards(0)[0]);
+  }
+  if (playBtn) { const lab = phase === "pass" ? `<span class="big">➜</span>PASS ${passSel.length}/3` : phase === "discard" ? `<span class="big">✕</span>DISCARD` : phase === "bid" && game === "spades" ? `<span class="big">✔</span>BID ${bidSel === 0 ? "NIL" : bidSel}` : `<span class="big">▲</span>PLAY`; if (playBtn._l !== lab) { playBtn._l = lab; playBtn.innerHTML = lab; } }
+}
+let turbo = 1; // test-only: run extra update steps per frame
+loop((dt) => { if (!Kit.isPaused()) { for (let k = 0; k < turbo; k++) update(dt); stepParts(dt); } draw(); });
+Kit.lifecycle({ pause: () => state === "play" && document.getElementById("over").hidden, resume: () => {}, menu: openMenu });
+
+function openMenu() {
+  state = "menu"; phase = ""; wait = 0; nextFn = null; Kit.hideControls(); stats({}); hideCard(); playBtn = null; hands = [[], [], [], []]; trick = []; sweep = null;
+  Kit.menu({
+    title: "Card Table", hand: true, bestLabel: "Best",
+    html: `<p class="sub">Hearts, Spades or Euchre against three CPU players. Your cards fan along the bottom: tap one to raise it, tap it again (or press PLAY) to play it. Dimmed cards can't be played right now.</p><p class="sub">Targets (short / normal / long): Hearts 50 / 100 / 150 · Spades 200 / 300 / 500 · Euchre 5 / 10 / 15.</p>`,
+    settings: [
+      { k: "game", label: "Game", def: "hearts", opts: [["hearts", "Hearts"], ["spades", "Spades"], ["euchre", "Euchre"]] },
+      { k: "len", label: "Target score", def: "normal", opts: [["short", "Short"], ["normal", "Normal"], ["long", "Long"]] },
+      { k: "skill", label: "CPU skill", def: "normal", opts: [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]] },
+      { k: "back", label: "Card back", def: "blue", opts: [["blue", "Blue"], ["red", "Red"], ["green", "Green"], ["gold", "Gold"]] },
+      { k: "speed", label: "Speed", def: "normal", opts: [["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]] },
+      { k: "jd", label: "Hearts: Jack of Diamonds −10", def: "off", opts: [["off", "Off"], ["on", "On"]] },
+      { k: "stick", label: "Euchre: stick the dealer", def: "on", opts: [["on", "On"], ["off", "Off"]] }
+    ],
+    levels: null,
+    challenges: [{ id: "hwin", text: "Win a game of Hearts" }, { id: "moon", text: "Shoot the moon in Hearts" }, { id: "swin", text: "Win a game of Spades" }, { id: "nil", text: "Make a nil bid in Spades" }, { id: "ewin", text: "Win a game of Euchre" }, { id: "euchre", text: "Euchre the other team (they make it, take under 3)" }, { id: "alone", text: "Go alone and take 3+ tricks in Euchre" }],
+    play: "Deal"
+  }, () => startMatch());
+}
+window.T = {
+  get state() { return state; }, get phase() { return phase; }, get game() { return game; }, get turn() { return turn; }, get hand() { return hands[0].length; }, get raised() { return raised; }, get scores() { return scores.slice(); },
+  get handNo() { return handNo; }, get bidder() { return bidder; }, get round() { return bidRound; }, get trickCount() { return trickNo; }, get played() { return trick.length; }, get passSel() { return passSel.length; }, get dealer() { return dealer; }, get trump() { return trump; }, get sitOut() { return sitOut; },
+  get cards() { return hands[0].slice(); }, get legal() { return state === "play" && hands[0].length ? legalCards(0) : []; }, get layout() { return layout(); }, get done() { return Object.keys(SAVE.done).join(","); }, get bids() { return bids.slice(); },
+  set speed(v) { spd = v; }, set turbo(v) { turbo = clamp(v | 0, 1, 60); }, get sc() { return SC; }, get wait() { return wait; }, get tm() { return tm; },
+  set auto(v) { autoPlay = !!v; if (v && state === "play") { if (phase === "play" && turn === 0) beginTurn(); } }, get auto() { return autoPlay; },
+  autoNow() { // test-only: act for the human right now
+    if (state !== "play") return; if (phase === "pass") { passSel = [0, 1, 2]; doPassing(); } else if (phase === "play" && turn === 0) { playCard(0, legalCards(0)[0]); } else if (phase === "bid" && bidder === 0) { if (game === "spades") spBid(0, bidSel); else euPass(0); } else if (phase === "discard") euDiscard(hands[0][0]);
+  }
+};
+fit(); openMenu();
+
+})();
+</script>
+
+</html>

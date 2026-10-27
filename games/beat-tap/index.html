@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}</style>
+<title>Beat Tap</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#0e0a1f;--ink:#f5f1ff;--muted:#a79fd0;--accent:#ff4fa3;--f-display:"Bungee",Impact,sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#1c0614;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.bt-grade{font:900 56px var(--f-display);color:var(--accent);line-height:1}
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#1c0614;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#1c0614}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#1c0614;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class="app">
+  <div class="hud"><div class="title">Beat Tap</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Tap the pad under each lane · hold long notes</div><div class="ctl" id="ctl" hidden></div>
+</div>
+<script>
+(()=>{
+const LW=360,LH=600,FONT="'Bungee', Impact, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ================= layout =================
+const HIT_Y = 462, PAD_T = 486, PAD_B = 592, TOP_Y = 46, ZONE_T = 370;
+const SPEEDS = [0, 250, 330, 420, 520];
+const COLS = { 4: ["#ff4fa3", "#ffd23f", "#3ee6c4", "#6aa8ff"], 3: ["#ff4fa3", "#3ee6c4", "#6aa8ff"] };
+const SHAPES = { 4: ["circle", "diamond", "tri", "square"], 3: ["circle", "tri", "square"] };
+const KEYS = { 4: ["d", "f", "j", "k"], 3: ["f", " ", "j"] };
+const KEYLBL = { 4: ["D", "F", "J", "K"], 3: ["F", "SPACE", "J"] };
+const WINM = { lenient: 1.3, standard: 1, strict: .8 };
+const GRADES = ["SS", "S", "A", "B", "C", "D", "F"];
+const SANS = "system-ui,-apple-system,sans-serif";
+
+// ================= songs: step-sequenced patterns (16 steps per bar, 4 bars per section) =================
+// k/s/h = kick/snare/hat patterns, b = bass (x root, o octave), A/B/C = 4-bar lead phrases:
+// digits/a/b = scale degree, '.' rest, '-' hold previous note.  arr: I intro, A, B, C break, O outro.
+const SCALES = { mp: [0, 3, 5, 7, 10], MP: [0, 2, 4, 7, 9], ph: [0, 1, 4, 5, 7, 8, 10] };
+const DEG = "123456789ab";
+const SONGS = [
+  { n: "Neon Pulse", st: "Electro", bpm: 118, root: 45, sc: "mp", wave: "sawtooth", pad: 1, sw: 0,
+    prog: [[0, "m"], [8, "M"], [3, "M"], [10, "M"]], k: "x...x...x...x...", s: "....x.......x...", h: "..x...x...x...x.", b: "x.xo.x.xx.xo.x.x",
+    A: ["1..3..5..3..1...", "2..4..5..4..2...", "3.3.5.3.2.2.3...", "5---3-2-1-------"], B: ["6.6.8.6.5.5.3.5.", "6.8.9.8.6.5.3.2.", "8..8..9..8..6.5.", "3.5.6.5.3.2.1---"], arr: "IAABAABO" },
+  { n: "Sunny Side", st: "Funk pop", bpm: 102, root: 43, sc: "MP", wave: "square", pad: 0, sw: .15,
+    prog: [[0, "M"], [5, "M"], [7, "M"], [5, "M"]], k: "x.....x..x......", s: "....x.......x...", h: "x.x.x.x.x.x.x.x.", b: "x..x..o.x..xo.x.",
+    A: ["3.5.3.2.1...2.3.", "5..5.6.5.3...2..", "3.5.3.2.1.2.3.5.", "6---5-3-2-------"], B: ["8.8.9.8.6.5.6.8.", "9..9.8.6.5...6..", "8.6.5.3.5.6.8.9.", "a--8-6-5-------."], arr: "IAABAABO" },
+  { n: "Pixel Parade", st: "Chiptune", bpm: 132, root: 48, sc: "MP", wave: "square", pad: 0, arp: 1, sw: 0,
+    prog: [[0, "M"], [9, "m"], [5, "M"], [7, "M"]], k: "x...x..xx...x...", s: "....x.......x..x", h: "x.x.x.x.x.x.x.xx", b: "x.x.o.x.x.x.o.xx",
+    A: ["5.5.5.3.5.6.5...", "3.3.3.2.3.5.3...", "5.5.6.8.6.5.3.5.", "6-5-3-2-1-------"], B: ["8.9.8.6.8.9.8...", "9.9.a.9.8.6.5...", "8.6.5.6.8.9.a.9.", "8-6-5-3-5-------"], arr: "IAABAABBO" },
+  { n: "Midnight Drive", st: "Synthwave", bpm: 106, root: 41, sc: "mp", wave: "sawtooth", pad: 1, arp: 1, sw: 0,
+    prog: [[0, "m"], [8, "M"], [3, "M"], [10, "M"]], k: "x.......x.x.....", s: "....x.......x...", h: "x.x.x.x.x.x.x.x.", b: "xx.xx.xxxx.xx.xx",
+    A: ["5---3-5-6---5-3-", "5---3-2-1-------", "3-1-3-5-6---8-6-", "5-3-2-1-2-3-----"], B: ["8---6-8-9---8-6-", "a-9-8-6-5---6-8-", "9-8-6-5-3-5-6-8-", "9---------------"], arr: "IAABAABO" },
+  { n: "Jelly Bounce", st: "Shuffle", bpm: 116, root: 46, sc: "MP", wave: "triangle", pad: 0, sw: .33,
+    prog: [[0, "M"], [5, "M"], [7, "M"], [5, "M"]], k: "x.....x...x.....", s: "....x.......x...", h: "x.x.x.x.x.x.x.x.", b: "x..o..x.x..o..x.",
+    A: ["3.3.5.3.2.1.2.3.", "5.5.6.5.3.2.3...", "3.5.6.8.6.5.3.2.", "1.2.3.5.3-------"], B: ["8.8.9.8.6.5.6.8.", "9.a.9.8.6.5.3...", "6.8.9.a.9.8.6.5.", "6-5-3-2-1-------"], arr: "IAABAABO" },
+  { n: "Storm Chaser", st: "Drum and bass", bpm: 170, root: 43, sc: "mp", wave: "sawtooth", pad: 0, sw: 0,
+    prog: [[0, "m"], [8, "M"], [3, "M"], [10, "M"]], k: "x..........x....", s: "....x.......x...", h: "x.xxx.xxx.xxx.xx", b: "x..x..x...x.x..x",
+    A: ["5.5.3.5.6.5.3...", "5.5.3.5.8.6.5.3.", "6.6.5.3.5.6.8.6.", "5-3-2-3-5-------"], B: ["8.8.6.8.9.8.6.5.", "8.9.a.9.8.6.5.6.", "a.9.8.6.8.9.a.b.", "9-8-6-5-3-------"], arr: "IAABAABBAO" },
+  { n: "Desert Mirage", st: "Eastern scale", bpm: 110, root: 40, sc: "ph", wave: "square", pad: 1, sw: 0,
+    prog: [[0, "5"], [1, "5"], [0, "5"], [10, "5"]], k: "x..x..x...x..x..", s: "....x.......x...", h: "x.x.x.x.x.x.x.x.", b: "x.x..xo.x.x..xo.",
+    A: ["1.2.3.2.1...2.1.", "3-4-5-4-3-2-1...", "5.6.5.4.3.4.5...", "8---7-6-5-------"], B: ["5.6.7.8.7.6.5.4.", "3.4.5.6.5.4.3.2.", "8.7.6.5.6.7.8.9.", "8-7-5-3-1-------"], arr: "IAABAABO" },
+  { n: "Candy Rave", st: "Trance", bpm: 148, root: 47, sc: "MP", wave: "sawtooth", pad: 1, arp: 1, sw: 0,
+    prog: [[0, "M"], [9, "m"], [5, "M"], [7, "M"]], k: "x...x...x...x...", s: "....x.......x...", h: ".x.x.x.x.x.x.x.x", b: ".x.x.x.x.x.x.x.x",
+    A: ["5.5.6.5.3.5.6.8.", "8.8.9.8.6.8.9.a.", "5.6.8.9.8.6.5.3.", "8-6-5-3-5-------"], B: ["a.a.b.a.8.a.b.a.", "9.9.a.9.8.9.a.b.", "8.9.a.b.a.9.8.6.", "a---8---6---5---"], arr: "IAABAABBO" },
+  { n: "Iron Gears", st: "Rock", bpm: 138, root: 40, sc: "mp", wave: "sawtooth", pad: 0, sw: 0,
+    prog: [[0, "5"], [3, "5"], [5, "5"], [3, "5"]], k: "x.x...x.x.x.....", s: "....x.......x...", h: "x.x.x.x.x.x.x.x.", b: "xxxxxxxxxxxxxxxx",
+    A: ["1.1.3.1.5.3.1...", "1.1.3.1.5.6.5.3.", "3.3.5.3.6.5.3.1.", "5---3---1-------"], B: ["6.6.8.6.9.8.6.5.", "6.8.9.8.6.5.3.5.", "9.9.a.9.8.6.5.3.", "8-6-5-3-1-------"], arr: "IAABAABBO" },
+  { n: "Starlight Finale", st: "Epic", bpm: 144, root: 45, sc: "mp", wave: "sawtooth", pad: 1, arp: 1, sw: 0,
+    prog: [[0, "m"], [8, "M"], [10, "M"], [7, "M"]], k: "x..x..x...x..x..", s: "....x.......x...", h: "x.xxx.xxx.xxx.xx", b: "x.xxo.xxx.xxo.xx",
+    A: ["3.5.6.5.3.5.6.8.", "6.5.3.5.6.8.9.8.", "5.6.8.9.a.9.8.6.", "8---6-5-3-------"], B: ["a.a.9.8.9.a.b.a.", "9.9.8.6.8.9.a.9.", "8.9.a.b.a.9.8.6.", "a-9-8-6-5-3-2-1-"],
+    C: ["1---------------", "3---------------", "5---------------", "8---------------"], arr: "IAABCBBAO" }
+];
+const SLABEL = SONGS.map((s) => s.n + " · " + s.st + " · " + s.bpm + " BPM");
+
+// ================= settings (every read is validated) =================
+const cfgDiff = () => { const v = setting("diff", "normal"); return v === "easy" || v === "hard" ? v : "normal"; };
+const diffIdx = () => ({ easy: 0, normal: 1, hard: 2 })[cfgDiff()];
+const cfgSpeed = () => { const v = Math.round(+setting("speed", 2)); return clamp(Number.isFinite(v) ? v : 2, 1, 4); };
+const cfgLanes = () => (setting("lanes", 4) === 3 ? 3 : 4);
+const cfgPractice = () => setting("practice", "off") === "on";
+const cfgTiming = () => { const v = setting("timing", "standard"); return v === "lenient" || v === "strict" ? v : "standard"; };
+const cfgTempo = () => { const v = setting("prtempo", 100); return v === 75 || v === 50 ? v : 100; };
+const cfgOn = (k, d) => setting(k, d) !== "off";
+const cfgOff = (k) => { const v = +setting(k, 0); return Number.isFinite(v) ? clamp(Math.round(v), -250, 250) : 0; };
+const bestOf = (k) => { const v = SAVE.best[k]; return Number.isFinite(v) ? clamp(v, 0, 1e6) : 0; };
+const soundOn = () => setting("sound", "on") === "on";
+
+// ================= state =================
+let state = "menu", S = null, CL = null, curSong = 0;
+let AC = null, master = null, comp = null, noiseBuf = null, mapB = 0, mapInit = false;
+
+// ================= audio engine (own AudioContext; the clock of the whole game) =================
+function ensureAC() {
+  if (!AC) {
+    try {
+      AC = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" });
+      comp = AC.createDynamicsCompressor(); master = AC.createGain(); master.connect(comp); comp.connect(AC.destination);
+      noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    } catch (e) { AC = null; return null; }
+  }
+  try { if (AC.state === "suspended") AC.resume(); } catch (e) {}
+  return AC;
+}
+function applyMaster() { if (master) master.gain.value = soundOn() ? .8 : 0; }
+function syncClock() {
+  if (!AC) return; let b;
+  try { const ts = AC.getOutputTimestamp(); if (ts && ts.contextTime > 0 && ts.performanceTime > 0) b = ts.contextTime - ts.performanceTime / 1000; } catch (e) {}
+  if (b === undefined) b = AC.currentTime - performance.now() / 1000;
+  mapB = mapInit ? mapB + (b - mapB) * .15 : b; mapInit = true;
+}
+// clock object c: {mode:'ac'|'perf', start, paused}
+function tAt(pms, c) { return c.mode === "ac" ? pms / 1000 + mapB - c.start : pms / 1000 - c.start - (c.paused || 0); }
+function beginClock(c, leadIn) { c.pending = true; c.req = performance.now(); c.leadIn = leadIn; c.mode = "perf"; c.paused = 0; ensureAC(); }
+function pollClock(c) {
+  if (!c.pending) return;
+  syncClock();
+  if (AC && AC.state === "running") { c.mode = "ac"; c.start = AC.currentTime + c.leadIn; c.pending = false; }
+  else if (performance.now() - c.req > 700) { c.mode = "perf"; c.start = performance.now() / 1000 + c.leadIn; c.pending = false; }
+}
+const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+function voice(bus, t, type, f, dur, vol, o = {}) {
+  const osc = AC.createOscillator(), g = AC.createGain(); osc.type = type; osc.frequency.setValueAtTime(f, t);
+  if (o.slide) osc.frequency.exponentialRampToValueAtTime(Math.max(20, f * o.slide), t + dur);
+  if (o.det) osc.detune.value = o.det;
+  let out = osc; if (o.cut) { const fl = AC.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = o.cut; osc.connect(fl); out = fl; }
+  const att = o.att || .006, rel = o.rel || .06;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + att); g.gain.setValueAtTime(vol, t + Math.max(att, dur)); g.gain.linearRampToValueAtTime(0, t + dur + rel);
+  out.connect(g); g.connect(bus); osc.start(t); osc.stop(t + dur + rel + .02);
+}
+function noise(bus, t, dur, type, freq, vol) {
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); s.buffer = noiseBuf; f.type = type; f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); s.connect(f); f.connect(g); g.connect(bus); s.start(t, Math.random() * .4); s.stop(t + dur + .02);
+}
+const chordTones = (q) => (q === "m" ? [0, 3, 7] : q === "5" ? [0, 7, 12] : [0, 4, 7]);
+function playStep(P, i, tt, bus) {
+  const sg = P.sg, p = P.plan[i >> 4], st = i & 15, ch = sg.prog[p.bar % sg.prog.length];
+  if (p.kick && sg.k[st] === "x") { voice(bus, tt, "sine", 160, .2, .9, { slide: .28, att: .002, rel: .05 }); }
+  if (p.snare && (sg.s[st] === "x" || (p.fill && st >= 12 && st % 1 === 0 && sg.h[st] !== "z"))) { noise(bus, tt, .14, "highpass", 1800, .35); voice(bus, tt, "triangle", 220, .08, .22, { slide: .7 }); }
+  if (sg.h[st] === "x") noise(bus, tt, p.L === "C" ? .03 : .04, "highpass", 7000, p.L === "I" ? .1 : .14);
+  if (st === 0 && p.crash) noise(bus, tt, .6, "highpass", 4500, .16);
+  if (sg.b[st] === "x" || sg.b[st] === "o") voice(bus, tt, "sawtooth", mtof(sg.root + ch[0] + (sg.b[st] === "o" ? 12 : 0)), P.sd * 1.5, .26, { cut: 650, att: .004, rel: .05 });
+  for (const n of p.notes) if (n.st === st) voice(bus, tt, sg.wave, mtof(n.pitch), Math.max(P.sd * .9, n.len * P.sd - .03), .13, { cut: 3800, det: sg.wave === "sawtooth" ? 6 : 0 });
+  if (st === 0 && p.pad) for (const iv of chordTones(ch[1])) voice(bus, tt, "triangle", mtof(sg.root + 12 + ch[0] + iv), P.sd * 16, .035, { att: .08, rel: .2 });
+  if (p.arp && st % 2 === 0) { const tn = chordTones(ch[1]); voice(bus, tt, "square", mtof(sg.root + 24 + ch[0] + tn[[0, 1, 2, 1][(st >> 1) & 3]]), P.sd * 1.4, .04, { cut: 2600 }); }
+}
+function schedule() {
+  if (!S || S.mode !== "ac" || !AC || !S.bus) return;
+  const ahead = AC.currentTime + .35;
+  while (S.nextStep < S.P.steps) {
+    const tt = S.start + S.P.stepT(S.nextStep);
+    if (tt > ahead) break;
+    if (tt >= AC.currentTime - .02) playStep(S.P, S.nextStep, tt, S.bus);
+    S.nextStep++;
+  }
+}
+function hitTick() { if (cfgOn("hitsnd", "on") && AC && master && soundOn() && AC.state === "running") voice(master, AC.currentTime, "sine", 1900, .02, .1, { att: .001, rel: .02 }); }
+function stopMusic() {
+  if (S && S.bus && AC) { const b = S.bus; try { b.gain.setTargetAtTime(0, AC.currentTime, .04); } catch (e) {} setTimeout(() => { try { b.disconnect(); } catch (e) {} }, 400); S.bus = null; }
+}
+
+// ================= song preparation and chart generation =================
+function parseLead(bar) {
+  const out = []; let last = null;
+  for (let i = 0; i < 16; i++) {
+    const ch = bar[i];
+    if (ch === ".") last = null; else if (ch === "-") { if (last) last.len++; }
+    else { const d = DEG.indexOf(ch); if (d >= 0) { last = { st: i, deg: d + 1, len: 1 }; out.push(last); } else last = null; }
+  }
+  return out;
+}
+const n16 = (s) => String(s).slice(0, 16).padEnd(16, ".");
+function prep(si, tempo) {
+  const sg = SONGS[si], sd = 60 / (sg.bpm * tempo / 100) / 4, sw = sg.sw || 0, plan = [], scale = SCALES[sg.sc];
+  const secs = sg.arr.split("");
+  secs.forEach((L, sI) => {
+    const lead = { A: sg.A, B: sg.B, O: sg.A, C: sg.C || sg.A }[L];
+    for (let b = 0; b < 4; b++) {
+      const p = { L, bar: sI * 4 + b, b, notes: [], kick: L !== "C", snare: L === "A" || L === "B", crash: b === 0 && (L === "A" || L === "B" || L === "C"), fill: b === 3 && (L === "A" || L === "B"), pad: !!sg.pad && L !== "I", arp: !!sg.arp && L !== "I" };
+      if (lead) { p.notes = parseLead(n16(lead[b])); for (const n of p.notes) { const k = n.deg - 1; n.pitch = sg.root + 12 + scale[k % scale.length] + 12 * Math.floor(k / scale.length); } }
+      plan.push(p);
+    }
+  });
+  const stepT = (i) => i * sd + ((i & 1) ? sw * sd : 0), steps = plan.length * 16;
+  return { sg, sd, plan, stepT, steps, endT: stepT(steps) + 1.1, si };
+}
+function genChart(P, di, lanes) {
+  const sd = P.sd, sg = P.sg;
+  let pmin = 1e9, pmax = -1e9; const leads = [];
+  for (const p of P.plan) for (const n of p.notes) { pmin = Math.min(pmin, n.pitch); pmax = Math.max(pmax, n.pitch); }
+  const holdMin = [8, 6, 4][di], gGap = [.30, .16, .085][di], lGap = [.26, .15, .11][di], cap = [1, 2, 3][di];
+  for (const p of P.plan) for (const n of p.notes) {
+    const ok = di === 0 ? (n.st % 4 === 0 || n.len >= 8) : di === 1 ? (n.st % 2 === 0 || n.len >= 6) : true;
+    if (!ok) continue;
+    const t = P.stepT(p.bar * 16 + n.st), hold = n.len >= holdMin;
+    leads.push({ t, step: p.bar * 16 + n.st, dur: hold ? Math.max(.25, n.len * sd - .05) : 0, lane: Math.min(lanes - 1, Math.floor((n.pitch - pmin) / (pmax - pmin + 1) * lanes)), kind: "lead" });
+  }
+  leads.sort((a, b) => a.t - b.t);
+  const acc = [], byL = Array.from({ length: lanes }, () => []);
+  const free = (l, t0, t1, gap) => { for (const a of byL[l]) if (t0 < a.t + a.dur + gap && t1 > a.t - gap) return false; return true; };
+  const actHolds = (t) => acc.filter((a) => a.dur > 0 && a.t <= t + 1e-6 && a.t + a.dur > t).length;
+  const add = (c, l) => { const n = { t: c.t, lane: l, dur: c.dur || 0, kind: c.kind, state: 0, j: -1, fid: null, grp: null }; acc.push(n); byL[l].push(n); return n; };
+  let lastT = -9;
+  for (const c of leads) {
+    if (c.t - lastT < gGap - 1e-6) continue;
+    if (actHolds(c.t) + 1 > cap) continue;
+    const order = [c.lane, c.lane + 1, c.lane - 1, c.lane + 2, c.lane - 2].filter((l) => l >= 0 && l < lanes);
+    const l = order.find((x) => free(x, c.t, c.t + c.dur, lGap)); if (l === undefined) continue;
+    add(c, l); lastT = c.t;
+  }
+  const nLead = acc.length, leadTs = acc.map((a) => a.t);
+  if (di > 0) {
+    const dr = [];
+    for (const p of P.plan) for (let st = 0; st < 16; st++) {
+      const t = P.stepT(p.bar * 16 + st);
+      if (p.kick && sg.k[st] === "x" && (di === 2 || st === 0 || st === 8)) dr.push({ t, kind: "k", st, p });
+      if (p.snare && sg.s[st] === "x" && (di === 2 || p.bar % 2 === 1)) dr.push({ t, kind: "s", st, p });
+    }
+    dr.sort((a, b) => a.t - b.t); let lastD = -9;
+    for (const c of dr) {
+      const co = leadTs.findIndex((x) => Math.abs(x - c.t) < .006);
+      const pref = c.kind === "k" ? [0, lanes - 1, 1, 2] : [lanes - 1, 0, 2, 1];
+      if (co >= 0) {
+        const chordOk = di === 2 ? c.st % 4 === 0 : (c.st === 0 && c.p.bar % 2 === 0);
+        if (!chordOk) continue;
+        if (actHolds(c.t) + 2 > cap) continue;
+        const used = acc.filter((a) => Math.abs(a.t - c.t) < .006).map((a) => a.lane); if (used.length > 1) continue;
+        const l = pref.filter((x) => x < lanes && !used.includes(x)).find((x) => free(x, c.t, c.t, lGap)); if (l === undefined) continue;
+        add(c, l); lastD = c.t;
+        if (di === 2 && lanes >= 4 && c.st === 0 && c.p.b === 0 && c.p.crash && c.kind === "k") { const u2 = used.concat([l]); const l3 = [1, 2, 0, 3].find((x) => !u2.includes(x) && free(x, c.t, c.t, lGap)); if (l3 !== undefined && actHolds(c.t) + 3 <= cap) add({ t: c.t, kind: "c" }, l3); }
+      } else {
+        const gd = di === 1 ? .22 : .09;
+        if (leadTs.some((x) => Math.abs(x - c.t) < gd)) continue;
+        if (c.t - lastD < gGap) continue;
+        if (actHolds(c.t) + 1 > cap) continue;
+        const l = pref.filter((x) => x < lanes).find((x) => free(x, c.t, c.t, lGap)); if (l === undefined) continue;
+        add(c, l); lastD = c.t;
+      }
+    }
+  }
+  acc.sort((a, b) => a.t - b.t || a.lane - b.lane);
+  let g = null;
+  for (const n of acc) { if (g && Math.abs(g[0].t - n.t) < .006) { g.push(n); n.grp = g; g[0].grp = g; } else { g = [n]; } }
+  return acc;
+}
+function chartStats(notes) { let h = 0, c = 0, mx = 1; const seen = new Set(); for (const n of notes) { if (n.dur > 0) h++; if (n.grp && !seen.has(n.grp)) { seen.add(n.grp); c++; mx = Math.max(mx, n.grp.length); } } return { n: notes.length, holds: h, chords: c, maxChord: mx }; }
+
+// ================= game flow =================
+const laneW = () => LW / S.lanes;
+const laneCx = (l, lanes) => (l + .5) * LW / lanes;
+function startSong(si, opts = {}) {
+  ensureAC(); applyMaster();
+  const lanes = cfgLanes(), di = diffIdx(), practice = cfgPractice(), tempo = practice ? cfgTempo() : 100, m = WINM[cfgTiming()];
+  curSong = si;
+  const P = prep(si, tempo), notes = genChart(P, di, lanes);
+  S = { si, P, lanes, di, practice, tempo, notes, byLane: Array.from({ length: lanes }, () => []), ptr: new Array(lanes).fill(0), down: new Array(lanes).fill(0), flash: new Array(lanes).fill(0),
+    W: { p: .045 * m, g: .09 * m, gd: .14 * m }, speed: SPEEDS[cfgSpeed()], ioff: cfgOff("ioff") / 1000, voff: cfgOff("voff") / 1000, hint: cfgOn("hint", "on"),
+    pop: { t: 0, txt: "", col: "#fff", sub: "" }, holds: [], fmap: new Map(), score: 0, accPts: 0, accMax: 0, accTotal: 100, cnt: [0, 0, 0, 0], drops: 0, holdsDone: 0,
+    combo: 0, maxCombo: 0, pstreak: 0, gauge: 50, over: false, failed: false, songT: -2, hold: false, autop: false, nextStep: 0, mode: "perf", start: 0, paused: 0, pending: true, beatPulse: 0,
+    chordHit: false, lossBase: [4, 5.5, 7][di] };
+  for (const n of notes) S.byLane[n.lane].push(n);
+  S.accTotal = Math.max(100, 100 * (notes.length + notes.filter((n) => n.dur > 0).length));
+  const travel = (HIT_Y - TOP_Y) / S.speed; S.leadIn = Math.max(2, travel + .8);
+  beginClock(S, S.leadIn); S.pending = true;
+  S.bus = AC ? AC.createGain() : null; if (S.bus) { S.bus.gain.value = .9; S.bus.connect(master); }
+  S.endT = P.endT; state = "play"; Kit.hideControls(); document.getElementById("over").hidden = true; hud();
+}
+function hud() { stats({ Score: S ? S.score : 0, Acc: S && S.accMax ? (100 * S.accPts / S.accMax).toFixed(1) + "%" : "0%", Combo: S ? S.combo : 0 }); }
+function popup(txt, col, sub) { S.pop = { t: .55, txt, col, sub: sub || "" }; }
+const JN = ["PERFECT", "GREAT", "GOOD"], JC = ["#7dffb0", "#ffe14d", "#7fc4ff"], JPTS = [100, 80, 50], JG = [1.2, .8, .1];
+function afterJudge() { S.score = Math.round(1e6 * S.accPts / S.accTotal); hud(); if (S.gauge > 100) S.gauge = 100; if (S.gauge < 0) S.gauge = 0; }
+function hitNote(n, j, dtMs) {
+  n.j = j; n.state = n.dur > 0 ? 3 : 1;
+  S.cnt[j]++; S.accPts += JPTS[j]; S.accMax += 100; S.combo++; S.maxCombo = Math.max(S.maxCombo, S.combo); S.gauge += JG[j];
+  S.pstreak = j === 0 ? S.pstreak + 1 : 0; if (S.pstreak >= 50) award("p50");
+  const cx = laneCx(n.lane, S.lanes); burst(cx, HIT_Y, COLS[S.lanes][n.lane], j === 0 ? 14 : 8, 150, .5);
+  popup(JN[j], JC[j], S.hint && j > 0 && Math.abs(dtMs) > 20 ? (dtMs < 0 ? "EARLY" : "LATE") : "");
+  if (S.combo > 0 && S.combo % 25 === 0) { toast(S.combo + " combo!"); Kit.haptic(20); }
+  if (n.grp && n.grp.length > 1 && n.grp.every((x) => x.state !== 0 && x.state !== 2 && x.j >= 0 && x.j <= 1)) award("chord");
+  Kit.haptic(j === 0 ? 10 : 7); afterJudge();
+}
+function missNote(n) {
+  n.state = 2; S.cnt[3]++; S.accMax += 100 * (n.dur > 0 ? 2 : 1); S.combo = 0; S.pstreak = 0; S.gauge -= S.lossBase; popup("MISS", "#ff6b81", ""); Kit.haptic(22); afterJudge();
+}
+function tailDone(n) { n.state = 4; S.accPts += 100; S.accMax += 100; S.holdsDone++; S.gauge += .6; if (S.holdsDone >= 10) award("holds10"); burst(laneCx(n.lane, S.lanes), HIT_Y, "#ffffff", 10, 140, .5); afterJudge(); }
+function tailDrop(n) { n.state = 5; S.accMax += 100; S.combo = 0; S.pstreak = 0; S.drops++; S.gauge -= S.lossBase * .6; popup("DROPPED", "#ff9f6b", ""); Kit.haptic(18); afterJudge(); }
+
+// ---------- input: one finger = one lane, owned from touch-down until it lifts ----------
+function laneAtX(x) { return clamp(Math.floor(x / (LW / S.lanes)), 0, S.lanes - 1); }
+function press(lane, tms, fid) {
+  S.down[lane]++; S.flash[lane] = 1; Kit.haptic(5);
+  if (S.over || S.hold || S.pending) return; hitTick();
+  const st = (S.frozen != null ? S.frozen : tAt(tms, S)) - S.ioff, arr = S.byLane[lane]; let i = S.ptr[lane];
+  while (i < arr.length && arr[i].state !== 0) i++;
+  S.ptr[lane] = i; const n = arr[i]; if (!n) return;
+  const dt = st - n.t; if (dt < -S.W.gd) return;
+  const a = Math.abs(dt), j = a <= S.W.p ? 0 : a <= S.W.g ? 1 : 2;
+  hitNote(n, j, dt * 1000);
+  if (n.dur > 0) { n.fid = fid; S.holds.push(n); }
+}
+function release(lane, fid, tms) {
+  S.down[lane] = Math.max(0, S.down[lane] - 1);
+  if (S.over) return;
+  const st = (S.frozen != null ? S.frozen : tAt(tms, S)) - S.ioff;
+  for (let i = S.holds.length - 1; i >= 0; i--) { const n = S.holds[i]; if (n.fid === fid) { S.holds.splice(i, 1); if (st >= n.t + n.dur - .2) tailDone(n); else tailDrop(n); } }
+}
+const BTN = {
+  calMinus: { x: 28, y: 372, w: 96, h: 46 }, calPlus: { x: 236, y: 372, w: 96, h: 46 },
+  calCancel: { x: 20, y: 426, w: 150, h: 48 }, calSave: { x: 190, y: 426, w: 150, h: 48 }, calReset: { x: 132, y: 372, w: 96, h: 46 }
+};
+const inR = (r, x, y) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+Kit.play({
+  start(f) {
+    if (Kit.isPaused()) return;
+    if (state === "calib") { calTouch(f); return; }
+    if (state !== "play" || !S || S.over) return;
+    if (f.y < ZONE_T) { f.owner = null; return; }
+    f.owner = laneAtX(f.x); press(f.owner, f.t0, f.id);
+  },
+  end(f) { if (state === "play" && S && f.owner !== null && f.owner !== undefined && f.owner >= 0 && f.owner < S.lanes) release(f.owner, f.id, performance.now()); }
+});
+addEventListener("keydown", (e) => {
+  if (e.repeat) return; const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (k === "p" || k === "Escape") { Kit.pause(); return; }
+  if (state === "calib") { if (k === " " || k === "Enter") calTap(performance.now()); return; }
+  if (state !== "play" || !S || S.over || Kit.isPaused()) return;
+  const li = KEYS[S.lanes].indexOf(k); if (li >= 0 && !S.fmap.has(k)) { S.fmap.set(k, li); press(li, performance.now(), "k" + k); }
+});
+addEventListener("keyup", (e) => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (state === "play" && S && S.fmap.has(k)) { const li = S.fmap.get(k); S.fmap.delete(k); release(li, "k" + k, performance.now()); }
+});
+
+// ---------- per frame ----------
+function update(dt) {
+  if (state === "calib") { updCal(dt); return; }
+  if (state !== "play" || !S) return;
+  applyMaster();
+  for (let l = 0; l < S.lanes; l++) S.flash[l] = Math.max(0, S.flash[l] - dt * 5);
+  if (S.pop.t > 0) S.pop.t -= dt;
+  stepParts(dt);
+  if (S.hold) return;
+  pollClock(S);
+  if (S.pending) { S.songT = -S.leadIn; return; }
+  syncClock(); S.songT = S.frozen != null ? S.frozen : tAt(performance.now(), S); schedule();
+  if (S.over) return;
+  const tt = S.songT - S.ioff;
+  for (let l = 0; l < S.lanes; l++) {
+    const arr = S.byLane[l];
+    while (S.ptr[l] < arr.length) {
+      const n = arr[S.ptr[l]];
+      if (n.state !== 0) { S.ptr[l]++; continue; }
+      if (S.autop && n.t <= tt) { hitNote(n, 0, 0); if (n.dur > 0) { n.fid = "auto"; S.holds.push(n); } S.ptr[l]++; continue; }
+      if (tt > n.t + S.W.gd + .02) { missNote(n); S.ptr[l]++; continue; }
+      break;
+    }
+  }
+  for (let i = S.holds.length - 1; i >= 0; i--) { const n = S.holds[i]; if (tt >= n.t + n.dur) { S.holds.splice(i, 1); tailDone(n); } }
+  if (S.gauge <= 0 && !S.practice) finish(true); else if (S.songT > S.endT) finish(false);
+}
+function gradeOf(acc, perfect) { return perfect ? 0 : acc >= 95 ? 1 : acc >= 90 ? 2 : acc >= 80 ? 3 : acc >= 70 ? 4 : acc >= 50 ? 5 : 6; }
+function finish(failed) {
+  S.over = true; S.failed = failed; S.holds.length = 0; stopMusic();
+  const acc = Math.min(100, S.accPts / S.accTotal * 100), allP = S.cnt[1] + S.cnt[2] + S.cnt[3] + S.drops === 0 && !failed;
+  S.acc = acc; S.gi = failed ? 6 : gradeOf(acc, allP); S.grade = GRADES[S.gi]; S.score = Math.round(1e6 * S.accPts / S.accTotal);
+  const si = S.si, key = `s${si}d${S.di}l${S.lanes}`; let nb = false;
+  if (!S.practice) {
+    Kit.record({ win: failed ? 0 : 1, score: S.score, secs: Math.round(Math.max(0, S.songT)) });
+    if (!failed && S.score > bestOf("bs" + key)) { nb = true; SAVE.best["bs" + key] = S.score; SAVE.best["ba" + key] = Math.round(acc * 10); SAVE.best["bg" + key] = S.gi; persist(); }
+    if (!failed) {
+      award("clear1"); unlock(Math.min(10, si + 2));
+      if (S.cnt[3] + S.drops === 0) award("fc"); if (S.gi <= 1) award("gradeS"); if (S.di === 2) award("hardclear");
+    }
+  }
+  S.nb = nb; Kit.sfx(failed ? "lose" : "win"); Kit.haptic(failed ? 60 : 30); hud();
+  const canNext = !failed && !S.practice && si < 9;
+  const html = `<h1>${failed ? "Song failed" : S.practice ? "Practice done" : "Song clear!"}</h1><p class="sub">${SONGS[si].n}${S.practice ? " · practice " + S.tempo + "%" : ""}</p>
+    <div class="bt-grade">${S.grade}</div><p><b>${S.score}</b> points · ${acc.toFixed(1)}%${nb ? " · NEW BEST" : ""}</p>
+    <p class="sub">Perfect ${S.cnt[0]} · Great ${S.cnt[1]} · Good ${S.cnt[2]} · Miss ${S.cnt[3]}<br>Max combo ${S.maxCombo}${S.holdsDone ? " · Holds " + S.holdsDone : ""}</p>`;
+  card(html, canNext ? "Next: " + SONGS[si + 1].n : "Play again", () => { if (canNext) { SAVE.settings._lvl = si + 2; persist(); startSong(si + 1); } else startSong(si); });
+  const c = document.getElementById("card");
+  if (canNext) { const r = document.createElement("button"); r.className = "ghost"; r.id = "bt-retry"; r.textContent = "Retry this song"; r.onclick = () => { document.getElementById("over").hidden = true; startSong(si); }; c.appendChild(r); }
+  const m = document.createElement("button"); m.className = "ghost"; m.id = "bt-menu"; m.textContent = "Menu"; m.onclick = () => { document.getElementById("over").hidden = true; openMenu(); }; c.appendChild(m);
+}
+
+// ================= pause / resume =================
+function doPause() { if (!S) return; if (S.mode === "ac" && AC) { try { AC.suspend(); } catch (e) {} } else S.pausedAt = performance.now(); }
+function doResume() {
+  if (!S) return; S.hold = true; S.holdUntil = performance.now() + 1500;
+  setTimeout(() => {
+    const done = () => { S.hold = false; };
+    if (S.mode === "ac" && AC) { mapInit = false; try { AC.resume().then(() => { mapInit = false; done(); }, done); } catch (e) { done(); } }
+    else { S.paused += (performance.now() - (S.pausedAt || performance.now())) / 1000; done(); }
+  }, 1500);
+}
+Kit.lifecycle({
+  pause: () => { if (state !== "play" || !S || S.over || S.hold || S.pending) return false; doPause(); return true; },
+  resume: () => doResume(),
+  menu: () => { stopMusic(); S = null; openMenu(); }
+});
+
+// ================= calibration =================
+const BEAT = .75;
+function startCal() {
+  ensureAC(); applyMaster(); state = "calib"; document.getElementById("over").hidden = true; Kit.hideControls();
+  CL = { taps: [], voff: cfgOff("voff"), nextBeat: 0, t: -1, flash: 0, bf: {}, ioff: cfgOff("ioff") }; beginClock(CL, 1.2); stats({});
+}
+const median = (a) => { const s = a.slice().sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+function updCal(dt) {
+  applyMaster(); CL.flash = Math.max(0, CL.flash - dt * 6); for (const k in CL.bf) CL.bf[k] = Math.max(0, CL.bf[k] - dt * 6);
+  pollClock(CL); if (CL.pending) { CL.t = -CL.leadIn; return; }
+  syncClock(); CL.t = tAt(performance.now(), CL);
+  if (CL.mode === "ac" && AC && soundOn()) {
+    while (CL.start + CL.nextBeat * BEAT < AC.currentTime + .3) { const t = CL.start + CL.nextBeat * BEAT; if (t >= AC.currentTime - .02) voice(master, t, "sine", CL.nextBeat % 4 === 0 ? 1500 : 1000, .035, .5, { att: .001, rel: .02 }); CL.nextBeat++; }
+  } else CL.nextBeat = Math.max(0, Math.floor(CL.t / BEAT) + 2);
+}
+function calTap(tms) {
+  if (!CL || CL.pending) return; CL.flash = 1; Kit.haptic(6);
+  const t = tAt(tms, CL), k = Math.round(t / BEAT), d = t - k * BEAT;
+  if (k >= 0 && Math.abs(d) < .35) { CL.taps.push(d * 1000); if (CL.taps.length > 12) CL.taps.shift(); if (CL.taps.length >= 3) CL.ioff = clamp(Math.round(median(CL.taps)), -250, 250); }
+}
+function calTouch(f) {
+  const x = f.x, y = f.y; f.owner = null;
+  const b = (k) => { CL.bf[k] = 1; Kit.sfx("click"); Kit.haptic(8); };
+  if (inR(BTN.calMinus, x, y)) { CL.voff = clamp(CL.voff - 10, -250, 250); b("calMinus"); }
+  else if (inR(BTN.calPlus, x, y)) { CL.voff = clamp(CL.voff + 10, -250, 250); b("calPlus"); }
+  else if (inR(BTN.calReset, x, y)) { CL.taps = []; CL.voff = 0; CL.ioff = 0; b("calReset"); }
+  else if (inR(BTN.calCancel, x, y)) { b("calCancel"); exitCal(false); }
+  else if (inR(BTN.calSave, x, y)) { b("calSave"); exitCal(true); }
+  else if (y >= PAD_T - 6) calTap(f.t0);
+}
+function exitCal(save) {
+  if (save && CL) { SAVE.settings.ioff = CL.ioff; SAVE.settings.voff = CL.voff; persist(); toast("Timing saved"); }
+  CL = null; openMenu();
+}
+
+// ================= drawing =================
+const fillA = (c, a) => { ctx.globalAlpha = a; ctx.fillStyle = c; };
+function lab(t, x, y, size, col, align = "center", weight = 700) { ctx.font = `${weight} ${size}px ${SANS}`; ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = col; ctx.fillText(t, x, y); }
+function shape(kind, cx, cy, r, fill, stroke) {
+  ctx.beginPath();
+  if (kind === "circle") ctx.arc(cx, cy, r, 0, TAU);
+  else if (kind === "diamond") { ctx.moveTo(cx, cy - r * 1.15); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r * 1.15); ctx.lineTo(cx - r, cy); ctx.closePath(); }
+  else if (kind === "tri") { ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r * 1.1, cy + r * .85); ctx.lineTo(cx - r * 1.1, cy + r * .85); ctx.closePath(); }
+  else { ctx.rect(cx - r * .85, cy - r * .85, r * 1.7, r * 1.7); }
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
+}
+function drawBack(pulse) {
+  const g = ctx.createLinearGradient(0, 0, 0, LH); g.addColorStop(0, "#150f33"); g.addColorStop(1, "#0b0818"); ctx.fillStyle = g; ctx.fillRect(0, 0, LW, LH);
+  if (pulse > 0) { fillA("#ff4fa3", .07 * pulse); ctx.fillRect(0, TOP_Y, LW, HIT_Y - TOP_Y); ctx.globalAlpha = 1; }
+}
+function draw() {
+  ctx.clearRect(0, 0, LW, LH);
+  if (state === "calib" && CL) { drawCal(); return; }
+  if (!S) { drawBack(0); lab("BEAT TAP", LW / 2, 200, 40, "#ff4fa3", "center", 900); return; }
+  const lanes = S.lanes, lw = LW / lanes, cols = COLS[lanes], shp = SHAPES[lanes];
+  const beat = 60 / (S.P.sg.bpm * S.tempo / 100), ph = S.songT > 0 ? ((S.songT / beat) % 1) : 1;
+  drawBack(Math.pow(1 - ph, 2));
+  // lanes
+  for (let l = 0; l < lanes; l++) {
+    fillA(cols[l], .045); ctx.fillRect(l * lw, TOP_Y, lw, PAD_T - TOP_Y); ctx.globalAlpha = 1;
+    if (S.down[l] > 0) { const gr = ctx.createLinearGradient(0, ZONE_T, 0, HIT_Y); gr.addColorStop(0, "rgba(0,0,0,0)"); ctx.globalAlpha = .28; gr.addColorStop(1, cols[l]); ctx.fillStyle = gr; ctx.fillRect(l * lw, ZONE_T, lw, HIT_Y - ZONE_T + 12); ctx.globalAlpha = 1; }
+    if (l > 0) { ctx.strokeStyle = "rgba(255,255,255,.1)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(l * lw, TOP_Y); ctx.lineTo(l * lw, PAD_T); ctx.stroke(); }
+  }
+  // hit line and receptors
+  ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, HIT_Y + 12); ctx.lineTo(LW, HIT_Y + 12); ctx.stroke();
+  for (let l = 0; l < lanes; l++) { ctx.globalAlpha = .55; ctx.strokeStyle = cols[l]; ctx.lineWidth = 2; rr(l * lw + 8, HIT_Y - 11, lw - 16, 22, 8); ctx.stroke(); ctx.globalAlpha = 1; }
+  // combo
+  if (S.combo >= 2) { ctx.globalAlpha = .28; text(String(S.combo), LW / 2, 200, 64, "#fff"); ctx.globalAlpha = 1; lab("COMBO", LW / 2, 240, 12, "rgba(255,255,255,.45)"); }
+  // notes
+  ctx.save(); ctx.beginPath(); ctx.rect(0, TOP_Y, LW, PAD_T - TOP_Y); ctx.clip();
+  const sT = S.songT + S.voff, spd = S.speed;
+  for (let l = 0; l < lanes; l++) {
+    const arr = S.byLane[l], cx = laneCx(l, lanes), nw = lw - 16;
+    for (let i = 0; i < arr.length; i++) {
+      const n = arr[i]; if (n.state === 1 || n.state === 4) continue;
+      let y = HIT_Y - (n.t - sT) * spd; const tailY = HIT_Y - (n.t + n.dur - sT) * spd;
+      if (y < TOP_Y - 30 && tailY < TOP_Y - 30) break;
+      if (y > PAD_T + 30 && n.dur === 0) continue;
+      const missed = n.state === 2 || n.state === 5, holding = n.state === 3;
+      if (n.dur > 0) {
+        const hy = holding ? Math.min(y, HIT_Y) : y, top = Math.min(tailY, hy);
+        ctx.globalAlpha = missed ? .2 : holding ? .9 : .5; ctx.fillStyle = cols[l]; rr(cx - 17, tailY, 34, Math.max(6, hy - tailY), 9); ctx.fill();
+        ctx.globalAlpha = missed ? .25 : .9; ctx.fillStyle = "#fff"; rr(cx - 3, tailY, 6, Math.max(6, hy - tailY), 3); ctx.fill(); ctx.globalAlpha = 1;
+        y = hy; if (holding) { fillA(cols[l], .5); ctx.fillRect(l * lw, HIT_Y - 20, lw, 40); ctx.globalAlpha = 1; }
+      }
+      ctx.globalAlpha = missed ? .25 : 1;
+      ctx.fillStyle = cols[l]; rr(cx - nw / 2, y - 11, nw, 22, 9); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+      shape(shp[l], cx, y, 6, "#fff"); ctx.globalAlpha = 1;
+      if (n.grp && n.grp[0] === n && !missed) { const last = n.grp[n.grp.length - 1]; ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(laneCx(last.lane, lanes), y); ctx.stroke(); }
+    }
+  }
+  ctx.restore(); drawParts();
+  // pads
+  for (let l = 0; l < lanes; l++) {
+    const x = l * lw + 4, w = lw - 8, down = S.down[l] > 0, fl = S.flash[l], cx = laneCx(l, lanes);
+    fillA(cols[l], down ? .95 : .18 + fl * .6); rr(x, PAD_T, w, PAD_B - PAD_T, 16); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = cols[l]; ctx.lineWidth = down ? 4 : 2.5; rr(x, PAD_T, w, PAD_B - PAD_T, 16); ctx.stroke();
+    lab("TAP", cx, PAD_T + 17, 12, down ? "#1c0614" : "#fff");
+    shape(shp[l], cx, PAD_T + 54, 19, down ? "#1c0614" : cols[l], down ? null : "#fff");
+    lab(KEYLBL[lanes][l], cx, PAD_B - 13, 11, down ? "#1c0614" : "rgba(255,255,255,.55)");
+  }
+  // judgement
+  if (S.pop.t > 0) { ctx.globalAlpha = Math.min(1, S.pop.t * 3); const sc = 1 + (S.pop.t > .4 ? (S.pop.t - .4) * 1.5 : 0); ctx.save(); ctx.translate(LW / 2, 395); ctx.scale(sc, sc); text(S.pop.txt, 0, 0, 24, S.pop.col); ctx.restore(); if (S.pop.sub) lab(S.pop.sub, LW / 2, 418, 12, "rgba(255,255,255,.8)"); ctx.globalAlpha = 1; }
+  // top bar
+  lab(SONGS[S.si].n, 10, 14, 14, "#fff", "left", 800); if (S.practice) lab("PRACTICE " + S.tempo + "%", LW - 10, 14, 12, "#7dffb0", "right");
+  else lab(["EASY", "NORMAL", "HARD"][S.di], LW - 10, 14, 12, "#ffd23f", "right");
+  const gx = 10, gw = LW - 20; ctx.fillStyle = "rgba(255,255,255,.12)"; rr(gx, 28, gw, 8, 4); ctx.fill();
+  if (!S.practice) { ctx.fillStyle = S.gauge < 25 ? "#ff6b81" : "#7dffb0"; rr(gx, 28, Math.max(6, gw * S.gauge / 100), 8, 4); ctx.fill(); }
+  else { ctx.fillStyle = "#7dffb0"; rr(gx, 28, gw * clamp(S.songT / S.endT, 0, 1), 8, 4); ctx.fill(); }
+  if (!S.practice) { ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.fillRect(gx + gw * clamp(S.songT / S.endT, 0, 1) - 1, 24, 2, 16); }
+  // countdown / resume
+  if (S.hold) { const left = Math.max(0, S.holdUntil - performance.now()); ctx.fillStyle = "rgba(10,6,24,.6)"; ctx.fillRect(0, TOP_Y, LW, PAD_T - TOP_Y); text(String(Math.ceil(left / 500) || 1), LW / 2, 250, 72, "#fff"); lab("Get your fingers on the pads", LW / 2, 310, 13, "#fff"); }
+  else if (S.songT < 0) { text(S.songT > -3 ? String(Math.ceil(-S.songT)) : "", LW / 2, 230, 64, "#fff"); lab(SONGS[S.si].n, LW / 2, 130, 16, "#ff4fa3", "center", 800); lab("Tap each pad when a note reaches the line", LW / 2, 300, 13, "#fff"); lab("Long notes: keep your finger down", LW / 2, 320, 13, "rgba(255,255,255,.8)"); }
+}
+function drawCal() {
+  drawBack(0);
+  lab("CALIBRATION", LW / 2, 16, 18, "#ff4fa3", "center", 900);
+  lab("1. Tap the big pad exactly on each click.", LW / 2, 40, 13, "#fff"); lab("2. The dot should land on the line with the click:", LW / 2, 58, 13, "#fff"); lab("use  -  /  +  to shift the picture.", LW / 2, 74, 13, "#fff");
+  if (!soundOn()) lab("Sound is off: use the speaker button above", LW / 2, 92, 12, "#ffd23f");
+  const cx = LW / 2, LINE = 300, spd = 220, sT = CL.t + CL.voff / 1000;
+  fillA("#ff4fa3", .06); ctx.fillRect(cx - 50, 104, 100, LINE + 20 - 104); ctx.globalAlpha = 1;
+  ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - 60, LINE + 12); ctx.lineTo(cx + 60, LINE + 12); ctx.stroke();
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 104, LW, LINE + 24 - 104); ctx.clip();
+  const k0 = Math.floor(sT / BEAT) - 1;
+  for (let k = Math.max(0, k0); k < k0 + 6; k++) { const y = LINE - (k * BEAT - sT) * spd; if (y < 90) continue; shape("circle", cx, y, 11, "#ffd23f", "#fff"); }
+  ctx.restore();
+  const taps = CL.taps.length;
+  lab(taps >= 3 ? `Tap timing: ${CL.ioff >= 0 ? "+" : ""}${CL.ioff} ms  (${taps} taps)` : `Tap timing: keep tapping (${taps}/3)`, LW / 2, 336, 14, "#fff");
+  lab(`Picture shift: ${CL.voff >= 0 ? "+" : ""}${CL.voff} ms  (+ = earlier)`, LW / 2, 356, 13, "rgba(255,255,255,.85)");
+  const bt = (r, t, k, hi) => { const fl = CL.bf[k] || 0; fillA(hi ? "#ff4fa3" : "#ffffff", hi ? .9 : .12 + fl * .6); rr(r.x, r.y, r.w, r.h, 12); ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = hi ? "#ff4fa3" : "rgba(255,255,255,.5)"; ctx.lineWidth = 2; rr(r.x, r.y, r.w, r.h, 12); ctx.stroke(); lab(t, r.x + r.w / 2, r.y + r.h / 2, 18, hi ? "#1c0614" : "#fff", "center", 800); };
+  bt(BTN.calMinus, "-10", "calMinus"); bt(BTN.calReset, "Reset", "calReset"); bt(BTN.calPlus, "+10", "calPlus"); bt(BTN.calCancel, "Cancel", "calCancel"); bt(BTN.calSave, "Save", "calSave", true);
+  fillA("#ff4fa3", .2 + CL.flash * .7); rr(8, PAD_T, LW - 16, PAD_B - PAD_T, 18); ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = "#ff4fa3"; ctx.lineWidth = 3; rr(8, PAD_T, LW - 16, PAD_B - PAD_T, 18); ctx.stroke();
+  lab("TAP ON THE CLICK", LW / 2, PAD_T + 54, 20, "#fff", "center", 900);
+  if (CL.pending || CL.t < 0) lab("Get ready...", LW / 2, 120, 14, "#fff");
+}
+loop((dt) => { if (!Kit.isPaused()) update(dt); draw(); });
+
+// ================= menu =================
+function openMenu() {
+  state = "menu"; S = null; Kit.hideControls(); stats({});
+  Kit.menu({
+    title: "Beat Tap", bestLabel: "Best",
+    html: `<p class="sub">Tap the lit pad under a lane when its note reaches the line. Use several fingers for chords and keep a finger down on long notes. If notes feel early or late, run the timing calibration.</p>`,
+    settings: [
+      { k: "diff", label: "Difficulty", def: "normal", opts: [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]] },
+      { k: "speed", label: "Note speed", def: 2, opts: [[1, "Slow"], [2, "Medium"], [3, "Fast"], [4, "Turbo"]] },
+      { k: "lanes", label: "Lanes", def: 4, opts: [[3, "3 lanes"], [4, "4 lanes"]] },
+      { k: "timing", label: "Timing windows", def: "standard", opts: [["lenient", "Lenient"], ["standard", "Standard"], ["strict", "Strict"]] },
+      { k: "practice", label: "Practice (no fail, nothing saved)", def: "off", opts: [["off", "Off"], ["on", "On"]] },
+      { k: "prtempo", label: "Practice tempo", def: 100, opts: [[100, "100%"], [75, "75%"], [50, "50%"]] },
+      { k: "hitsnd", label: "Tap sound", def: "on", opts: [["on", "On"], ["off", "Off"]] },
+      { k: "hint", label: "Early / late hint", def: "on", opts: [["on", "On"], ["off", "Off"]] }
+    ],
+    levels: SLABEL,
+    challenges: [{ id: "clear1", text: "Clear any song" }, { id: "fc", text: "Clear a song with no misses or dropped holds" }, { id: "p50", text: "Get 50 Perfects in a row" }, { id: "holds10", text: "Complete 10 long notes in one song" }, { id: "gradeS", text: "Earn grade S or better" }, { id: "hardclear", text: "Clear a song on Hard" }, { id: "chord", text: "Hit a chord (two notes at once) with Great or better" }],
+    play: "Start song"
+  }, (lv) => { startSong(clamp(Math.floor(lv) || 1, 1, 10) - 1); });
+  decorateMenu();
+}
+function menuSong() { return clamp(Math.floor(+setting("_lvl", 1)) || 1, 1, Math.min(SAVE.unlocked, 10)) - 1; }
+function decorateMenu() {
+  const c = document.getElementById("card"); if (state !== "menu") return;
+  const h = c.querySelector("h1"), go = c.querySelector("#go"); if (!h || h.textContent !== "Beat Tap" || !go || !c.querySelector(".seg")) return;
+  let ex = c.querySelector("#btx");
+  if (!ex) {
+    ex = document.createElement("div"); ex.id = "btx"; ex.style.cssText = "display:grid;gap:8px";
+    const b = document.createElement("div"); b.id = "btbest"; b.className = "sub";
+    const cb = document.createElement("button"); cb.id = "btcal"; cb.className = "ghost"; cb.style.cssText = "height:44px;border-radius:12px;font:700 14px system-ui,sans-serif;cursor:pointer;padding:0 10px";
+    cb.onclick = startCal; ex.append(b, cb); go.before(ex);
+  }
+  const si = menuSong(), key = `s${si}d${diffIdx()}l${cfgLanes()}`, bs = bestOf("bs" + key), ba = bestOf("ba" + key), bg = bestOf("bg" + key);
+  ex.firstChild.textContent = bs ? `Best (${cfgDiff()}, ${cfgLanes()} lanes): ${Math.round(bs)} · ${(ba / 10).toFixed(1)}% · grade ${GRADES[clamp(Math.round(bg), 0, 6)]}` : `No best yet (${cfgDiff()}, ${cfgLanes()} lanes)`;
+  ex.lastChild.textContent = `Calibrate timing (input ${cfgOff("ioff") >= 0 ? "+" : ""}${cfgOff("ioff")} ms, picture ${cfgOff("voff") >= 0 ? "+" : ""}${cfgOff("voff")} ms)`;
+}
+new MutationObserver(decorateMenu).observe(document.getElementById("card"), { childList: true });
+
+// ================= test hook =================
+window.T = {
+  get state() { return state; }, get score() { return S ? S.score : 0; }, get combo() { return S ? S.combo : 0; }, get maxCombo() { return S ? S.maxCombo : 0; },
+  get cnt() { return S ? S.cnt.slice() : null; }, get gauge() { return S ? S.gauge : 0; }, get songT() { return S ? S.songT : 0; }, get mode() { return S ? S.mode : null; },
+  get pending() { return S ? S.pending : null; }, get hold() { return S ? S.hold : null; }, get over() { return S ? S.over : null; }, get failed() { return S ? S.failed : null; }, get grade() { return S ? S.grade : null; },
+  get holdsDone() { return S ? S.holdsDone : 0; }, get drops() { return S ? S.drops : 0; }, get notes() { return S ? S.notes.length : 0; }, get lanes() { return S ? S.lanes : 0; },
+  get down() { return S ? S.down.slice() : null; }, get ioff() { return cfgOff("ioff"); }, get voff() { return cfgOff("voff"); }, get cal() { return CL ? { taps: CL.taps.length, ioff: CL.ioff, voff: CL.voff, pending: CL.pending } : null; },
+  get audio() { return AC ? AC.state : "none"; }, get paused() { return Kit.isPaused(); }, get nextStep() { return S ? S.nextStep : 0; },
+  build(si, di, lanes) { return chartStats(genChart(prep(si, 100), di, lanes)); },
+  songs: SONGS.length,
+  clearChart() { for (let l = 0; l < S.lanes; l++) { S.byLane[l] = []; S.ptr[l] = 0; } S.notes = []; S.accTotal = 100; },
+  inject(list) { for (const o of list) { const n = { t: S.songT + o.dt, lane: o.lane, dur: o.dur || 0, kind: "t", state: 0, j: -1, fid: null, grp: null }; S.byLane[o.lane].push(n); S.notes.push(n); S.accTotal += 100 * (n.dur > 0 ? 2 : 1); }
+    const all = S.notes.filter((n) => Math.abs(n.t - (S.songT + list[0].dt)) < .006); if (all.length > 1) for (const n of all) n.grp = all; for (const a of S.byLane) a.sort((x, y) => x.t - y.t); for (let l = 0; l < S.lanes; l++) S.ptr[l] = 0; return S.songT + list[0].dt; },
+  freeze(t) { S.frozen = t; S.songT = t; }, wide() { S.W = { p: .4, g: .7, gd: 1 }; },
+  autoplay(b) { S.autop = !!b; }, seek(t) { if (S.mode === "ac") S.start -= t - S.songT; else S.start -= t - S.songT; S.nextStep = Math.max(S.nextStep, Math.floor(t / S.P.sd)); },
+  get endT() { return S ? S.endT : 0; }, laneX(l, lanes) { return laneCx(l, lanes); }
+};
+fit(); openMenu();
+
+})();
+</script>
+
+</html>

@@ -1,408 +1,696 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-</head><body>
+<style>[hidden]{display:none!important}</style>
 <title>Pocket Puzzle Duel</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&display=swap">
 <style>
-/* Layout: one-screen pool-hall app — status bar, portrait table, cue controls, league-style scoresheet below */
-:root{
-  --hall:#0d1317;      /* room dark, blue-green bias */
-  --panel:#162027;
-  --line:#26343e;
-  --ink:#e9eef1;
-  --muted:#8c9daa;
-  --chalk:#6fb3ea;     /* blue chalk accent */
-  --brass:#d9a845;
-  --good:#5fcf8a;
-  --bad:#ef6a5a;
-  --f-display:"Bungee","Impact","Arial Black",sans-serif;
-  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --f-num:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
-  color-scheme:dark;
-}
-html,body{background:var(--hall);color:var(--ink)}
-body{font-family:var(--f-body);font-size:15px;line-height:1.4;
-  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-block:8px 24px}
-.app{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
-.bar{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.hole{font-family:var(--f-display);font-size:18px;letter-spacing:.02em;color:var(--brass);line-height:1.1}
-.hole small{display:block;font-family:var(--f-num);font-size:13px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
-.shooter{text-align:right;min-width:0}
-.shooter .who{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.shooter .ct{font-family:var(--f-num);font-size:13px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-variant-numeric:tabular-nums}
-.shooter .ct b{color:var(--ink);font-size:18px}
-.tablewrap{position:relative;display:flex;justify-content:center}
-canvas{display:block;touch-action:none;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
-.controls{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
-.nudge{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:20px;cursor:pointer}
-.nudge:active{background:var(--line)}
-.power{display:flex;flex-direction:column;gap:2px;min-width:0}
-.power label{font-family:var(--f-num);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
-.power label span{color:var(--ink);font-variant-numeric:tabular-nums}
-input[type=range]{width:100%;accent-color:var(--chalk);height:28px}
-.shoot{grid-column:1/-1;height:52px;border:0;border-radius:12px;background:var(--chalk);color:#0b1a26;font-family:var(--f-display);font-size:20px;letter-spacing:.06em;cursor:pointer}
-.shoot:disabled{opacity:.35;cursor:default}
-.hint{font-size:13px;color:var(--muted);text-align:center}
-button:focus-visible,input:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#101c26;--ink:#f4efe2;--muted:#9fb3bd;--accent:#f2c12e;--f-display:"Alfa Slab One",Georgia,serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2a1f00;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+body{box-sizing:border-box}.ctl .kgrp{flex:1}.ctl .kgrp.r:empty{display:none}.hud .title{font-size:15px}.ppd{width:100%;display:grid;gap:6px}.ppd-pw{display:grid;gap:2px;touch-action:none}.ppd-pw .lbl{display:flex;justify-content:space-between;font:800 12px system-ui,sans-serif;letter-spacing:.1em;color:var(--muted)}.ppd-pw .lbl b{color:var(--accent);font-size:14px}.ppd-pw .trk{position:relative;height:42px;border-radius:12px;background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--muted) 45%,transparent);overflow:hidden}.ppd-pw .fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#3aa86b,#f2c12e,#e0452f)}.ppd-pw .knob{position:absolute;top:2px;bottom:2px;width:12px;margin-left:-6px;border-radius:6px;background:#fff;box-shadow:0 0 0 2px #1b1b1b}.ppd-row{display:flex;align-items:center;justify-content:space-between;gap:8px}.kbtn.ppd-shoot{flex:1;height:56px;border-radius:16px;background:var(--accent);color:var(--btnink);border-color:#fff;font:400 22px var(--f-display);letter-spacing:.04em}.kbtn.ppd-shoot.off{background:color-mix(in srgb,var(--ink) 10%,transparent);color:var(--muted);border-color:color-mix(in srgb,var(--muted) 45%,transparent);font-size:16px}.kbtn.ppd-shoot.on{transform:scale(.97)}.kbtn.ppd-n{min-width:64px;height:56px;border-radius:14px;flex:none}.kbtn small{font-size:10px;font-weight:700;opacity:.8}.pnames{display:grid;gap:4px;text-align:left}.pnames label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.pnames input{height:44px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--ink);font:600 16px system-ui,sans-serif;padding:0 12px;user-select:text;-webkit-user-select:text}.big{font:400 44px var(--f-display);color:var(--accent);line-height:1}
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#2a1f00;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
 
-.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
-.sheet h2{margin:0 0 8px;font-family:var(--f-num);font-weight:700;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.scroll{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-family:var(--f-num);font-variant-numeric:tabular-nums;font-size:16px}
-th,td{padding:5px 4px;text-align:center;border-bottom:1px solid var(--line)}
-th:first-child,td:first-child{text-align:left;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--f-body);font-weight:600;font-size:14px}
-thead th{color:var(--muted);font-weight:500;font-size:13px}
-tr.par td{color:var(--brass);font-size:14px}
-td.cur{outline:1px dashed var(--chalk);outline-offset:-3px}
-td.win{color:var(--good);font-weight:700}
-td.tot{font-weight:700}
-.rules{font-size:13px;color:var(--muted);margin:10px 0 0;display:grid;gap:4px}
-.newgame{margin-top:10px;background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer}
-
-.overlay{position:fixed;inset:0;background:rgba(5,9,12,.82);display:flex;align-items:center;justify-content:center;z-index:20;
-  padding:env(safe-area-inset-top,0px) max(16px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(16px,env(safe-area-inset-left,0px))}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 20px;max-width:360px;width:100%;display:grid;gap:12px;text-align:center}
-.card .eyebrow{font-family:var(--f-num);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:26px;line-height:1.1;color:var(--brass);text-wrap:balance}
-.card p{margin:0;color:var(--ink)}
-.card .big{font-family:var(--f-num);font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
-.card input[type=text]{width:100%;box-sizing:border-box;background:var(--hall);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;font-size:16px}
-.card .names{display:grid;gap:8px;text-align:left}
-.card .names label{font-size:12px;color:var(--muted);font-family:var(--f-num);letter-spacing:.1em;text-transform:uppercase}
-.primary{height:50px;border:0;border-radius:12px;background:var(--chalk);color:#0b1a26;font-family:var(--f-display);font-size:18px;letter-spacing:.05em;cursor:pointer}
-.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(13,19,23,.88);border:1px solid var(--line);color:var(--ink);padding:6px 12px;border-radius:999px;font-weight:600;font-size:14px;pointer-events:none;transition:opacity .25s;white-space:nowrap}
-@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#2a1f00}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#2a1f00;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
 </style>
-
 <div class="app">
-  <div class="bar">
-    <div class="hole" id="holeLbl">Hole 1 <small id="holeSub">Par 2 · Opening Shot</small></div>
-    <div class="shooter"><div class="who" id="whoLbl">Player 1</div><div class="ct">Strokes <b id="strokeLbl">0</b> / <span id="capLbl">6</span></div></div>
-  </div>
-
-  <div class="tablewrap" id="tablewrap">
-    <canvas id="cv" aria-label="Pool table"></canvas>
-    <div class="toast" id="toast" style="opacity:0"></div>
-  </div>
-
-  <div class="controls">
-    <button class="nudge" id="nudgeL" aria-label="Rotate aim left">‹</button>
-    <div class="power">
-      <label for="pow">Power <span id="powLbl">45%</span></label>
-      <input type="range" id="pow" min="5" max="100" value="45">
-    </div>
-    <button class="nudge" id="nudgeR" aria-label="Rotate aim right">›</button>
-    <button class="shoot" id="shootBtn">Shoot</button>
-  </div>
-  <div class="hint">Slide a finger left or right anywhere on the table to turn the cue. ‹ › fine-tune the angle.</div>
-
-  <section class="sheet">
-    <h2>Scoresheet · fewest strokes wins</h2>
-    <div class="scroll"><table id="score"></table></div>
-    <div class="rules">
-      <div>Both players shoot the same layout. Clear every ball in as few strokes as you can.</div>
-      <div>Scratch = +1 stroke, cue ball goes back to its spot. Hitting the cap ends your turn.</div>
-    </div>
-    <button class="newgame" id="newGame">New match</button>
-  </section>
+  <div class="hud"><div class="title">Pocket Puzzle Duel</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Slide on the table to turn your aim · set POWER · press SHOOT</div><div class="ctl" id="ctl" hidden></div>
 </div>
-
-<div class="overlay" id="overlay" hidden><div class="card" id="card"></div></div>
-
 <script>
 (()=>{
-const W=400,H=760,R=11,RAIL=26,CW=W+RAIL*2,CH=H+RAIL*2;
-const POCKETS=[{x:-4,y:-4,r:24},{x:W+4,y:-4,r:24},{x:-4,y:H+4,r:24},{x:W+4,y:H+4,r:24},{x:-10,y:H/2,r:26},{x:W+10,y:H/2,r:26}];
-const COLORS={1:"#f2c12e",2:"#2458c4",3:"#d6342a",4:"#6a3ea0",5:"#ef7a1a",6:"#1e8a4c",7:"#8b1f2b",8:"#151515"};
-const r3=23*0.866;
-const HOLES=[
- {name:"Opening Shot",par:2,cue:[200,600],balls:[[110,170],[300,330]],posts:[]},
- {name:"Three Ball",par:3,cue:[200,640],balls:[[200,190],[188.5,190-r3],[211.5,190-r3]],posts:[]},
- {name:"Rail Huggers",par:3,cue:[200,420],balls:[[388,250],[13,560],[200,13]],posts:[]},
- {name:"Bumpers",par:3,cue:[200,630],balls:[[200,250],[60,140],[340,140]],posts:[[200,410,16],[110,340,16],[290,340,16]]},
- {name:"The Rack",par:5,cue:[200,640],balls:[[200,230],[188.5,230-r3],[211.5,230-r3],[177,230-2*r3],[200,230-2*r3],[223,230-2*r3]],posts:[]},
- {name:"Through the Gate",par:4,cue:[200,640],balls:[[60,120],[340,120],[200,90],[200,250]],posts:[[80,380,18],[200,380,18],[320,380,18]]},
-];
-const CAPX=4;
-const AIM_LEN=110; // length of the sight line in table units (table is 400 wide)
-
-const $=id=>document.getElementById(id);
-const cv=$("cv"),ctx=cv.getContext("2d");
-let scale=1;
-
-// ---- match state (persisted between turns) ----
-let M=null;
-function freshMatch(names){return {names:names||["Player 1","Player 2"],hole:0,turn:0,scores:[Array(HOLES.length).fill(null),Array(HOLES.length).fill(null)],done:false};}
-function save(){try{localStorage.setItem("ppd-match",JSON.stringify(M))}catch(e){}}
-function load(){try{const s=JSON.parse(localStorage.getItem("ppd-match"));if(s&&s.scores)return s}catch(e){}return null}
-const shooterIdx=()=> (M.hole%2===0? M.turn : 1-M.turn);
-
-// ---- turn state ----
-let balls=[],posts=[],cue,strokes=0,phase="aim",angle=-Math.PI/2,sunk=[],shotT=0,scratched=false,pocketedThisShot=0;
-function setupTurn(){
-  const h=HOLES[M.hole];
-  cue={x:h.cue[0],y:h.cue[1],vx:0,vy:0,n:0,in:false};
-  balls=[cue,...h.balls.map((b,i)=>({x:b[0],y:b[1],vx:0,vy:0,n:i+1,in:false}))];
-  posts=h.posts.map(p=>({x:p[0],y:p[1],r:p[2]}));
-  strokes=0;phase="aim";sunk=[];
-  const t=balls[1];angle=Math.atan2(t.y-cue.y,t.x-cue.x);
-  updateHud();renderScore();
-}
-const cap=()=>HOLES[M.hole].par+CAPX;
-
-// ---- physics ----
-function step(dt){
-  for(const b of balls){ if(b.in)continue;
-    b.x+=b.vx*dt;b.y+=b.vy*dt;
-    const sp=Math.hypot(b.vx,b.vy);
-    if(sp>0){const ns=Math.max(0,sp-(150+sp*0.35)*dt);b.vx*=ns/sp;b.vy*=ns/sp;}
-    const e=0.78;
-    const yJaw=b.y<26||b.y>H-26||Math.abs(b.y-H/2)<20, xJaw=b.x<26||b.x>W-26;
-    if(b.x<R&&!yJaw){b.x=R;b.vx=Math.abs(b.vx)*e}
-    if(b.x>W-R&&!yJaw){b.x=W-R;b.vx=-Math.abs(b.vx)*e}
-    if(b.y<R&&!xJaw){b.y=R;b.vy=Math.abs(b.vy)*e}
-    if(b.y>H-R&&!xJaw){b.y=H-R;b.vy=-Math.abs(b.vy)*e}
-    for(const p of posts){const dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy),m=R+p.r;
-      if(d<m&&d>0){const nx=dx/d,ny=dy/d;b.x=p.x+nx*m;b.y=p.y+ny*m;const vn=b.vx*nx+b.vy*ny;if(vn<0){b.vx-=1.85*vn*nx;b.vy-=1.85*vn*ny}}}
-  }
-  for(let i=0;i<balls.length;i++){const a=balls[i];if(a.in)continue;
-    for(let j=i+1;j<balls.length;j++){const b=balls[j];if(b.in)continue;
-      const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
-      if(d<2*R&&d>0){const nx=dx/d,ny=dy/d,o=(2*R-d)/2;a.x-=nx*o;a.y-=ny*o;b.x+=nx*o;b.y+=ny*o;
-        const rel=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
-        if(rel>0){const k=rel*0.97;a.vx-=k*nx;a.vy-=k*ny;b.vx+=k*nx;b.vy+=k*ny;}}}}
-  for(const b of balls){ if(b.in)continue;
-    let gone=b.x<-30||b.x>W+30||b.y<-30||b.y>H+30;
-    for(const p of POCKETS){if(Math.hypot(b.x-p.x,b.y-p.y)<p.r){gone=true;break}}
-    if(gone){b.in=true;sunk.push({x:b.x,y:b.y,n:b.n,t:0});b.vx=b.vy=0;
-      if(b.n===0)scratched=true;else pocketedThisShot++;}
-  }
-}
-function moving(){return balls.some(b=>!b.in&&(Math.abs(b.vx)>2||Math.abs(b.vy)>2))}
-
-function shoot(){
-  if(phase!=="aim")return;
-  const p=+$("pow").value, sp=140+p/100*1500;
-  cue.vx=Math.cos(angle)*sp;cue.vy=Math.sin(angle)*sp;
-  strokes++;phase="roll";shotT=0;scratched=false;pocketedThisShot=0;updateHud();
-}
-function settle(){
-  for(const b of balls){b.vx=b.vy=0}
-  if(scratched){strokes++;toast("Scratch · +1 stroke");
-    const h=HOLES[M.hole];cue.in=false;cue.x=h.cue[0];cue.y=h.cue[1];
-    while(balls.some(b=>b!==cue&&!b.in&&Math.hypot(b.x-cue.x,b.y-cue.y)<2*R+2))cue.y-=25;}
-  else if(pocketedThisShot>0)toast(pocketedThisShot>1?pocketedThisShot+" balls down":"Ball down");
-  const left=balls.filter(b=>b.n>0&&!b.in).length;
-  updateHud();
-  if(left===0){endTurn(Math.min(strokes,cap()),true);return}
-  if(strokes>=cap()){endTurn(cap(),false);return}
-  phase="aim";
-  updateHud();
-}
-
-// ---- turn / match flow ----
-function endTurn(score,cleared){
-  phase="over";
-  const who=shooterIdx();M.scores[who][M.hole]=score;
-  const name=M.names[who],par=HOLES[M.hole].par,diff=score-par;
-  const rel=diff===0?"Even par":diff<0?`${-diff} under par`:`${diff} over par`;
-  if(M.turn===0){
-    M.turn=1;save();
-    const next=M.names[shooterIdx()];
-    showCard(`<div class="eyebrow">Hole ${M.hole+1} · ${esc(name)}</div>
-      <div class="big">${score}</div><p>${cleared?"Table cleared. ":"Hit the cap. "}${rel}.</p>
-      <h1>Pass to ${esc(next)}</h1><p>Beat ${score} on the same layout.</p>
-      <button class="primary" id="go">I'm ${esc(next)} · Rack it</button>`,()=>{setupTurn()});
-  } else {
-    const a=M.scores[0][M.hole],b=M.scores[1][M.hole];
-    const res=a===b?"Hole halved":`${esc(M.names[a<b?0:1])} takes hole ${M.hole+1}`;
-    M.turn=0;M.hole++;
-    if(M.hole>=HOLES.length){M.done=true;save();renderScore();finalCard();return}
-    save();renderScore();
-    const first=M.names[shooterIdx()];
-    showCard(`<div class="eyebrow">Hole ${M.hole} result</div>
-      <p>${esc(name)}: <b>${score}</b> · ${cleared?"cleared":"capped"}</p>
-      <h1>${res}</h1>
-      <p>Next up: hole ${M.hole+1}, ${esc(HOLES[M.hole].name)}. ${esc(first)} breaks.</p>
-      <button class="primary" id="go">I'm ${esc(first)} · Rack it</button>`,()=>{setupTurn()});
-  }
-}
-function totals(){return M.scores.map(r=>r.reduce((s,v)=>s+(v??0),0))}
-function holeWins(){let w=[0,0];for(let i=0;i<HOLES.length;i++){const a=M.scores[0][i],b=M.scores[1][i];if(a!=null&&b!=null&&a!==b)w[a<b?0:1]++}return w}
-function finalCard(){
-  const t=totals(),w=holeWins();
-  const head=t[0]===t[1]?"Dead even":`${esc(M.names[t[0]<t[1]?0:1])} wins`;
-  showCard(`<div class="eyebrow">Match over</div><h1>${head}</h1>
-    <p>${esc(M.names[0])}: <b>${t[0]}</b> strokes · ${w[0]} holes<br>${esc(M.names[1])}: <b>${t[1]}</b> strokes · ${w[1]} holes</p>
-    <button class="primary" id="go">Rematch</button>`,()=>{const n=M.names.slice().reverse();M=freshMatch(n);save();setupTurn();});
-}
-function startCard(){
-  showCard(`<div class="eyebrow">Pass-and-play · 6 holes</div><h1>Pocket Puzzle Duel</h1>
-    <p>Same table layout for both of you. Clear it in the fewest strokes. Lowest total after six holes wins.</p>
-    <div class="names"><label for="n1">Breaks first</label><input type="text" id="n1" maxlength="14" value="${esc(M.names[0])}">
-    <label for="n2">Second shooter</label><input type="text" id="n2" maxlength="14" value="${esc(M.names[1])}"></div>
-    <button class="primary" id="go">Rack it</button>`,()=>{
-      M.names=[$("n1").value.trim()||"Player 1",$("n2").value.trim()||"Player 2"];save();setupTurn();},true);
-}
-function showCard(html,onGo,keepNames){
-  $("card").innerHTML=html;$("overlay").hidden=false;
-  $("go").onclick=()=>{if(keepNames){onGo()} $("overlay").hidden=true; if(!keepNames)onGo();};
-}
-function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
-
-// ---- HUD ----
-function updateHud(){
-  const h=HOLES[M.hole]||HOLES[HOLES.length-1];
-  $("holeLbl").firstChild.nodeValue=`Hole ${Math.min(M.hole+1,HOLES.length)} `;
-  $("holeSub").textContent=`Par ${h.par} · ${h.name}`;
-  $("whoLbl").textContent=M.names[shooterIdx()];
-  $("strokeLbl").textContent=strokes;$("capLbl").textContent=h.par+CAPX;
-  $("shootBtn").disabled=phase!=="aim";
-}
-function renderScore(){
-  const w=[];for(let i=0;i<HOLES.length;i++){const a=M.scores[0][i],b=M.scores[1][i];w.push(a!=null&&b!=null&&a!==b?(a<b?0:1):-1)}
-  const t=totals();
-  let h=`<thead><tr><th>Hole</th>${HOLES.map((_,i)=>`<th>${i+1}</th>`).join("")}<th>Tot</th></tr></thead><tbody>`;
-  h+=`<tr class="par"><td>Par</td>${HOLES.map(x=>`<td>${x.par}</td>`).join("")}<td>${HOLES.reduce((s,x)=>s+x.par,0)}</td></tr>`;
-  for(let p=0;p<2;p++){
-    h+=`<tr><td>${esc(M.names[p])}</td>${HOLES.map((_,i)=>{const v=M.scores[p][i];const cur=!M.done&&i===M.hole&&shooterIdx()===p;
-      return `<td class="${w[i]===p?"win":""} ${cur?"cur":""}">${v??(cur?"·":"")}</td>`}).join("")}<td class="tot">${t[p]}</td></tr>`;
-  }
-  $("score").innerHTML=h+"</tbody>";
-}
-let toastT;function toast(m){const t=$("toast");t.textContent=m;t.style.opacity=1;clearTimeout(toastT);toastT=setTimeout(()=>t.style.opacity=0,1300)}
-
-// ---- aiming prediction ----
-function predict(){
-  const dx=Math.cos(angle),dy=Math.sin(angle);let best=Infinity,hit=null;
-  const ray=(cx,cy,rr)=>{const fx=cue.x-cx,fy=cue.y-cy,b=fx*dx+fy*dy,c=fx*fx+fy*fy-rr*rr,disc=b*b-c;if(disc<0)return Infinity;const t=-b-Math.sqrt(disc);return t>0.01?t:Infinity};
-  for(const b of balls){if(b===cue||b.in)continue;const t=ray(b.x,b.y,2*R);if(t<best){best=t;hit={type:"ball",b}}}
-  for(const p of posts){const t=ray(p.x,p.y,R+p.r);if(t<best){best=t;hit={type:"post"}}}
-  const walls=[dx<0?(R-cue.x)/dx:dx>0?(W-R-cue.x)/dx:Infinity, dy<0?(R-cue.y)/dy:dy>0?(H-R-cue.y)/dy:Infinity];
-  const tw=Math.min(...walls);if(tw<best){best=tw;hit={type:"wall",vert:walls[0]<walls[1]}}
-  return {t:best,x:cue.x+dx*best,y:cue.y+dy*best,hit,dx,dy};
-}
-
-// ---- drawing ----
-function resize(){
-  const wrap=$("tablewrap"),avail=wrap.clientWidth;
-  const vh=window.innerHeight-230;
-  scale=Math.max(0.4,Math.min(avail/CW,vh/CH,1.3));
-  const dpr=window.devicePixelRatio||1;
-  cv.style.width=CW*scale+"px";cv.style.height=CH*scale+"px";
-  cv.width=Math.round(CW*scale*dpr);cv.height=Math.round(CH*scale*dpr);
-  ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);
-}
-function drawTable(){
-  // rails
-  const g=ctx.createLinearGradient(0,0,CW,CH);g.addColorStop(0,"#5a2f1a");g.addColorStop(.5,"#7a4226");g.addColorStop(1,"#4a2614");
-  ctx.fillStyle=g;rr(0,0,CW,CH,16);ctx.fill();
-  ctx.save();ctx.translate(RAIL,RAIL);
-  // cushions
-  ctx.fillStyle="#174a6e";ctx.fillRect(-7,-7,W+14,H+14);
-  // cloth (tournament blue)
-  const c=ctx.createRadialGradient(W/2,H/2,60,W/2,H/2,H*.65);c.addColorStop(0,"#2878ad");c.addColorStop(1,"#1d5f8c");
-  ctx.fillStyle=c;ctx.fillRect(0,0,W,H);
-  // head string + foot spot
-  ctx.strokeStyle="rgba(255,255,255,.08)";ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(0,H*.75);ctx.lineTo(W,H*.75);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle="rgba(255,255,255,.18)";ctx.beginPath();ctx.arc(W/2,H*.25,2.5,0,7);ctx.fill();
-  // diamonds
-  ctx.fillStyle="#efe3c4";
-  const dia=(x,y)=>{ctx.beginPath();ctx.moveTo(x,y-4);ctx.lineTo(x+3,y);ctx.lineTo(x,y+4);ctx.lineTo(x-3,y);ctx.fill()};
-  for(let k=1;k<8;k++){if(k===4)continue;dia(-RAIL/2-3,H*k/8);dia(W+RAIL/2+3,H*k/8)}
-  for(let k=1;k<4;k++){dia(W*k/4,-RAIL/2-3);dia(W*k/4,H+RAIL/2+3)}
-  // pockets
-  for(const p of POCKETS){ctx.fillStyle="#050608";ctx.beginPath();ctx.arc(p.x,p.y,p.r-3,0,7);ctx.fill();
-    ctx.strokeStyle="#2b1a10";ctx.lineWidth=3;ctx.stroke();}
-  ctx.restore();
-}
+const LW=360,LH=510,FONT="'Alfa Slab One', Georgia, serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
-function drawBall(x,y,n,s=1){
-  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
-  ctx.fillStyle="rgba(0,0,0,.28)";ctx.beginPath();ctx.ellipse(2,3,R,R*.9,0,0,7);ctx.fill();
-  const base=n===0?"#f4f1e8":COLORS[n];
-  const g=ctx.createRadialGradient(-4,-5,1,0,0,R);g.addColorStop(0,n===0?"#ffffff":lighten(base));g.addColorStop(1,base);
-  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.fill();
-  if(n>0){ctx.fillStyle="#fbf8ef";ctx.beginPath();ctx.arc(0,0,5.6,0,7);ctx.fill();
-    ctx.fillStyle="#111";ctx.font="700 8px Barlow, sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(n,0,.5)}
-  if(n===0){ctx.fillStyle="#c0392b";ctx.beginPath();ctx.arc(2,1,1.4,0,7);ctx.fill()}
-  ctx.fillStyle="rgba(255,255,255,.55)";ctx.beginPath();ctx.arc(-4,-4.5,2.2,0,7);ctx.fill();
-  ctx.restore();
-}
-function lighten(h){const n=parseInt(h.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;r=Math.min(255,r+70);g=Math.min(255,g+70);b=Math.min(255,b+70);return `rgb(${r},${g},${b})`}
-function drawPost(p){
-  ctx.fillStyle="rgba(0,0,0,.3)";ctx.beginPath();ctx.arc(p.x+2,p.y+3,p.r,0,7);ctx.fill();
-  const g=ctx.createRadialGradient(p.x-p.r*.4,p.y-p.r*.4,1,p.x,p.y,p.r);g.addColorStop(0,"#ffe39a");g.addColorStop(1,"#a8761f");
-  ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();
-  ctx.fillStyle="#1a1a1a";ctx.beginPath();ctx.arc(p.x,p.y,p.r*.45,0,7);ctx.fill();
-}
-function draw(){
-  ctx.clearRect(0,0,CW,CH);drawTable();
-  ctx.save();ctx.translate(RAIL,RAIL);
-  for(const p of posts)drawPost(p);
-  if(phase==="aim"&&!cue.in){
-    const pr=predict(),pw=+$("pow").value/100;
-    // Medium help: dashed line to the first thing the cue ball touches, plus a faint ghost ball there.
-    // No lines showing where the object ball or cue ball go after contact.
-    ctx.strokeStyle="rgba(255,255,255,.4)";ctx.lineWidth=1.3;ctx.setLineDash([5,6]);
-    ctx.beginPath();ctx.moveTo(cue.x+pr.dx*(R+2),cue.y+pr.dy*(R+2));ctx.lineTo(pr.x,pr.y);ctx.stroke();ctx.setLineDash([]);
-    ctx.strokeStyle="rgba(255,255,255,.35)";ctx.beginPath();ctx.arc(pr.x,pr.y,R,0,7);ctx.stroke();
-    // cue stick
-    const back=14+pw*40,len=300,dx=Math.cos(angle),dy=Math.sin(angle);
-    const sx=cue.x-dx*(R+back),sy=cue.y-dy*(R+back),ex=sx-dx*len,ey=sy-dy*len;
-    const g=ctx.createLinearGradient(sx,sy,ex,ey);g.addColorStop(0,"#dfe9f2");g.addColorStop(.03,"#f2e3c0");g.addColorStop(.62,"#d4a86a");g.addColorStop(.64,"#1b1b1b");g.addColorStop(1,"#2d1a10");
-    ctx.strokeStyle=g;ctx.lineCap="round";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.lineCap="butt";
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
   }
-  for(const b of balls)if(!b.in)drawBall(b.x,b.y,b.n);
-  for(const s of sunk)if(s.t<1)drawBall(s.x,s.y,s.n,1-s.t);
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ---------- table ----------
+const TW = 320, TH = 470, R = 10, RAIL = 20, CAPX = 4, DT = 1 / 240;
+const POCKETS = [{ x: -3, y: -3, r: 21 }, { x: TW + 3, y: -3, r: 21 }, { x: -3, y: TH + 3, r: 21 }, { x: TW + 3, y: TH + 3, r: 21 }, { x: -9, y: TH / 2, r: 22 }, { x: TW + 9, y: TH / 2, r: 22 }];
+const COLORS = { 1: "#f2c12e", 2: "#2458c4", 3: "#d6342a", 4: "#6a3ea0", 5: "#ef7a1a", 6: "#1e8a4c", 7: "#8b1f2b", 8: "#151515" };
+const CLOTH = { blue: ["#2f84bd", "#1d5f8c", "#174a6e"], green: ["#2f9a5a", "#1f7340", "#175a31"], red: ["#b8434a", "#8c2c33", "#6e2127"] };
+const r3 = 17.32;
+const HOLES = [
+  { name: "Opening Shot", par: 2, cue: [160, 380], balls: [[90, 120], [240, 210]], posts: [] },
+  { name: "Three Ball", par: 3, cue: [160, 410], balls: [[160, 150], [150, 150 - r3], [170, 150 - r3]], posts: [] },
+  { name: "Rail Huggers", par: 3, cue: [160, 330], balls: [[307, 200], [13, 430], [160, 13]], posts: [] },
+  { name: "Bumpers", par: 3, cue: [160, 410], balls: [[160, 150], [50, 90], [270, 90]], posts: [[160, 270, 13], [90, 215, 13], [230, 215, 13]] },
+  { name: "The Rack", par: 5, cue: [160, 415], balls: [[160, 170], [149.5, 170 - r3], [170.5, 170 - r3], [139, 170 - 2 * r3], [160, 170 - 2 * r3], [181, 170 - 2 * r3]], posts: [] },
+  { name: "Through the Gate", par: 4, cue: [160, 420], balls: [[50, 80], [270, 80], [160, 60], [160, 170]], posts: [[64, 300, 14], [160, 300, 14], [256, 300, 14]] },
+  { name: "Bank Street", par: 3, cue: [160, 410], balls: [[60, 120], [260, 120], [160, 90]], posts: [[30, 250, 12], [60, 250, 12], [90, 250, 12], [230, 250, 12], [260, 250, 12], [290, 250, 12]] },
+  { name: "Plus Sign", par: 4, cue: [160, 410], balls: [[160, 140], [160, 160], [160, 180], [140, 160], [180, 160]], posts: [] },
+  { name: "Picket Fence", par: 4, cue: [160, 415], balls: [[70, 110], [160, 90], [250, 110], [160, 200]], posts: [[44, 300, 10], [100, 300, 10], [156, 300, 10], [212, 300, 10], [268, 300, 10]] },
+  { name: "Grand Finale", par: 6, cue: [160, 420], balls: [[160, 150], [149.5, 150 - r3], [170.5, 150 - r3], [139, 150 - 2 * r3], [160, 150 - 2 * r3], [181, 150 - 2 * r3], [160, 50]], posts: [[60, 270, 14], [260, 270, 14], [160, 310, 14]] }
+];
+const LEVELS = HOLES.map(h => h.name);
+const opt = (k, allowed, def) => { const v = setting(k, def); return allowed.includes(v) ? v : def; };
+const mode = () => opt("mode", ["duel", "solo"], "duel");
+const nHoles = () => opt("len", [3, 6, 10], 6);
+const sens = () => ({ fine: .11, norm: .2, quick: .34 })[opt("sens", ["fine", "norm", "quick"], "norm")];
+const aid = () => opt("aid", ["low", "med", "high"], "med");
+const cloth = () => CLOTH[opt("cloth", ["blue", "green", "red"], "blue")];
+const cleanName = (s, fb) => { if (typeof s !== "string") return fb; const t = s.replace(/[\u0000-\u001f\u007f-\u009f]/g, "").replace(/\s+/g, " ").trim().slice(0, 14); return t || fb; };
+const parName = d => d <= -3 ? "Albatross" : d === -2 ? "Eagle" : d === -1 ? "Birdie" : d === 0 ? "Par" : d === 1 ? "Bogey" : "+" + d;
+
+// ---------- physics (pure functions on a world so the test solver can use them too) ----------
+function mkWorld(hi) {
+  const h = HOLES[hi];
+  return { balls: [{ x: h.cue[0], y: h.cue[1], vx: 0, vy: 0, n: 0, in: false, rail: false }, ...h.balls.map((b, i) => ({ x: b[0], y: b[1], vx: 0, vy: 0, n: i + 1, in: false, rail: false }))], posts: h.posts.map(p => ({ x: p[0], y: p[1], r: p[2] })) };
+}
+function cloneWorld(w) { return { balls: w.balls.map(b => ({ ...b })), posts: w.posts }; }
+function stepWorld(w, ev) {
+  const balls = w.balls, e = .78;
+  for (const b of balls) {
+    if (b.in) continue;
+    b.x += b.vx * DT; b.y += b.vy * DT;
+    const sp = Math.hypot(b.vx, b.vy);
+    if (sp > 0) { const ns = Math.max(0, sp - (120 + sp * .35) * DT); b.vx *= ns / sp; b.vy *= ns / sp; }
+    const yJaw = b.y < 21 || b.y > TH - 21 || Math.abs(b.y - TH / 2) < 18, xJaw = b.x < 21 || b.x > TW - 21;
+    if (b.x < R && !yJaw) { b.x = R; if (b.vx < 0) { if (ev) ev.wall = Math.max(ev.wall, -b.vx); b.vx = -b.vx * e; if (b.n) b.rail = true; } }
+    if (b.x > TW - R && !yJaw) { b.x = TW - R; if (b.vx > 0) { if (ev) ev.wall = Math.max(ev.wall, b.vx); b.vx = -b.vx * e; if (b.n) b.rail = true; } }
+    if (b.y < R && !xJaw) { b.y = R; if (b.vy < 0) { if (ev) ev.wall = Math.max(ev.wall, -b.vy); b.vy = -b.vy * e; if (b.n) b.rail = true; } }
+    if (b.y > TH - R && !xJaw) { b.y = TH - R; if (b.vy > 0) { if (ev) ev.wall = Math.max(ev.wall, b.vy); b.vy = -b.vy * e; if (b.n) b.rail = true; } }
+    for (const p of w.posts) {
+      const dx = b.x - p.x, dy = b.y - p.y, d = Math.hypot(dx, dy), m = R + p.r;
+      if (d < m && d > 0) { const nx = dx / d, ny = dy / d; b.x = p.x + nx * m; b.y = p.y + ny * m; const vn = b.vx * nx + b.vy * ny; if (vn < 0) { if (ev) ev.wall = Math.max(ev.wall, -vn); b.vx -= 1.85 * vn * nx; b.vy -= 1.85 * vn * ny; } }
+    }
+  }
+  for (let i = 0; i < balls.length; i++) {
+    const a = balls[i]; if (a.in) continue;
+    for (let j = i + 1; j < balls.length; j++) {
+      const b = balls[j]; if (b.in) continue;
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+      if (d < 2 * R && d > 0) {
+        const nx = dx / d, ny = dy / d, o = (2 * R - d) / 2; a.x -= nx * o; a.y -= ny * o; b.x += nx * o; b.y += ny * o;
+        const rel = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+        if (rel > 0) { const k = rel * .97; a.vx -= k * nx; a.vy -= k * ny; b.vx += k * nx; b.vy += k * ny; if (ev) ev.hit = Math.max(ev.hit, rel); }
+      }
+    }
+  }
+  for (const b of balls) {
+    if (b.in) continue;
+    let gone = b.x < -30 || b.x > TW + 30 || b.y < -30 || b.y > TH + 30;
+    for (const p of POCKETS) if (Math.hypot(b.x - p.x, b.y - p.y) < p.r) { gone = true; break; }
+    if (gone) { b.in = true; b.vx = b.vy = 0; if (ev) ev.sunk.push({ x: clamp(b.x, 0, TW), y: clamp(b.y, 0, TH), n: b.n, rail: b.rail }); }
+  }
+}
+const moving = w => w.balls.some(b => !b.in && (Math.abs(b.vx) > 2 || Math.abs(b.vy) > 2));
+const powSpeed = p => 110 + p / 100 * 1200;
+function freeSpot(w, x, y) {
+  const ok = (px, py) => px > R && px < TW - R && py > R && py < TH - R && !w.balls.some(b => b.n && !b.in && Math.hypot(b.x - px, b.y - py) < 2 * R + 2) && !w.posts.some(p => Math.hypot(p.x - px, p.y - py) < p.r + R + 2);
+  if (ok(x, y)) return [x, y];
+  for (let rad = 12; rad < 300; rad += 12) for (let a = 0; a < 24; a++) { const px = x + Math.cos(a / 24 * TAU) * rad, py = y + Math.sin(a / 24 * TAU) * rad; if (ok(px, py)) return [px, py]; }
+  return [x, y];
+}
+// ray from the cue ball along `ang`: first thing it touches
+function predict(w, ang) {
+  const cue = w.balls[0], dx = Math.cos(ang), dy = Math.sin(ang); let best = Infinity, hit = null;
+  const ray = (cx, cy, rr) => { const fx = cue.x - cx, fy = cue.y - cy, b = fx * dx + fy * dy, c = fx * fx + fy * fy - rr * rr, disc = b * b - c; if (disc < 0) return Infinity; const t = -b - Math.sqrt(disc); return t > .01 ? t : Infinity; };
+  for (const b of w.balls) { if (b === cue || b.in) continue; const t = ray(b.x, b.y, 2 * R); if (t < best) { best = t; hit = { type: "ball", b }; } }
+  for (const p of w.posts) { const t = ray(p.x, p.y, R + p.r); if (t < best) { best = t; hit = { type: "post", p }; } }
+  const tx = dx < 0 ? (R - cue.x) / dx : dx > 0 ? (TW - R - cue.x) / dx : Infinity, ty = dy < 0 ? (R - cue.y) / dy : dy > 0 ? (TH - R - cue.y) / dy : Infinity;
+  const tw = Math.min(tx, ty); if (tw < best) { best = tw; hit = { type: "wall", vert: tx < ty }; }
+  return { t: best, x: cue.x + dx * best, y: cue.y + dy * best, hit, dx, dy };
+}
+
+// ---------- state ----------
+let world, hole = 0, phase = "menu", strokes = 0, angle = -Math.PI / 2, pow = 55, shotT = 0, scratches = 0, shotEv = null, sunkAnim = [], lastSfx = 0;
+let M = null, solo = false, shootBtn = null, powerEl = null, turnDone = false;
+
+function nearestAim() { const c = world.balls[0]; let b = null, bd = 1e9; for (const o of world.balls) if (o.n && !o.in) { const d = Math.hypot(o.x - c.x, o.y - c.y); if (d < bd) { bd = d; b = o; } } return b ? Math.atan2(b.y - c.y, b.x - c.x) : -Math.PI / 2; }
+const cap = () => HOLES[hole].par + CAPX;
+function setupTurn(hi) {
+  hole = hi; world = mkWorld(hi); strokes = 0; scratches = 0; phase = "aim"; sunkAnim = []; shotEv = null; turnDone = false; angle = nearestAim();
+  showControls(); updateHud(); syncControls();
+}
+function shooterIdx() { return M ? (M.hole % 2 === 0 ? M.turn : 1 - M.turn) : 0; }
+function shooterName() { return M ? M.names[shooterIdx()] : "You"; }
+function updateHud() {
+  const h = HOLES[hole];
+  if (M) stats({ Hole: `${M.hole + 1}/${M.n}`, Up: shooterName() });
+  else stats({ Puzzle: `${hole + 1}/10`, Par: h.par });
+}
+
+// ---------- shooting ----------
+function shoot() {
+  if (phase !== "aim") return;
+  const c = world.balls[0], sp = powSpeed(pow);
+  c.vx = Math.cos(angle) * sp; c.vy = Math.sin(angle) * sp; c.rail = false;
+  strokes++; phase = "roll"; shotT = 0; shotEv = { wall: 0, hit: 0, sunk: [] }; acc = 0;
+  Kit.sfx("shoot"); Kit.haptic(14); updateHud(); syncControls();
+}
+let acc = 0;
+function updateRoll(dt) {
+  shotT += dt; acc += dt;
+  while (acc >= DT) { stepWorld(world, shotEv); acc -= DT; }
+  const now = performance.now();
+  if (now - lastSfx > 45) {
+    if (shotEv.hit > 60) { Kit.sfx("hit"); lastSfx = now; if (shotEv.hit > 300) Kit.haptic(8); } else if (shotEv.wall > 80) { Kit.sfx("bounce"); lastSfx = now; }
+  }
+  shotEv.hit = 0; shotEv.wall = 0;
+  while (shotEv.sunk.length) {
+    const s = shotEv.sunk.shift(); sunkAnim.push({ x: s.x, y: s.y, n: s.n, t: 0 });
+    if (s.n === 0) { shotEv.scratch = true; Kit.sfx("lose"); Kit.haptic(40); } else { shotEv.count = (shotEv.count || 0) + 1; Kit.sfx("coin"); Kit.haptic(20); if (s.rail) award("bank"); burst(s.x + RAIL, s.y + RAIL, COLORS[s.n] || "#fff", 14, 120, .6); }
+  }
+  if (!moving(world) || shotT > 16) settle();
+}
+function settle() {
+  for (const b of world.balls) { b.vx = b.vy = 0; }
+  const ev = shotEv;
+  if (ev.count >= 2) award("double");
+  if (ev.scratch) {
+    strokes++; scratches++; toast("Scratch · +1 stroke"); const c = world.balls[0], h = HOLES[hole]; c.in = false; c.rail = false;
+    const [x, y] = freeSpot(world, h.cue[0], h.cue[1]); c.x = x; c.y = y;
+  } else if (ev.count) toast(ev.count > 1 ? ev.count + " balls down" : "Ball down");
+  const left = world.balls.filter(b => b.n > 0 && !b.in).length;
+  if (left === 0) { endTurn(Math.min(strokes, cap()), true); return; }
+  if (strokes >= cap()) { endTurn(cap(), false); return; }
+  phase = "aim"; angle = ev.scratch ? nearestAim() : angle; updateHud(); syncControls();
+}
+
+// ---------- turn / match flow ----------
+function addMenuBtn() { const b = document.createElement("button"); b.className = "ghost"; b.textContent = "Menu"; b.onclick = () => { document.getElementById("over").hidden = true; openMenu(); }; document.getElementById("card").append(b); }
+function endTurn(score, cleared) {
+  phase = "over"; turnDone = true; syncControls(); const par = HOLES[hole].par, d = score - par;
+  if (cleared) { Kit.sfx("win"); if (score <= par) award("par"); if (score < par) award("birdie"); if (!scratches) award("clean"); if (hole === 9) award("finale"); } else Kit.sfx("lose");
+  const rel = cleared ? parName(d) + (d <= 0 ? "!" : "") : "Out of shots";
+  if (!M) {                                   // solo puzzle
+    if (cleared) unlock(hole + 2);
+    Kit.record({ win: cleared ? 1 : 0, score: cleared ? (cap() + 1 - score) * 100 : 0 }); persist();
+    const nxt = cleared && hole < 9;
+    setTimeout(() => {
+      if (phase !== "over") return;
+      card(`<h1>${cleared ? "Table cleared" : "Not this time"}</h1><div class="big">${score}</div><p>${cleared ? "strokes" : "strokes used"} · ${rel} (par ${par})</p><p class="sub">${escHTML(HOLES[hole].name)}</p>`, nxt ? "Next: " + HOLES[hole + 1].name : "Retry", () => setupTurn(nxt ? hole + 1 : hole));
+      addMenuBtn();
+    }, 650);
+    return;
+  }
+  const who = shooterIdx(); M.scores[who][M.hole] = score; const name = M.names[who];
+  const go = (next) => setTimeout(next, 650);
+  if (M.turn === 0) {
+    M.turn = 1; const nx = M.names[shooterIdx()];
+    go(() => { if (phase !== "over") return; card(`<p class="sub">Hole ${M.hole + 1} · ${escHTML(name)}</p><div class="big">${score}</div><p>${cleared ? "Table cleared" : "Hit the shot cap"} · ${escHTML(rel)}</p><h1>Pass to ${escHTML(nx)}</h1><p class="sub">Beat ${score} on the same table.</p>`, "I'm " + escHTML(cleanName(nx, "next")) + " · Rack it", () => setupTurn(hole)); });
+  } else {
+    const a = M.scores[0][M.hole], b = M.scores[1][M.hole], res = a === b ? "Hole halved" : M.names[a < b ? 0 : 1] + " takes the hole";
+    M.turn = 0; M.hole++;
+    if (M.hole >= M.n) { go(() => { if (phase !== "over") return; finalCard(); }); return; }
+    const first = M.names[shooterIdx()], t = totals();
+    go(() => { if (phase !== "over") return; card(`<p class="sub">Hole ${M.hole} result · ${escHTML(name)} ${score}</p><h1>${escHTML(res)}</h1><p>Totals: ${escHTML(M.names[0])} ${t[0]} · ${escHTML(M.names[1])} ${t[1]}</p><p class="sub">Next: ${escHTML(HOLES[M.hole].name)}. ${escHTML(first)} breaks.</p>`, "Pass to " + escHTML(cleanName(first, "next")) + " · Rack it", () => setupTurn(M.hole)); });
+  }
+}
+const totals = () => M.scores.map(r => r.reduce((s, v) => s + (v || 0), 0));
+function finalCard() {
+  const t = totals(); let w = [0, 0]; for (let i = 0; i < M.n; i++) { const a = M.scores[0][i], b = M.scores[1][i]; if (a != null && b != null && a !== b) w[a < b ? 0 : 1]++; }
+  const head = t[0] === t[1] ? "Dead even" : M.names[t[0] < t[1] ? 0 : 1] + " wins";
+  award("duel"); Kit.record({ win: 0, score: 0 }); persist(); Kit.sfx("win");
+  card(`<p class="sub">Match over</p><h1>${escHTML(head)}</h1><p>${escHTML(M.names[0])}: <b>${t[0]}</b> strokes · ${w[0]} holes<br>${escHTML(M.names[1])}: <b>${t[1]}</b> strokes · ${w[1]} holes</p>`, "Rematch", () => newDuel(M.names.slice().reverse()));
+  addMenuBtn();
+}
+function newDuel(names) { M = { names, n: nHoles(), hole: 0, turn: 0, scores: [[], []] }; solo = false; setupTurn(0); }
+function start(lv) {
+  if (mode() === "solo") { M = null; solo = true; setupTurn(clamp(Math.floor(+lv || 1), 1, 10) - 1); return; }
+  let names = ["Player 1", "Player 2"];
+  const dn = SAVE.data && SAVE.data.names; if (Array.isArray(dn) && dn.length === 2) names = [cleanName(dn[0], "Player 1"), cleanName(dn[1], "Player 2")];
+  phase = "menu"; Kit.hideControls();
+  card(`<p class="sub">Pass-and-play · ${nHoles()} holes</p><h1>Who's playing?</h1><div class="pnames"><label for="pn1">Breaks first</label><input type="text" id="pn1" maxlength="14" autocomplete="off"><label for="pn2">Second shooter</label><input type="text" id="pn2" maxlength="14" autocomplete="off"></div><p class="sub">Same table for both of you. Fewest strokes wins.</p>`, "Rack it", () => {
+    const a = cleanName(document.getElementById("pn1").value, "Player 1"), b = cleanName(document.getElementById("pn2").value, "Player 2");
+    SAVE.data = { names: [a, b] }; persist(); newDuel([a, b]);
+  });
+  document.getElementById("pn1").value = names[0]; document.getElementById("pn2").value = names[1];
+  const o = document.getElementById("pn1"); o.onkeydown = ev => { if (ev.key === "Enter") document.getElementById("pn2").focus(); };
+  document.getElementById("pn2").onkeydown = ev => { if (ev.key === "Enter") document.getElementById("go").click(); };
+}
+
+// ---------- input ----------
+// Aim: relative. The finger never snaps the cue; sliding left/right turns it from wherever it was.
+Kit.play({
+  start(f) { if (phase !== "aim") return; for (const o of Kit.fingers.values()) if (o !== f && o.owner === "aim") o.owner = null; f.owner = "aim"; f.a0 = angle; },
+  move(f) { if (f.owner === "aim" && phase === "aim") angle = f.a0 + (f.x - f.x0) * sens() * Math.PI / 180; },
+  end(f) { f.owner = null; }
+});
+function nudge(d, big) { if (phase === "aim") angle += d * (big ? .6 : .22) * Math.PI / 180; }
+function showControls() {
+  if (shootBtn) { syncControls(); return Kit.controls([wrapEl], []); }
+  const wrap = document.createElement("div"); wrap.className = "ppd"; wrapEl = wrap;
+  powerEl = makeSlider();
+  let n = 0, dir = 0;
+  const nb = (label, d, aria) => Kit.button(label, { down: () => { dir = d; n = 0; nudge(d); }, up: () => { dir = 0; }, repeat: 55, cls: "ppd-n", aria });
+  // repeat calls down() again, so count repeats to speed up
+  const mk = (label, d, aria) => { const b = Kit.button(label, { down: () => { n++; nudge(d, n > 10); }, up: () => { n = 0; }, repeat: 55, cls: "ppd-n", aria }); return b; };
+  void nb;
+  shootBtn = Kit.button("SHOOT", { down: () => shoot(), cls: "ppd-shoot", aria: "Shoot" });
+  const row = document.createElement("div"); row.className = "ppd-row";
+  row.append(mk(`<span class="big">◀</span><small>aim finer</small>`, -1, "Turn aim left a little"), shootBtn, mk(`<span class="big">▶</span><small>aim finer</small>`, 1, "Turn aim right a little"));
+  wrap.append(powerEl, row); Kit.controls([wrap], []);
+}
+let wrapEl = null;
+function syncControls() {
+  if (!shootBtn) return; const on = phase === "aim";
+  shootBtn.classList.toggle("off", !on); shootBtn.innerHTML = on ? "SHOOT" : (phase === "roll" ? "rolling…" : "…");
+  shootBtn.setAttribute("aria-disabled", on ? "false" : "true");
+}
+function makeSlider() {
+  const el = document.createElement("div"); el.className = "ppd-pw"; el.setAttribute("role", "slider"); el.setAttribute("aria-label", "Shot power"); el.setAttribute("aria-valuemin", "5"); el.setAttribute("aria-valuemax", "100");
+  el.innerHTML = `<div class="lbl"><span>POWER</span><b></b></div><div class="trk"><div class="fill"></div><div class="knob"></div></div>`;
+  const trk = el.querySelector(".trk"), fill = el.querySelector(".fill"), knob = el.querySelector(".knob"), val = el.querySelector("b");
+  const paint = () => { fill.style.width = pow + "%"; knob.style.left = pow + "%"; val.textContent = pow + "%"; el.setAttribute("aria-valuenow", String(pow)); };
+  el._paint = paint; paint();
+  const setX = cx => { const r = trk.getBoundingClientRect(); pow = clamp(Math.round((cx - r.left) / r.width * 100), 5, 100); paint(); };
+  let tid = null;
+  el.addEventListener("touchstart", e => { e.preventDefault(); Kit.audioOn(); if (tid !== null) return; const t = e.changedTouches[0]; tid = t.identifier; setX(t.clientX); Kit.sfx("tick"); }, { passive: false });
+  el.addEventListener("touchmove", e => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === tid) setX(t.clientX); }, { passive: false });
+  const te = e => { for (const t of e.changedTouches) if (t.identifier === tid) tid = null; };
+  el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+  el.addEventListener("pointerdown", e => { if (e.pointerType === "touch") return; setX(e.clientX); const mv = ev => setX(ev.clientX), mu = () => { removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+  return el;
+}
+addEventListener("keydown", e => {
+  const inField = e.target && e.target.tagName === "INPUT";
+  if (inField) return;
+  if (e.key === "p" || e.key === "P" || e.key === "Escape") { Kit.pause(); return; }
+  const o = document.getElementById("over");
+  if ((e.key === "Enter" || e.key === " ") && !(e.target && e.target.closest && e.target.closest("button"))) { if (o && !o.hidden) { const g = document.getElementById("go"); if (g) g.click(); } else if (phase === "aim") shoot(); return; }
+  if (phase !== "aim" || (o && !o.hidden)) return;
+  if (e.key === "ArrowUp") { pow = clamp(pow + 3, 5, 100); powerEl && powerEl._paint(); } else if (e.key === "ArrowDown") { pow = clamp(pow - 3, 5, 100); powerEl && powerEl._paint(); }
+  else if (e.key === "ArrowLeft" || e.key === "a") nudge(-1, true); else if (e.key === "ArrowRight" || e.key === "d") nudge(1, true);
+});
+
+// ---------- drawing ----------
+function drawBall(x, y, n, s = 1) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.fillStyle = "rgba(0,0,0,.28)"; ctx.beginPath(); ctx.ellipse(2, 3, R, R * .9, 0, 0, TAU); ctx.fill();
+  const base = n === 0 ? "#f4f1e8" : COLORS[n] || "#888", g = ctx.createRadialGradient(-3.5, -4, 1, 0, 0, R); g.addColorStop(0, n === 0 ? "#ffffff" : lighten(base)); g.addColorStop(1, base);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+  if (n > 0) { ctx.fillStyle = "#fbf8ef"; ctx.beginPath(); ctx.arc(0, 0, 5, 0, TAU); ctx.fill(); ctx.fillStyle = "#111"; ctx.font = "700 8px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(n, 0, .5); }
+  else { ctx.fillStyle = "#c0392b"; ctx.beginPath(); ctx.arc(2, 1, 1.4, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.beginPath(); ctx.arc(-3.5, -4, 2, 0, TAU); ctx.fill(); ctx.restore();
+}
+function lighten(h) { const n = parseInt(h.slice(1), 16); let r = n >> 16, g = n >> 8 & 255, b = n & 255; r = Math.min(255, r + 70); g = Math.min(255, g + 70); b = Math.min(255, b + 70); return `rgb(${r},${g},${b})`; }
+function drawPost(p) {
+  ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.beginPath(); ctx.arc(p.x + 2, p.y + 3, p.r, 0, TAU); ctx.fill();
+  const g = ctx.createRadialGradient(p.x - p.r * .4, p.y - p.r * .4, 1, p.x, p.y, p.r); g.addColorStop(0, "#ffe39a"); g.addColorStop(1, "#a8761f"); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#1a1a1a"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * .42, 0, TAU); ctx.fill();
+}
+function drawTable() {
+  const cl = cloth();
+  const g = ctx.createLinearGradient(0, 0, LW, LH); g.addColorStop(0, "#5a2f1a"); g.addColorStop(.5, "#7a4226"); g.addColorStop(1, "#4a2614"); ctx.fillStyle = g; ctx.fillRect(0, 0, LW, LH);
+  ctx.save(); ctx.translate(RAIL, RAIL);
+  ctx.fillStyle = cl[2]; ctx.fillRect(-6, -6, TW + 12, TH + 12);
+  const c = ctx.createRadialGradient(TW / 2, TH / 2, 40, TW / 2, TH / 2, TH * .7); c.addColorStop(0, cl[0]); c.addColorStop(1, cl[1]); ctx.fillStyle = c; ctx.fillRect(0, 0, TW, TH);
+  ctx.strokeStyle = "rgba(255,255,255,.1)"; ctx.setLineDash([4, 6]); ctx.beginPath(); ctx.moveTo(0, TH * .8); ctx.lineTo(TW, TH * .8); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#efe3c4"; const dia = (x, y) => { ctx.beginPath(); ctx.moveTo(x, y - 3.5); ctx.lineTo(x + 2.5, y); ctx.lineTo(x, y + 3.5); ctx.lineTo(x - 2.5, y); ctx.fill(); };
+  for (let k = 1; k < 8; k++) { if (k === 4) continue; dia(-RAIL / 2 - 1, TH * k / 8); dia(TW + RAIL / 2 + 1, TH * k / 8); }
+  for (const p of POCKETS) { ctx.fillStyle = "#050608"; ctx.beginPath(); ctx.arc(p.x < -5 ? -4 : p.x > TW + 5 ? TW + 4 : p.x, p.y, p.r - 3, 0, TAU); ctx.fill(); ctx.strokeStyle = "#2b1a10"; ctx.lineWidth = 3; ctx.stroke(); }
+  ctx.restore();
+  // rail captions (names are drawn with fillText, never as HTML)
+  ctx.save(); ctx.fillStyle = "#f1e3c0"; ctx.font = "700 11px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  if (phase !== "menu") { const h = HOLES[hole]; ctx.fillText(`${M ? "HOLE " + (M.hole + 1) : "PUZZLE " + (hole + 1)} · ${h.name.toUpperCase()} · PAR ${h.par}`, LW / 2, 10); ctx.fillText(`${M ? shooterName().toUpperCase() + " · " : ""}SHOT ${Math.min(strokes + (phase === "aim" ? 1 : 0), cap())} OF ${cap()}`, LW / 2, LH - 10); }
   ctx.restore();
 }
-
-// ---- loop ----
-let last=performance.now();
-function frame(now){
-  let el=Math.min(.05,(now-last)/1000);last=now;
-  if(phase==="roll"){shotT+=el;const n=Math.ceil(el/(1/240));for(let i=0;i<n;i++)step(el/n);
-    if(!moving()||shotT>14)settle();}
-  for(const s of sunk)s.t=Math.min(1,s.t+el*4);
-  draw();requestAnimationFrame(frame);
+function drawAim() {
+  const c = world.balls[0]; if (c.in) return;
+  const pr = predict(world, angle), A = aid(), dx = pr.dx, dy = pr.dy, pw = pow / 100;
+  // cue stick, pulled back by the power setting
+  const back = 12 + pw * 38, len = 230, sx = c.x - dx * (R + back), sy = c.y - dy * (R + back), ex = sx - dx * len, ey = sy - dy * len;
+  const g = ctx.createLinearGradient(sx, sy, ex, ey); g.addColorStop(0, "#dfe9f2"); g.addColorStop(.03, "#f2e3c0"); g.addColorStop(.62, "#d4a86a"); g.addColorStop(.64, "#1b1b1b"); g.addColorStop(1, "#2d1a10");
+  ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(sx + 2, sy + 3); ctx.lineTo(ex + 2, ey + 3); ctx.stroke();
+  ctx.strokeStyle = g; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke(); ctx.lineCap = "butt";
+  // guide line to the first contact
+  ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 1.6; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(c.x + dx * (R + 2), c.y + dy * (R + 2)); ctx.lineTo(pr.x, pr.y); ctx.stroke(); ctx.setLineDash([]);
+  if (A === "low") return;
+  // ghost ball where the cue ball will be at contact
+  ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(pr.x, pr.y, R, 0, TAU); ctx.stroke();
+  const L = A === "high" ? 2 : 1; ctx.lineWidth = 2.2; ctx.lineCap = "round";
+  const stub = (x, y, vx, vy, len, col) => { ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + vx * len, y + vy * len); ctx.stroke(); };
+  if (pr.hit.type === "ball") {
+    const b = pr.hit.b; let nx = b.x - pr.x, ny = b.y - pr.y; const d = Math.hypot(nx, ny) || 1; nx /= d; ny /= d;
+    stub(b.x, b.y, nx, ny, 34 * L, "rgba(255,226,120,.95)");                       // where the struck ball heads
+    const dot = dx * nx + dy * ny, tx = dx - dot * nx, ty = dy - dot * ny, tl = Math.hypot(tx, ty);
+    if (tl > .05) stub(pr.x, pr.y, tx / tl, ty / tl, 24 * L * tl, "rgba(160,225,255,.95)");   // cue ball glances off sideways
+  } else if (pr.hit.type === "wall") {
+    const rx = pr.hit.vert ? -dx : dx, ry = pr.hit.vert ? dy : -dy; stub(pr.x, pr.y, rx, ry, 36 * L, "rgba(160,225,255,.95)");
+  } else { const p = pr.hit.p; let nx = pr.x - p.x, ny = pr.y - p.y; const d = Math.hypot(nx, ny) || 1; nx /= d; ny /= d; const dot = dx * nx + dy * ny; stub(pr.x, pr.y, dx - 2 * dot * nx, dy - 2 * dot * ny, 36 * L, "rgba(160,225,255,.95)"); }
+  ctx.lineCap = "butt";
+}
+function draw() {
+  ctx.clearRect(0, 0, LW, LH); drawTable();
+  if (!world || phase === "menu") { drawParts(); return; }
+  ctx.save(); ctx.translate(RAIL, RAIL);
+  for (const p of world.posts) drawPost(p);
+  if (phase === "aim") drawAim();
+  for (const b of world.balls) if (!b.in) drawBall(b.x, b.y, b.n);
+  for (const s of sunkAnim) if (s.t < 1) drawBall(s.x, s.y, s.n, 1 - s.t);
+  ctx.restore(); drawParts();
 }
 
-// ---- input ----
-// Relative aiming: the cue stays put on touch; sliding left/right rotates it from where it was.
-let dragging=false,dragX=0,dragAngle=0;
-const DEG_PER_PX=0.18;
-cv.addEventListener("pointerdown",e=>{if(phase!=="aim")return;dragging=true;cv.setPointerCapture(e.pointerId);dragX=e.clientX;dragAngle=angle});
-cv.addEventListener("pointermove",e=>{if(!dragging||phase!=="aim")return;angle=dragAngle+(e.clientX-dragX)*DEG_PER_PX*Math.PI/180});
-cv.addEventListener("pointerup",()=>dragging=false);
-cv.addEventListener("pointercancel",()=>dragging=false);
-let rep;const nudge=d=>{if(phase==="aim")angle+=d*Math.PI/180*0.35};
-for(const [id,d] of [["nudgeL",-1],["nudgeR",1]]){const b=$(id);
-  b.addEventListener("pointerdown",e=>{e.preventDefault();nudge(d);clearInterval(rep);let k=0;rep=setInterval(()=>{k++;if(k>4)nudge(d)},70)});
-  ["pointerup","pointerleave","pointercancel"].forEach(ev=>b.addEventListener(ev,()=>clearInterval(rep)));
-  b.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();nudge(d)}});}
-$("pow").addEventListener("input",()=>$("powLbl").textContent=$("pow").value+"%");
-$("shootBtn").addEventListener("click",shoot);
-$("newGame").addEventListener("click",()=>{
-  showCard(`<div class="eyebrow">New match</div><h1>Start over?</h1><p>The current scoresheet will be cleared.</p>
-    <button class="primary" id="go">Clear and start</button><button class="newgame" id="cancel">Keep playing</button>`,()=>{M=freshMatch(M.names);save();startCard()});
-  $("cancel").onclick=()=>$("overlay").hidden=true;
+// ---------- loop ----------
+loop(dt => {
+  if (!Kit.isPaused()) {
+    if (phase === "roll") updateRoll(dt);
+    for (const s of sunkAnim) s.t = Math.min(1, s.t + dt * 4);
+    stepParts(dt);
+  }
+  draw();
 });
-window.addEventListener("resize",resize);
+Kit.lifecycle({ pause: () => phase === "aim" || phase === "roll", resume: () => {}, menu: openMenu });
+function openMenu() {
+  phase = "menu"; world = null; M = null; Kit.hideControls(); stats({});
+  Kit.menu({
+    title: "Pocket Puzzle Duel", hand: false, bestLabel: "Best score",
+    html: `<p class="sub">Clear the table in the fewest strokes. Slide a finger on the table to turn your aim (it never jumps to your finger), set POWER, press SHOOT. Duel: two players pass the phone. Solo: beat par on 10 puzzles (clear one to unlock the next).</p>`,
+    settings: [
+      { k: "mode", label: "Mode", def: "duel", opts: [["duel", "Duel · 2 players"], ["solo", "Solo puzzles"]] },
+      { k: "len", label: "Duel length (holes)", def: 6, opts: [[3, "3"], [6, "6"], [10, "10"]] },
+      { k: "aid", label: "Aim help", def: "med", opts: [["low", "Line only"], ["med", "Medium"], ["high", "Extra"]] },
+      { k: "sens", label: "Aim slide speed", def: "norm", opts: [["fine", "Fine"], ["norm", "Normal"], ["quick", "Quick"]] },
+      { k: "cloth", label: "Table cloth", def: "blue", opts: [["blue", "Blue"], ["green", "Green"], ["red", "Red"]] }
+    ],
+    levels: LEVELS,
+    challenges: [{ id: "par", text: "Clear a table at par or better" }, { id: "birdie", text: "Clear a table under par" }, { id: "double", text: "Pocket two balls with one shot" }, { id: "bank", text: "Pocket a ball after it bounced off a rail" }, { id: "clean", text: "Clear a table without a scratch" }, { id: "duel", text: "Finish a two-player duel" }, { id: "finale", text: "Clear Grand Finale (puzzle 10)" }],
+    play: "Rack 'em"
+  }, lv => start(lv));
+}
 
-// ---- boot ----
-M=load()||freshMatch();
-if(M.done)M=freshMatch(M.names);
-resize();setupTurn();
-if(M.hole===0&&M.turn===0)startCard();
-else showCard(`<div class="eyebrow">Match in progress · Hole ${M.hole+1}</div><h1>${esc(M.names[shooterIdx()])} is up</h1>
-  <button class="primary" id="go">Rack it</button>`,()=>{});
-requestAnimationFrame(frame);
+// ---------- test hooks (and a greedy solver used only by the tests to check each puzzle can be cleared) ----------
+function simShot(w0, ang, p) {
+  const w = cloneWorld(w0), c = w.balls[0], sp = powSpeed(p); c.vx = Math.cos(ang) * sp; c.vy = Math.sin(ang) * sp;
+  const ev = { wall: 0, hit: 0, sunk: [] }; let n = 0, scratch = false, count = 0;
+  while (n < 240 * 16) { stepWorld(w, ev); n++; if (n % 8 === 0 && !moving(w)) break; }
+  for (const s of ev.sunk) if (s.n === 0) scratch = true; else count++;
+  if (scratch) { const h = freeSpot(w, w0.balls[0].x, w0.balls[0].y); } return { w, scratch, count };
+}
+function bestShot(w) {
+  let best = null;
+  for (let a = 0; a < 360; a += 2) for (const p of [45, 75]) {
+    const ang = a * Math.PI / 180, r = simShot(w, ang, p);
+    let near = 0; for (const b of r.w.balls) if (b.n && !b.in) { let d = 1e9; for (const k of POCKETS) d = Math.min(d, Math.hypot(b.x - k.x, b.y - k.y)); near += d; }
+    const sc = r.count * 1000 - (r.scratch ? 700 : 0) - near * .5;
+    if (!best || sc > best.sc) best = { sc, ang, p, count: r.count, scratch: r.scratch };
+  }
+  return best;
+}
+function solveHole(hi, maxS = 14) {
+  let w = mkWorld(hi), strokesN = 0, scr = 0;
+  while (strokesN < maxS) {
+    const b = bestShot(w), r = simShot(w, b.ang, b.p); strokesN++; w = r.w;
+    if (r.scratch) { strokesN++; scr++; const c = w.balls[0]; c.in = false; const s = freeSpot(w, HOLES[hi].cue[0], HOLES[hi].cue[1]); c.x = s[0]; c.y = s[1]; }
+    if (!w.balls.some(x => x.n && !x.in)) return { strokes: strokesN, scratches: scr };
+    for (const x of w.balls) { x.vx = x.vy = 0; }
+  }
+  return { strokes: 99, scratches: scr };
+}
+window.T = {
+  get state() { return phase; }, get angle() { return angle; }, get power() { return pow; }, get strokes() { return strokes; }, get hole() { return hole; }, get cap() { return phase === "menu" ? 0 : cap(); },
+  get left() { return world ? world.balls.filter(b => b.n && !b.in).length : -1; }, get cue() { return world ? { x: world.balls[0].x, y: world.balls[0].y } : null; },
+  get shootOn() { return !!shootBtn && !shootBtn.classList.contains("off"); }, get paused() { return Kit.isPaused(); }, get shotT() { return shotT; },
+  get match() { return M ? { hole: M.hole, turn: M.turn, n: M.n, scores: M.scores, names: M.names } : null; }, get done() { return Object.keys(SAVE.done); }, get unlocked() { return SAVE.unlocked; },
+  setAngle(a) { angle = a; }, setPower(p) { pow = clamp(p, 5, 100); powerEl && powerEl._paint(); }, best() { const b = bestShot(world); return { ang: b.ang, p: b.p }; },
+  apply(b) { angle = b.ang; pow = b.p; powerEl && powerEl._paint(); }, shootNow() { shoot(); }, solve: solveHole,
+  holeInfo(i) { return { par: HOLES[i].par, balls: HOLES[i].balls.length }; }
+};
+fit(); openMenu();
+
 })();
 </script>
 
-</body></html>
+</html>

@@ -1,15 +1,16 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-</head><body>
+<style>[hidden]{display:none!important}</style>
 <title>Patience</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap">
 <style>
 /* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
 :root{--bg:#0f3b2c;--ink:#f4f1e6;--muted:#a7c9b6;--accent:#f2c14e;--f-display:"Playfair Display",Georgia,serif;color-scheme:dark}
-html,body{height:100%;background:var(--bg);color:var(--ink)}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
 body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
   padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
 .app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
@@ -27,6 +28,7 @@ canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
 .card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2b1f00;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
 button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .tool{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:2}.tool button{height:38px;padding:0 12px;border-radius:10px;border:1px solid #a7c9b6;background:#0f3b2c;color:#f4f1e6;font:700 14px system-ui;white-space:nowrap}
+
 .card{max-height:calc(100% - 16px);overflow:auto}
 .setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
 .seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
@@ -52,7 +54,8 @@ const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.ge
 function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
   cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
 addEventListener("resize",fit);
-function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join("")}
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
 function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
   document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
 function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
@@ -74,15 +77,21 @@ function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h
 function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
 // ---- menus with settings, level select and challenges (saved per game) ----
 let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
-try{Object.assign(SAVE,JSON.parse(localStorage.getItem(SKEY)||"{}"))}catch(e){}
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
 const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
-function setting(k,d){return SAVE.settings[k]??d}
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
 let CHAL=[];
 function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
 function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
 function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
 // cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
-function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=Math.min(setting("_lvl",1),SAVE.unlocked);
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
   const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
     c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
     ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
@@ -93,6 +102,7 @@ function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementBy
     c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
     document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
   draw();o.hidden=false}
+
 
 
 const CW=46,CH=64,GAP=(LW-7*CW)/8,TOPY=10,TABY=TOPY+CH+14,SUITS=["♠","♥","♦","♣"],RANKS=["","A","2","3","4","5","6","7","8","9","10","J","Q","K"];
@@ -162,4 +172,4 @@ fit();openMenu();
 })();
 </script>
 
-</body></html>
+</html>

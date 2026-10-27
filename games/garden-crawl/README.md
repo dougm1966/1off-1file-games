@@ -14,19 +14,57 @@
 
 ## How it plays
 
-A centipede winds down through a mushroom patch. Each segment you hit becomes a mushroom and splits the train; spiders score more the closer they are.
+A garden gnome holds off a centipede winding down through mushrooms, plus spiders and scouts, over 10 waves. Shot segments split the centipede in two.
 
-> A centipede is winding down through the mushroom patch. Shoot every segment. Each hit segment sprouts a new mushroom, and the train splits in two.
-> Slide anywhere to move inside the bottom zone. Spiders score more the closer they are when you hit them.
+> A centipede winds down through your mushroom patch. Put a finger anywhere on the board and drag: the gnome slides the same way inside the outlined zone, and sprays while your finger is down. Each hit segment sprouts a mushroom and splits the train.
 
 ## Controls
 
-Slide anywhere to move inside the bottom zone; the sprayer fires automatically.
+Drag anywhere on the board: the gnome moves by however far your finger moves, inside its outlined zone, and fires automatically while a finger is down. A setting gives a thumb stick plus FIRE button instead.
 
 ## Rules and features
 
-- Mushrooms take four hits.
-- Three lives; best score saved.
+- 10 waves that unlock, and 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Settings
+
+| Setting | Options |
+|---|---|
+| Controls | Drag on board · Stick + Fire |
+| Difficulty | Easy · Normal · Hard |
+| Gnomes | 3 · 5 |
+| Drag speed | Slow · Normal · Fast |
+| Controls side | Buttons right · Buttons left |
+| Sound | On · Off |
+| Vibration | On · Off |
+
+## Levels
+
+1. Dewy Dawn
+2. Clover Patch
+3. Slug Trail
+4. Spider Web
+5. Toadstool Ring
+6. Bramble Row
+7. Midnight Mulch
+8. Thorn Hedge
+9. Mushroom Maze
+10. The Great Crawl
+
+Levels unlock as you clear them.
+
+## Challenges
+
+A checklist in the menu that saves on your device:
+
+- [ ] Shoot a centipede head
+- [ ] Split the centipede into 3 pieces
+- [ ] Shoot a spider up close (900 points)
+- [ ] Destroy 20 mushrooms in one game
+- [ ] Clear a wave without losing a gnome
+- [ ] Clear Toadstool Ring (wave 5)
+- [ ] Clear The Great Crawl
 
 ## Look and feel
 

@@ -14,19 +14,43 @@
 
 ## How it plays
 
-Grow the snake by eating apples; golden stars are worth 50 but vanish fast. Speed rises as you grow.
+Grow the snake by eating apples without hitting walls, rocks or yourself. Classic, Obstacles and Timed modes, three board sizes, and solid or wrap-around walls.
 
-> Eat apples to grow. Golden stars are worth 50 but vanish fast. Don't hit the walls or yourself.
-> Swipe anywhere to turn.
+> Eat apples to grow without hitting walls, rocks or yourself. Press the D-pad to turn (roll your thumb between directions; two quick turns are remembered). Golden stars are worth 50 but vanish fast.
 
 ## Controls
 
-Swipe anywhere to turn; up to three turns can be queued. Arrow keys also work.
+A D-pad under the board: press a wedge to turn that way, or slide your thumb from wedge to wedge. Up to two quick turns are remembered, and a reversal into yourself is ignored. Hold BOOST to speed up. Swipe on the board is an optional setting.
 
 ## Rules and features
 
-- Hitting a wall or yourself ends the run.
-- Best score saved.
+- 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Settings
+
+| Setting | Options |
+|---|---|
+| Mode | Classic · Obstacles · Timed |
+| Speed | Slow · Normal · Fast |
+| Walls | Solid · Wrap around |
+| Board size | Small · Medium · Large |
+| Swipe on board (extra) | Off · On |
+| Controls side | Buttons right · Buttons left |
+| Sound | On · Off |
+| Vibration | On · Off |
+
+## Challenges
+
+A checklist in the menu that saves on your device:
+
+- [ ] Grow to length 20
+- [ ] Grow to length 40
+- [ ] Eat a golden star
+- [ ] Buffer two quick turns in a row
+- [ ] Eat 10 apples with wrap-around walls
+- [ ] Eat 8 apples in Obstacles mode
+- [ ] Eat 15 apples in Timed mode
 
 ## Look and feel
 

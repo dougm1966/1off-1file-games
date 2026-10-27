@@ -8,23 +8,62 @@ Build a complete, polished browser game called **Star Siege**, inspired by Space
 
 ## The game
 
-Hold off a descending fleet of original alien designs from behind crumbling pixel shields; shoot the red saucer for a bonus.
+Hold the line against marching alien ranks across 10 sectors, ending with a flagship boss. Shield bunkers wear down as they take hits.
 
 Menu text to show the player:
 
-> Hold the line against the descending fleet. Shields soak shots but crumble. Hit the red saucer for a bonus.
-> Slide anywhere to move. Firing is automatic.
+> Hold the line against the descending fleet. Hold ◀ ▶ to move and the big FIRE button to shoot, at the same time. Shields soak shots but crumble. Hit the red saucer for bonus points.
 
 ## Controls (phone first)
 
-Slide anywhere to move; firing is automatic.
+◀ ▶ hold buttons on the left and a big FIRE button on the right; moving and firing at the same time works. Auto-fire is a setting. An alternative 'Drag ship' mode moves the ship by relative drag with auto-fire.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 
 ## Rules and features
 
-- The fleet speeds up as it thins out; waves start lower each time.
-- Three lives; best score saved.
+- 10 sectors that unlock, and 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Start menu settings
+
+Show a start card with segmented buttons for each setting, remembered between visits:
+
+- **Difficulty**: Easy, Normal, Hard
+- **Controls**: ◀ ▶ + FIRE, Drag ship
+- **Auto-fire (buttons mode)**: Off, On
+- **Lives**: 3, 5
+- **Shield bunkers**: On, Off
+- **Controls side**: Buttons right, Buttons left
+- **Sound**: On, Off
+- **Vibration**: On, Off
+
+## Levels
+
+10 levels that unlock in order, shown as a numbered grid with a lock icon on locked ones. The selected level's description appears under the grid:
+
+1. First Contact
+2. Scout Fleet
+3. Full Armada
+4. Raiders
+5. Armored Ranks
+6. Crossfire
+7. Iron Wall
+8. Low Orbit
+9. Elite Guard
+10. The Flagship
+
+## Challenges
+
+A collapsible checklist on the start card. When the player completes one, mark it done, save it, and show a short toast:
+
+- Clear sector 1
+- Shoot down the red saucer
+- Hit 12 shots in a row without a miss
+- Clear a sector without losing a ship
+- Clear a sector in under 45 seconds
+- Score 3000 points in one game
+- Destroy the Flagship (sector 10)
 
 ## Look and feel
 

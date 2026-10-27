@@ -9,24 +9,62 @@
 | | |
 |---|---|
 | Type | Arcade |
-| Inspired by | Dig Dug-style tunneling (original characters) |
+| Inspired by | Dig Dug |
 | Built for | phones (portrait, touch); also works with mouse and keyboard |
 
 ## How it plays
 
-Tunnel through layered dirt and pop every monster: pump one four times to burst it, or drop a rock on it for a big bonus. Monsters can drift through dirt as ghostly eyes.
+Tunnel through the earth and pump up monsters until they pop, or drop rocks on them. Fire-breathing lizards appear on later levels.
 
-> Tunnel through the dirt and pop every monster. Pump one four times to burst it, or drop a rock on it for a big bonus. Monsters can drift through dirt as ghostly eyes.
-> Hold a finger down and slide toward where you want to dig. Tap PUMP while facing a monster up to three tiles away.
+> Dig tunnels with the D-pad on one side and pop every monster. Face one and hold PUMP on the other side to inflate it until it bursts, or drop a rock on it for a big bonus. Move away to let go.
 
 ## Controls
 
-Hold a finger down and slide toward where you want to dig; tap PUMP while facing a monster up to three tiles away.
+A D-pad on the left (hold to keep moving, slide to change direction) and a big PUMP button on the right; move and pump together. Hold the D-pad away for a moment to let go of a monster.
 
 ## Rules and features
 
-- Deeper layers pay more per monster.
-- Three lives; best score saved.
+- 10 levels that unlock, and 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Settings
+
+| Setting | Options |
+|---|---|
+| Difficulty | Easy · Normal · Hard |
+| Lives | 3 · 5 · 7 |
+| Pump | Hold to pump · Tap each pump |
+| Lizards breathe fire | On · Off |
+| Controls side | Buttons right · Buttons left |
+| Sound | On · Off |
+| Vibration | On · Off |
+
+## Levels
+
+1. Topsoil
+2. Clay Pit
+3. Rockfall
+4. Fire Lizards
+5. Deep Cut
+6. Crowded Cave
+7. Boulder Alley
+8. Magma Run
+9. Bedrock
+10. Core Breaker
+
+Levels unlock as you clear them.
+
+## Challenges
+
+A checklist in the menu that saves on your device:
+
+- [ ] Pop a monster
+- [ ] Pop 5 monsters in one game
+- [ ] Crush 2 monsters with one rock
+- [ ] Pop a monster in the deepest layer
+- [ ] Clear Rockfall (level 3)
+- [ ] Clear a level without losing a life
+- [ ] Clear Core Breaker (level 10)
 
 ## Look and feel
 

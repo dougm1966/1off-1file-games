@@ -4,27 +4,65 @@ Paste the prompt below into Claude (or another capable coding model) to recreate
 
 ---
 
-Build a complete, polished browser game called **Deep Dig**, inspired by Dig Dug-style tunneling (original characters), as **one self-contained HTML file** (inline CSS and JavaScript, no frameworks or build step; Google Fonts is the only allowed external resource, always with a system-font fallback). Use original characters and artwork drawn in code. Do not copy any trademarked characters, names or logos.
+Build a complete, polished browser game called **Deep Dig**, inspired by Dig Dug, as **one self-contained HTML file** (inline CSS and JavaScript, no frameworks or build step; Google Fonts is the only allowed external resource, always with a system-font fallback). Use original characters and artwork drawn in code. Do not copy any trademarked characters, names or logos.
 
 ## The game
 
-Tunnel through layered dirt and pop every monster: pump one four times to burst it, or drop a rock on it for a big bonus. Monsters can drift through dirt as ghostly eyes.
+Tunnel through the earth and pump up monsters until they pop, or drop rocks on them. Fire-breathing lizards appear on later levels.
 
 Menu text to show the player:
 
-> Tunnel through the dirt and pop every monster. Pump one four times to burst it, or drop a rock on it for a big bonus. Monsters can drift through dirt as ghostly eyes.
-> Hold a finger down and slide toward where you want to dig. Tap PUMP while facing a monster up to three tiles away.
+> Dig tunnels with the D-pad on one side and pop every monster. Face one and hold PUMP on the other side to inflate it until it bursts, or drop a rock on it for a big bonus. Move away to let go.
 
 ## Controls (phone first)
 
-Hold a finger down and slide toward where you want to dig; tap PUMP while facing a monster up to three tiles away.
+A D-pad on the left (hold to keep moving, slide to change direction) and a big PUMP button on the right; move and pump together. Hold the D-pad away for a moment to let go of a monster.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 
 ## Rules and features
 
-- Deeper layers pay more per monster.
-- Three lives; best score saved.
+- 10 levels that unlock, and 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Start menu settings
+
+Show a start card with segmented buttons for each setting, remembered between visits:
+
+- **Difficulty**: Easy, Normal, Hard
+- **Lives**: 3, 5, 7
+- **Pump**: Hold to pump, Tap each pump
+- **Lizards breathe fire**: On, Off
+- **Controls side**: Buttons right, Buttons left
+- **Sound**: On, Off
+- **Vibration**: On, Off
+
+## Levels
+
+10 levels that unlock in order, shown as a numbered grid with a lock icon on locked ones. The selected level's description appears under the grid:
+
+1. Topsoil
+2. Clay Pit
+3. Rockfall
+4. Fire Lizards
+5. Deep Cut
+6. Crowded Cave
+7. Boulder Alley
+8. Magma Run
+9. Bedrock
+10. Core Breaker
+
+## Challenges
+
+A collapsible checklist on the start card. When the player completes one, mark it done, save it, and show a short toast:
+
+- Pop a monster
+- Pop 5 monsters in one game
+- Crush 2 monsters with one rock
+- Pop a monster in the deepest layer
+- Clear Rockfall (level 3)
+- Clear a level without losing a life
+- Clear Core Breaker (level 10)
 
 ## Look and feel
 

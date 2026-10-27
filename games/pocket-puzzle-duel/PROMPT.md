@@ -8,24 +8,61 @@ Build a complete, polished browser game called **Pocket Puzzle Duel**, inspired 
 
 ## The game
 
-Two players take turns shooting the same pool table layout. Clear every ball in the fewest strokes, golf style, across six holes that add rails, bumper posts, a full rack and a gate of posts.
+Two players take turns on the same pool trick-shot layout across 10 holes; clear the balls in the fewest strokes, golf style.
 
 Menu text to show the player:
 
-> Same table layout for both of you. Clear it in the fewest strokes. Lowest total after six holes wins.
+> Clear the table in the fewest strokes. Slide a finger on the table to turn your aim (it never jumps to your finger), set POWER, press SHOOT. Duel: two players pass the phone. Solo: beat par on 10 puzzles (clear one to unlock the next).
 
 ## Controls (phone first)
 
-Slide a finger left or right anywhere on the table to rotate the cue (it never snaps to your finger). ‹ › buttons fine-tune the angle. Set power with the slider and tap Shoot.
+Slide a finger anywhere on the table to rotate the cue; it never snaps to your finger. Nudge buttons fine-tune the angle, a slider sets power, and SHOOT is lit whenever a shot is allowed. A guide line shows the first contact and a short deflection hint.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 
 ## Rules and features
 
-- Six holes with par values; a scratch costs +1 stroke; each hole has a stroke cap.
-- The breaker alternates every hole; a hand-off screen says whose turn it is.
-- Aim guide shows a dashed line to the first thing the cue ball touches plus a faint ghost ball, but not where balls go after contact.
-- Match progress is saved between turns.
+- A 'Pass to Player 2' card between turns.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Start menu settings
+
+Show a start card with segmented buttons for each setting, remembered between visits:
+
+- **Mode**: Duel · 2 players, Solo puzzles
+- **Duel length (holes)**: 3, 6, 10
+- **Aim help**: Line only, Medium, Extra
+- **Aim slide speed**: Fine, Normal, Quick
+- **Table cloth**: Blue, Green, Red
+- **Sound**: On, Off
+- **Vibration**: On, Off
+
+## Levels
+
+10 levels that unlock in order, shown as a numbered grid with a lock icon on locked ones. The selected level's description appears under the grid:
+
+1. Opening Shot
+2. Three Ball
+3. Rail Huggers
+4. Bumpers
+5. The Rack
+6. Through the Gate
+7. Bank Street
+8. Plus Sign
+9. Picket Fence
+10. Grand Finale
+
+## Challenges
+
+A collapsible checklist on the start card. When the player completes one, mark it done, save it, and show a short toast:
+
+- Clear a table at par or better
+- Clear a table under par
+- Pocket two balls with one shot
+- Pocket a ball after it bounced off a rail
+- Clear a table without a scratch
+- Finish a two-player duel
+- Clear Grand Finale (puzzle 10)
 
 ## Look and feel
 

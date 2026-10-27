@@ -8,20 +8,46 @@ Build a complete, polished browser game called **Bench Rounds**, inspired by cli
 
 ## The game
 
-Multiple-choice trivia for a hospital lab tech: 65 questions across hematology, coagulation, chemistry, microbiology, blood bank, urinalysis and QC. Every answer comes with a short explanation.
+Clinical laboratory trivia across the benches: hematology, chemistry, microbiology, blood bank, urinalysis, coag and specimen handling. Solo or pass-and-play for 2–4.
+
+Menu text to show the player:
+
+> Clinical lab trivia across seven benches. Read the question, then tap one of the four big answer buttons. Solo, or pass the phone around with 2 to 4 players.
 
 ## Controls (phone first)
 
-Tap an answer. In two-player mode, pass the phone when the hand-off screen appears.
+Big full-width answer buttons. Each answer shows an explanation; tap Next to continue.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 
 ## Rules and features
 
-- Solo or two players taking turns, each with their own questions.
-- Pick which benches to include and how many questions each.
-- Optional 20-second clock; streaks earn bonus points.
-- Category colors match tube-cap colors.
+- Settings for categories, difficulty, question count and timer.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Start menu settings
+
+Show a start card with segmented buttons for each setting, remembered between visits:
+
+- **Players**: Solo, 2, 3, 4
+- **Difficulty**: Easy, Mixed, Hard, Ramp up
+- **Questions each**: 5, 10, 15, 20
+- **Clock per question**: Off, 15 s, 20 s, 30 s
+- **Benches**: All seven, Pick…
+- **Sound**: On, Off
+- **Vibration**: On, Off
+
+## Challenges
+
+A collapsible checklist on the start card. When the player completes one, mark it done, save it, and show a short toast:
+
+- Answer 5 in a row correctly
+- Answer correctly within 3 seconds (clock on)
+- Finish a solo round of 5+ questions with none wrong
+- Get 5 Hard questions right in one round
+- Get a question right on every bench
+- Finish a game with 3 or 4 players
+- Finish a 20-question round
 
 ## Look and feel
 

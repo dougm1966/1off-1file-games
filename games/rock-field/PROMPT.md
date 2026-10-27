@@ -8,23 +8,61 @@ Build a complete, polished browser game called **Rock Field**, inspired by Aster
 
 ## The game
 
-Vector-style rock blasting: big rocks split into smaller, faster pieces.
+Pilot a vector ship through 10 increasingly dangerous rock fields, splitting big rocks into small ones and dodging saucers.
 
 Menu text to show the player:
 
-> Blast the drifting rocks. Big ones split into smaller, faster pieces.
-> Touch and hold where you want to go. The ship turns toward your finger, thrusts when it's far away, and fires when it's lined up.
+> Blast the drifting rocks. Push the stick the way you want to fly: the ship turns to face it and thrusts harder the further you push. Hold FIRE to shoot. HYPER jumps to a random spot, with a risk.
 
 ## Controls (phone first)
 
-Touch and hold: the ship turns toward your finger, thrusts when your finger is far away, and fires when lined up. Arrow keys plus space also work.
+A thumb stick on the left: the ship turns to face the stick and thrusts harder the further you push. FIRE (hold to repeat) and HYPER buttons on the right; steering and firing work together. A 'Classic buttons' setting gives ⟲ ⟳ THRUST instead.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 
 ## Rules and features
 
-- Respawn invulnerability; extra points each level.
-- Best score saved.
+- 10 levels that unlock, and 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Start menu settings
+
+Show a start card with segmented buttons for each setting, remembered between visits:
+
+- **Controls**: Stick + Fire, Classic buttons
+- **Difficulty**: Easy, Normal, Hard
+- **Ships**: 3, 5
+- **Saucers**: On, Off
+- **Controls side**: Buttons right, Buttons left
+- **Sound**: On, Off
+- **Vibration**: On, Off
+
+## Levels
+
+10 levels that unlock in order, shown as a numbered grid with a lock icon on locked ones. The selected level's description appears under the grid:
+
+1. Debris Drift
+2. Gravel Run
+3. Boulder Belt
+4. Saucer Sighting
+5. Crystal Cluster
+6. Meteor Alley
+7. Hot Rocks
+8. Dust Storm
+9. Iron Rain
+10. The Last Field
+
+## Challenges
+
+A collapsible checklist on the start card. When the player completes one, mark it done, save it, and show a short toast:
+
+- Shatter 6 rocks within 10 seconds
+- Shoot down a saucer
+- Clear a level without losing a ship
+- Survive 3 hyperspace jumps in one game
+- Score 3000 in one game
+- Clear Crystal Cluster (level 5)
+- Clear The Last Field
 
 ## Look and feel
 

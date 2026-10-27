@@ -8,23 +8,60 @@ Build a complete, polished browser game called **Last Line**, inspired by Missil
 
 ## The game
 
-Defend six cities from falling missiles by bursting counter-missiles in the sky. Some missiles split later in the game.
+Defend six cities from falling missiles, splitters and bombers across 10 waves, with limited interceptors at three bases.
 
 Menu text to show the player:
 
-> Missiles are falling on your six cities. Tap the sky to burst a counter-missile there. Lead your shots, because blasts take a moment to grow.
-> The nearest base with ammo fires. Leftover ammo and surviving cities pay a bonus.
+> Missiles are falling on your six cities. Tap the exact spot in the sky where you want a counter-missile to burst. Blasts take a moment to grow, so lead your shots.
 
 ## Controls (phone first)
 
-Tap the sky where you want a burst; the nearest base with ammo fires.
+Tap the exact point in the sky where you want an interceptor to burst; a crosshair marks it and nothing is offset. Several fingers can tap at once. A 'Selected base' setting adds three base buttons to choose which base fires.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 
 ## Rules and features
 
-- Leftover ammo and surviving cities pay a bonus each wave.
-- Game ends when every city is gone.
+- 10 waves that unlock, and 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Start menu settings
+
+Show a start card with segmented buttons for each setting, remembered between visits:
+
+- **Launch from**: Nearest base, Selected base
+- **Difficulty**: Easy, Normal, Hard
+- **Ammo per base**: 8, 10, 14
+- **Blast size**: Normal, Large
+- **Sound**: On, Off
+- **Vibration**: On, Off
+
+## Levels
+
+10 levels that unlock in order, shown as a numbered grid with a lock icon on locked ones. The selected level's description appears under the grid:
+
+1. First Strike
+2. Sky Rain
+3. Split Decision
+4. Bomber Run
+5. Night Raid
+6. Swarm
+7. Meteor Shower
+8. Double Bombers
+9. Firestorm
+10. The Last Line
+
+## Challenges
+
+A collapsible checklist on the start card. When the player completes one, mark it done, save it, and show a short toast:
+
+- Destroy 4 missiles with one interceptor
+- Shoot down a bomber
+- Clear a wave without losing a city or base
+- Clear a wave with 15+ ammo left
+- Clear Night Raid (wave 5)
+- Score 5000 in one game
+- Clear The Last Line (wave 10)
 
 ## Look and feel
 

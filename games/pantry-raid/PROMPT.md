@@ -4,27 +4,67 @@ Paste the prompt below into Claude (or another capable coding model) to recreate
 
 ---
 
-Build a complete, polished browser game called **Pantry Raid**, inspired by Pac-Man-style maze chase (original characters), as **one self-contained HTML file** (inline CSS and JavaScript, no frameworks or build step; Google Fonts is the only allowed external resource, always with a system-font fallback). Use original characters and artwork drawn in code. Do not copy any trademarked characters, names or logos.
+Build a complete, polished browser game called **Pantry Raid**, inspired by Pac-Man, as **one self-contained HTML file** (inline CSS and JavaScript, no frameworks or build step; Google Fonts is the only allowed external resource, always with a system-font fallback). Use original characters and artwork drawn in code. Do not copy any trademarked characters, names or logos.
 
 ## The game
 
-Steer a mouse through a pantry maze eating crumbs while four cats with different hunting styles chase it. Cheese wedges turn the cats blue so you can chase them back to their box.
+A mouse eats every crumb in the pantry while cats prowl. Cheese turns the tables. Three maze layouts, 2–4 cats, 10 levels.
 
 Menu text to show the player:
 
-> Sneak the mouse through the pantry and eat every crumb. Grab a cheese wedge and the cats turn blue. That's your chance to chase them back to their box.
-> Swipe in any direction to steer. Swipe early to turn at the next opening.
+> Sneak the mouse through the pantry and eat every crumb. Steer with the D-pad: press a direction early and the mouse turns at the next opening. Cheese makes the cats run, so chase them back to their box.
 
 ## Controls (phone first)
 
-Swipe to steer; swipe early to turn at the next opening. Arrow keys also work.
+A D-pad under the board. Press a direction early and the mouse turns at the next opening; a small arrow on the mouse shows the waiting turn. Swipe on the board also works (setting).
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 
 ## Rules and features
 
-- Wrap-around side tunnel; eating cats in a row doubles their value.
-- Three lives; best score saved.
+- 10 levels that unlock, and 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Start menu settings
+
+Show a start card with segmented buttons for each setting, remembered between visits:
+
+- **Maze**: Classic, Cellar, Shelves
+- **Cats**: 2, 3, 4
+- **Cat speed**: Slow, Normal, Fast
+- **Lives**: 3, 5, 7
+- **Swipe on board**: On, Off
+- **Early turns**: Buffered, Instant only
+- **Controls side**: Buttons right, Buttons left
+- **Sound**: On, Off
+- **Vibration**: On, Off
+
+## Levels
+
+10 levels that unlock in order, shown as a numbered grid with a lock icon on locked ones. The selected level's description appears under the grid:
+
+1. Crumb Trail
+2. Cheese Please
+3. Cat Nap
+4. Tail Tip
+5. Midnight Snack
+6. Pantry Patrol
+7. Whisker Walk
+8. Cat Cradle
+9. Mouse Trap Alley
+10. The Big Cheese
+
+## Challenges
+
+A collapsible checklist on the start card. When the player completes one, mark it done, save it, and show a short toast:
+
+- Chase down 3 cats with one cheese
+- Eat a bonus apple
+- Clear a level without being caught
+- Clear a level with Fast cats
+- Score 5000 in one game
+- Clear Midnight Snack (level 5)
+- Clear The Big Cheese
 
 ## Look and feel
 

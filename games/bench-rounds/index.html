@@ -1,219 +1,627 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-</head><body>
+<style>[hidden]{display:none!important}</style>
 <title>Bench Rounds</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap">
 <style>
-/* Layout: single column quiz card styled like a specimen label; category color = the matching tube-cap color */
-:root{
-  --bg:#eef1f4;--card:#ffffff;--ink:#16202b;--muted:#5d6b79;--line:#d5dce3;--accent:#0f6e8c;--good:#1f8a4c;--bad:#c23a2b;
-  --lav:#8c6bc8;--gold:#d9a521;--blue:#4aa3d8;--pink:#e46aa0;--yellow:#e3c72b;--green:#3c9a5a;--gray:#7b8794;
-  --f-head:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;--f-body:"IBM Plex Sans",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,monospace;
-}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f151b;--card:#18212a;--ink:#e6edf3;--muted:#93a3b2;--line:#2a3642;--accent:#5bc0de;--good:#4cc27c;--bad:#ef6a5a;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0f151b;--card:#18212a;--ink:#e6edf3;--muted:#93a3b2;--line:#2a3642;--accent:#5bc0de;--good:#4cc27c;--bad:#ef6a5a;color-scheme:dark}
-html,body{background:var(--bg);color:var(--ink)}
-body{font-family:var(--f-body);font-size:16px;line-height:1.45;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 28px}
-.app{max-width:560px;margin:0 auto;display:grid;gap:14px}
-header{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-h1{margin:0;font-family:var(--f-head);font-size:26px;letter-spacing:.01em}
-.tag{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.cap{height:12px}
-.label{padding:16px;display:grid;gap:14px}
-.meta{display:flex;justify-content:space-between;align-items:center;font-family:var(--f-mono);font-size:12px;color:var(--muted);gap:8px;flex-wrap:wrap}
-.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-head);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
-.dot{width:10px;height:10px;border-radius:50%}
-.q{font-size:19px;font-weight:600;line-height:1.35;text-wrap:balance;margin:0}
-.opts{display:grid;gap:8px}
-.opt{text-align:left;font:inherit;font-size:16px;background:var(--bg);color:var(--ink);border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;gap:10px;align-items:flex-start}
-.opt b{font-family:var(--f-mono);font-weight:500;color:var(--muted)}
-.opt:hover{border-color:var(--accent)}
-.opt.right{border-color:var(--good);background:color-mix(in srgb,var(--good) 14%,var(--card))}
-.opt.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--card))}
-.opt:disabled{cursor:default}
-.why{border-left:3px solid var(--accent);padding:4px 0 4px 12px;color:var(--ink);font-size:15px}
-.why strong{display:block;font-family:var(--f-head);letter-spacing:.04em;text-transform:uppercase;font-size:13px}
-.bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent);transition:width .1s linear}
-.btn{height:48px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-family:var(--f-head);font-weight:700;font-size:17px;letter-spacing:.04em;cursor:pointer;padding:0 18px}
-.btn.ghost{background:none;border:1.5px solid var(--line);color:var(--ink)}
-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.scores{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.score{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center}
-.score.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.score .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.score .v{font-family:var(--f-mono);font-size:20px;font-variant-numeric:tabular-nums}
-.cats{display:flex;flex-wrap:wrap;gap:6px}
-.cats label{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:14px;cursor:pointer;background:var(--bg)}
-.cats input{accent-color:var(--accent)}
-.row{display:flex;gap:8px;flex-wrap:wrap}
-.field{display:grid;gap:4px;flex:1;min-width:140px}
-.field span{font-size:12px;color:var(--muted);font-family:var(--f-mono)}
-.field input{font:inherit;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
-.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.seg button{flex:1;height:42px;border:0;background:var(--bg);color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
-.seg button[aria-pressed=true]{background:var(--accent);color:#fff}
-.big{font-family:var(--f-head);font-size:28px;font-weight:700;margin:0}
-.muted{color:var(--muted)}
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#e4ecf1;--ink:#16202b;--muted:#4f5f6e;--accent:#0f6e8c;--f-display:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+.app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#ffffff;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+body{box-sizing:border-box}.ctl .kgrp{flex:1}.ctl .kgrp.r:empty{display:none}.card{background:#fbfdff!important;color:var(--ink)}.card h1{font-weight:700}.card button.ghost{color:var(--ink)}.seg button{color:var(--ink)}.setl{color:var(--muted)}.tq{display:grid;gap:5px;width:100%;height:199px;align-content:start}.ans{display:flex;gap:10px;align-items:center;text-align:left;height:46px;padding:0 10px;border-radius:12px;border:2px solid color-mix(in srgb,var(--accent) 60%,transparent);background:#fff;color:var(--ink);font:600 14.5px/1.15 'IBM Plex Sans',system-ui,sans-serif;width:100%;cursor:pointer;touch-action:manipulation}.ans b{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font:700 13px 'IBM Plex Sans',system-ui,sans-serif}.ans span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.ans:active,.ans.pick{background:var(--accent);color:#fff}.ans:active b,.ans.pick b{background:#fff;color:var(--accent)}.nextbtn{width:100%;height:199px;border-radius:16px;border:0;background:var(--accent);color:#fff;font:700 24px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.04em;cursor:pointer;touch-action:manipulation}.nextbtn:active{transform:scale(.98)}.nextbtn.wait{opacity:.55}.pnames{display:grid;gap:4px;text-align:left}.pnames label,.pk{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left}.pnames input{height:42px;border-radius:10px;border:1.5px solid var(--accent);background:#fff;color:var(--ink);font:600 16px system-ui,sans-serif;padding:0 12px;user-select:text;-webkit-user-select:text}.chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{height:40px;border-radius:999px;border:1.5px solid color-mix(in srgb,var(--muted) 50%,transparent);background:#fff;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}.chips button[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(--accent)}.chips i{width:10px;height:10px;border-radius:50%;display:inline-block}.big{font:700 40px 'IBM Plex Sans Condensed',sans-serif;color:var(--accent);line-height:1}
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#ffffff;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#ffffff}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#ffffff;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
 </style>
 <div class="app">
-  <header><h1>Bench Rounds</h1><span class="tag" id="tag">Lab trivia</span></header>
-  <div class="scores" id="scores" hidden></div>
-  <main id="view"></main>
+  <div class="hud"><div class="title">Bench Rounds</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">Read the question, then tap one of the four answers below</div><div class="ctl" id="ctl" hidden></div>
 </div>
 <script>
 (()=>{
-// Category colors follow tube caps / bench conventions.
-const CATS={
- heme:{name:"Hematology",c:"var(--lav)"},
- coag:{name:"Coagulation",c:"var(--blue)"},
- chem:{name:"Chemistry",c:"var(--gold)"},
- micro:{name:"Microbiology",c:"var(--green)"},
- bb:{name:"Blood Bank",c:"var(--pink)"},
- ua:{name:"Urinalysis",c:"var(--yellow)"},
- qc:{name:"QC & Lab Ops",c:"var(--gray)"},
+const LW=360,LH=440,FONT="'IBM Plex Sans', system-ui, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
+  }
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ---------- question bank ----------
+// [bench, question, correct, wrong1, wrong2, wrong3, explanation, difficulty 1-3]. Correct answer is always stored first and shuffled when asked.
+const CATS = {
+  heme: { name: "Hematology", c: "#8c6bc8" }, coag: { name: "Coagulation", c: "#4aa3d8" }, chem: { name: "Chemistry", c: "#d9a521" },
+  micro: { name: "Microbiology", c: "#3c9a5a" }, bb: { name: "Blood Bank", c: "#e46aa0" }, ua: { name: "Urinalysis", c: "#d6bb1f" }, qc: { name: "QC & Lab Ops", c: "#7b8794" }
 };
-// [cat, question, correct, wrong1, wrong2, wrong3, explanation]
-const Q=[
-["heme","What is the normal lifespan of a circulating red blood cell?","About 120 days","About 30 days","About 60 days","About 365 days","RBCs circulate roughly 120 days before the spleen and liver macrophages remove them."],
-["heme","Which anticoagulant is in a lavender-top tube?","K2EDTA (or K3EDTA)","Sodium citrate","Lithium heparin","Sodium fluoride","EDTA chelates calcium and preserves cell morphology, which makes it the CBC tube."],
-["heme","What is the most numerous white blood cell in a normal adult peripheral smear?","Segmented neutrophil","Lymphocyte","Monocyte","Eosinophil","Neutrophils typically make up about 40–70% of the adult differential."],
-["heme","A cell with a bilobed nucleus and large orange-red granules is a(n):","Eosinophil","Basophil","Neutrophil","Monocyte","Eosinophil granules stain orange-red with eosin; basophil granules are dark purple-black."],
-["heme","Auer rods in blasts point most strongly toward:","Acute myeloid leukemia","Acute lymphoblastic leukemia","Chronic lymphocytic leukemia","Infectious mononucleosis","Auer rods are fused primary (azurophilic) granules seen in myeloid blasts."],
-["heme","Howell-Jolly bodies are made of:","Nuclear (DNA) remnants","Denatured hemoglobin","Precipitated RNA","Iron granules","They are DNA remnants, classically seen after splenectomy or in hyposplenism."],
-["heme","Schistocytes on a smear are most associated with:","Microangiopathic hemolytic anemia (e.g. DIC, TTP, HUS)","Iron deficiency anemia","Hereditary spherocytosis","Lead poisoning","Red cells are sheared as they pass fibrin strands or damaged small vessels."],
-["heme","Which stain is used to count reticulocytes?","New methylene blue (supravital)","Wright stain","Prussian blue","Crystal violet","A supravital stain precipitates residual RNA in living reticulocytes."],
-["heme","How is MCV calculated?","(Hct ÷ RBC count) × 10","(Hgb ÷ RBC count) × 10","(Hgb ÷ Hct) × 100","(RBC count ÷ Hct) × 10","With Hct in % and RBC in ×10¹²/L, the result is in femtoliters."],
-["heme","Typical indices in iron deficiency anemia are:","Microcytic, hypochromic","Macrocytic, normochromic","Normocytic, normochromic","Macrocytic, hyperchromic","Low iron limits hemoglobin synthesis, producing small, pale cells (low MCV and MCH)."],
-["heme","Hemoglobin S results from which substitution in the beta chain?","Valine for glutamic acid at position 6","Lysine for glutamic acid at position 6","Glutamic acid for valine at position 6","Valine for lysine at position 26","The same position with lysine instead gives hemoglobin C."],
-["heme","Heinz bodies are classically associated with:","G6PD deficiency","Lead poisoning","Post-splenectomy state","Iron overload","Heinz bodies are denatured hemoglobin and need a supravital stain to see."],
-["heme","Platelet clumping in an EDTA tube can cause:","A falsely low platelet count","A falsely high platelet count","A falsely low WBC count","A falsely low hemoglobin","EDTA-dependent clumping is often resolved by recollecting in sodium citrate."],
-["heme","Hereditary spherocytosis typically shows:","Increased osmotic fragility","Decreased osmotic fragility","A positive DAT","Target cells as the main finding","Spherocytes have less membrane per volume, so they lyse more easily in hypotonic saline."],
-["coag","What additive is in a light-blue-top tube?","3.2% sodium citrate","EDTA","Sodium heparin","Potassium oxalate","Citrate binds calcium reversibly; calcium is added back during the PT and aPTT."],
-["coag","The proper blood-to-anticoagulant ratio for a citrate tube is:","9:1","4:1","1:1","19:1","An underfilled tube has excess citrate, which falsely prolongs clotting times."],
-["coag","Which test is used to monitor warfarin therapy?","PT / INR","aPTT","Thrombin time","Bleeding time","Warfarin lowers vitamin K-dependent factors II, VII, IX and X; factor VII's short half-life makes the PT most responsive."],
-["coag","Unfractionated heparin is traditionally monitored with the:","aPTT (or anti-Xa)","PT","Platelet count only","D-dimer","Heparin works through antithrombin and prolongs the intrinsic and common pathways."],
-["coag","The INR calculation uses the PT ratio raised to the power of the:","ISI (International Sensitivity Index)","Mean normal PT","Factor VII level","Reagent lot number","INR = (patient PT ÷ mean normal PT)^ISI, which standardizes across thromboplastins."],
-["coag","Which coagulation factor is NOT vitamin K-dependent?","Factor VIII","Factor II","Factor VII","Factor X","The vitamin K-dependent factors are II, VII, IX and X, plus proteins C and S."],
-["coag","An elevated D-dimer indicates:","Breakdown of cross-linked fibrin","Platelet dysfunction","Vitamin K deficiency","Factor VIII deficiency","D-dimer is formed when plasmin degrades fibrin that factor XIII has cross-linked."],
-["chem","What is in a gray-top tube?","Sodium fluoride / potassium oxalate","Lithium heparin","Clot activator and gel","Sodium citrate","Fluoride inhibits glycolysis, preserving glucose."],
-["chem","A hemolyzed specimen will falsely increase which analyte the most?","Potassium","Sodium","Glucose","Albumin","Red cells hold far more potassium than plasma does. LD and AST also rise."],
-["chem","Hemoglobin A1c reflects average glucose over roughly:","2–3 months","2–3 days","2–3 weeks","6–12 months","Glycation tracks the lifespan of the red cell."],
-["chem","Which marker is preferred for detecting myocardial injury?","Cardiac troponin (I or T)","CK-MB","Myoglobin","AST","Troponin is the most sensitive and specific marker of myocardial damage."],
-["chem","The anion gap is usually calculated as:","Na⁺ − (Cl⁻ + HCO₃⁻)","(Na⁺ + K⁺) − Cl⁻","Cl⁻ − (Na⁺ + HCO₃⁻)","Na⁺ + Cl⁻ − HCO₃⁻","Some labs also add K⁺. An increased gap suggests unmeasured anions such as lactate or ketones."],
-["chem","What is the normal arterial blood pH range?","7.35–7.45","7.25–7.35","7.45–7.55","6.95–7.05",""],
-["chem","Bilirubin specimens should be protected from:","Light","Cold","Agitation","Oxygen","Light breaks down bilirubin, falsely lowering the result."],
-["chem","Beer's law states that absorbance is directly proportional to:","Concentration","Wavelength","Transmittance","Temperature","A = εbc. Absorbance rises linearly with concentration over the linear range."],
-["chem","A BUN-to-creatinine ratio above 20:1 most suggests:","Prerenal azotemia (e.g. dehydration)","Intrinsic renal failure","Liver failure","Low protein intake","Reduced renal perfusion increases urea reabsorption more than creatinine."],
-["chem","In hemolytic anemia, which bilirubin fraction rises most?","Unconjugated (indirect)","Conjugated (direct)","Delta bilirubin","Urine bilirubin","Excess heme breakdown outpaces the liver's conjugation capacity."],
-["chem","By CLSI order of draw, which is collected first?","Blood culture bottles","Light-blue (citrate)","Lavender (EDTA)","Red / gold (serum)","Order: blood cultures, citrate, serum, heparin, EDTA, then fluoride/oxalate."],
-["micro","In a Gram stain, what is the primary stain?","Crystal violet","Safranin","Iodine","Methylene blue","The order is crystal violet, iodine (mordant), alcohol/acetone decolorizer, then safranin counterstain."],
-["micro","Gram-positive bacteria appear what color?","Purple","Pink / red","Blue-green","Colorless","Their thick peptidoglycan retains the crystal violet–iodine complex."],
-["micro","Which test separates Staphylococcus from Streptococcus?","Catalase","Coagulase","Oxidase","Bile solubility","Staphylococci are catalase-positive; streptococci are catalase-negative."],
-["micro","Which test separates S. aureus from coagulase-negative staphylococci?","Coagulase","Catalase","Optochin","Bacitracin",""],
-["micro","Which stain is used for Mycobacterium?","Acid-fast (Ziehl-Neelsen or Kinyoun)","Gram stain","India ink","Giemsa","Mycolic acids in the cell wall retain carbol fuchsin after acid-alcohol decolorizing."],
-["micro","On MacConkey agar, lactose fermenters appear:","Pink","Colorless","Black","Green with a metallic sheen","MacConkey selects for gram-negatives; lactose fermentation drops the pH, turning colonies pink."],
-["micro","Beta hemolysis on blood agar means:","Complete clearing around colonies","Greenish partial hemolysis","No hemolysis","A halo only under anaerobic conditions","Alpha is partial (green), and gamma is none."],
-["micro","Optochin-susceptible, bile-soluble alpha-hemolytic cocci are:","Streptococcus pneumoniae","Viridans streptococci","Enterococcus faecalis","Streptococcus agalactiae","Viridans group streptococci are optochin-resistant and bile-insoluble."],
-["micro","Which organism is classically presumptively identified as bacitracin (A disk) susceptible?","Streptococcus pyogenes (group A)","Streptococcus agalactiae (group B)","Staphylococcus epidermidis","Enterococcus faecium",""],
-["micro","Haemophilus influenzae requires which growth factors?","X (hemin) and V (NAD)","X only","V only","Neither","That's why it grows on chocolate agar, not sheep blood agar (except as satellites near S. aureus)."],
-["micro","An India ink prep of CSF showing encapsulated yeast suggests:","Cryptococcus neoformans","Candida albicans","Histoplasma capsulatum","Aspergillus fumigatus","The polysaccharide capsule makes a clear halo against the ink. Antigen testing is now preferred."],
-["micro","A yeast that is germ-tube positive is most likely:","Candida albicans","Cryptococcus neoformans","Candida glabrata","Saccharomyces cerevisiae","C. dubliniensis can also be germ-tube positive."],
-["micro","Oxidase-positive, non-fermenting gram-negative rod with a grape-like odor and green pigment:","Pseudomonas aeruginosa","Escherichia coli","Klebsiella pneumoniae","Proteus mirabilis","The green comes from pyocyanin plus pyoverdin."],
-["micro","Thayer-Martin agar is designed to isolate:","Neisseria gonorrhoeae","Haemophilus influenzae","Bordetella pertussis","Legionella pneumophila","It's selective chocolate agar with antimicrobials that suppress normal flora."],
-["micro","Mycobacterium tuberculosis cultures should be handled at which biosafety level?","BSL-3","BSL-1","BSL-2","BSL-4",""],
-["bb","Which red cell donor type is considered universal for emergency release?","Group O, Rh-negative","Group AB, Rh-positive","Group A, Rh-negative","Group B, Rh-negative","O red cells lack A and B antigens. O-negative is preferred when the recipient's type is unknown."],
-["bb","The universal donor for plasma is group:","AB","O","A","B","AB plasma contains neither anti-A nor anti-B."],
-["bb","A group O person naturally has which antibodies?","Anti-A and anti-B","Anti-A only","Anti-B only","Neither","These are mostly IgM, formed without prior red cell exposure."],
-["bb","The direct antiglobulin test (DAT) detects:","Antibody or complement already bound to red cells in vivo","Free antibody in the patient's plasma","ABO type","Rh antigen weakness only","The indirect test (IAT, as in an antibody screen) detects antibody in plasma that binds in vitro."],
-["bb","Rh immune globulin is given to:","Rh-negative mothers with an Rh-positive (or unknown) fetus","Rh-positive mothers","Rh-negative newborns","Any group O mother","It prevents alloimmunization to the D antigen."],
-["bb","Red blood cell units are stored at:","1–6 °C","20–24 °C with agitation","−18 °C or colder","37 °C","Platelets are kept at 20–24 °C with agitation, and plasma frozen at −18 °C or colder."],
-["bb","The Bombay phenotype lacks which antigen?","H antigen","D antigen","Kell antigen","Duffy antigen","With no H, A and B can't be built. These people make anti-H and need Bombay blood."],
-["bb","Acute hemolytic transfusion reactions are most often caused by:","ABO incompatibility, usually from identification errors","Anti-Kell","Platelet antibodies","Bacterial contamination","Patient and specimen identification is the main safeguard."],
-["ua","A positive urine nitrite most suggests:","Gram-negative bacteria that reduce nitrate (e.g. E. coli)","Kidney stones","Glomerular bleeding","Yeast infection","A negative nitrite doesn't rule out a UTI. Some organisms don't reduce nitrate, and short bladder time limits conversion."],
-["ua","Red blood cell casts in urine indicate:","Glomerular disease (glomerulonephritis)","Lower urinary tract bleeding","Pyelonephritis","Normal finding after exercise","RBCs entering the tubules at the glomerulus get trapped in the casts."],
-["ua","White blood cell casts most suggest:","Pyelonephritis","Cystitis only","Nephrotic syndrome","Prerenal azotemia","They point to inflammation or infection inside the kidney itself."],
-["ua","Envelope-shaped (square with an X) crystals are:","Calcium oxalate dihydrate","Uric acid","Triple phosphate","Cystine",""],
-["ua","'Coffin-lid' crystals in alkaline urine are:","Triple phosphate (struvite)","Calcium oxalate","Cystine","Amorphous urates","They're associated with urease-producing bacteria such as Proteus."],
-["ua","Colorless hexagonal plates in acidic urine suggest:","Cystine","Uric acid","Cholesterol","Calcium phosphate","Cystine crystals are abnormal and point to cystinuria."],
-["qc","Under Westgard rules, a single control outside ±3 SD violates which rule?","1-3s (reject the run)","1-2s (warning)","2-2s","R-4s",""],
-["qc","Coefficient of variation (CV) is calculated as:","(SD ÷ mean) × 100","(mean ÷ SD) × 100","SD × mean","(range ÷ mean) × 100","CV expresses imprecision as a percent of the mean."],
-["qc","A delta check compares a result with:","The same patient's previous result","The reference interval","The control mean","Another patient's result","A big unexplained change can flag a mislabeled or contaminated specimen."],
-["qc","A Levey-Jennings chart plots:","Control values over time against mean and SD limits","Patient results by age","Calibration curves","Turnaround time by shift",""],
+const CKEYS = Object.keys(CATS);
+const Q = [
+["heme", "What is the normal lifespan of a circulating red blood cell?", "About 120 days", "About 30 days", "About 60 days", "About 365 days", "RBCs circulate roughly 120 days before the spleen and liver macrophages remove them.", 1],
+["heme", "Which anticoagulant is in a lavender-top tube?", "K2EDTA (or K3EDTA)", "Sodium citrate", "Lithium heparin", "Sodium fluoride", "EDTA chelates calcium and preserves cell morphology, which makes it the CBC tube.", 1],
+["heme", "What is the most numerous white blood cell in a normal adult peripheral smear?", "Segmented neutrophil", "Lymphocyte", "Monocyte", "Eosinophil", "Neutrophils typically make up about 40–70% of the adult differential.", 1],
+["heme", "A cell with a bilobed nucleus and large orange-red granules is a(n):", "Eosinophil", "Basophil", "Neutrophil", "Monocyte", "Eosinophil granules stain orange-red with eosin; basophil granules are dark purple-black.", 1],
+["heme", "Auer rods in blasts point most strongly toward:", "Acute myeloid leukemia", "Acute lymphoblastic leukemia", "Chronic lymphocytic leukemia", "Infectious mononucleosis", "Auer rods are fused primary (azurophilic) granules seen in myeloid blasts.", 2],
+["heme", "Howell-Jolly bodies are made of:", "Nuclear (DNA) remnants", "Denatured hemoglobin", "Precipitated RNA", "Iron granules", "They are DNA remnants, classically seen after splenectomy or in hyposplenism.", 2],
+["heme", "Schistocytes on a smear are most associated with:", "Microangiopathic hemolytic anemia (e.g. DIC, TTP, HUS)", "Iron deficiency anemia", "Hereditary spherocytosis", "Lead poisoning", "Red cells are sheared as they pass fibrin strands or damaged small vessels.", 2],
+["heme", "Which stain is used to count reticulocytes?", "New methylene blue (supravital)", "Wright stain", "Prussian blue", "Crystal violet", "A supravital stain precipitates residual RNA in living reticulocytes.", 2],
+["heme", "How is MCV calculated?", "(Hct ÷ RBC count) × 10", "(Hgb ÷ RBC count) × 10", "(Hgb ÷ Hct) × 100", "(RBC count ÷ Hct) × 10", "With Hct in % and RBC in ×10¹²/L, the result is in femtoliters.", 2],
+["heme", "Typical indices in iron deficiency anemia are:", "Microcytic, hypochromic", "Macrocytic, normochromic", "Normocytic, normochromic", "Macrocytic, hyperchromic", "Low iron limits hemoglobin synthesis, producing small, pale cells (low MCV and MCH).", 1],
+["heme", "Hemoglobin S results from which substitution in the beta chain?", "Valine for glutamic acid at position 6", "Lysine for glutamic acid at position 6", "Glutamic acid for valine at position 6", "Valine for lysine at position 26", "The same position with lysine instead gives hemoglobin C.", 3],
+["heme", "Heinz bodies are classically associated with:", "G6PD deficiency", "Lead poisoning", "Post-splenectomy state", "Iron overload", "Heinz bodies are denatured hemoglobin and need a supravital stain to see.", 2],
+["heme", "Platelet clumping in an EDTA tube can cause:", "A falsely low platelet count", "A falsely high platelet count", "A falsely low WBC count", "A falsely low hemoglobin", "EDTA-dependent clumping is often resolved by recollecting in sodium citrate.", 2],
+["heme", "Hereditary spherocytosis typically shows:", "Increased osmotic fragility", "Decreased osmotic fragility", "A positive DAT", "Target cells as the main finding", "Spherocytes have less membrane per volume, so they lyse more easily in hypotonic saline.", 3],
+["coag", "What additive is in a light-blue-top tube?", "3.2% sodium citrate", "EDTA", "Sodium heparin", "Potassium oxalate", "Citrate binds calcium reversibly; calcium is added back during the PT and aPTT.", 1],
+["coag", "The proper blood-to-anticoagulant ratio for a citrate tube is:", "9:1", "4:1", "1:1", "19:1", "An underfilled tube has excess citrate, which falsely prolongs clotting times.", 2],
+["coag", "Which test is used to monitor warfarin therapy?", "PT / INR", "aPTT", "Thrombin time", "Bleeding time", "Warfarin lowers vitamin K-dependent factors II, VII, IX and X; factor VII's short half-life makes the PT most responsive.", 1],
+["coag", "Unfractionated heparin is traditionally monitored with the:", "aPTT (or anti-Xa)", "PT", "Platelet count only", "D-dimer", "Heparin works through antithrombin and prolongs the intrinsic and common pathways.", 2],
+["coag", "The INR calculation uses the PT ratio raised to the power of the:", "ISI (International Sensitivity Index)", "Mean normal PT", "Factor VII level", "Reagent lot number", "INR = (patient PT ÷ mean normal PT)^ISI, which standardizes across thromboplastins.", 3],
+["coag", "Which coagulation factor is NOT vitamin K-dependent?", "Factor VIII", "Factor II", "Factor VII", "Factor X", "The vitamin K-dependent factors are II, VII, IX and X, plus proteins C and S.", 2],
+["coag", "An elevated D-dimer indicates:", "Breakdown of cross-linked fibrin", "Platelet dysfunction", "Vitamin K deficiency", "Factor VIII deficiency", "D-dimer is formed when plasmin degrades fibrin that factor XIII has cross-linked.", 2],
+["chem", "What is in a gray-top tube?", "Sodium fluoride / potassium oxalate", "Lithium heparin", "Clot activator and gel", "Sodium citrate", "Fluoride inhibits glycolysis, preserving glucose.", 1],
+["chem", "A hemolyzed specimen will falsely increase which analyte the most?", "Potassium", "Sodium", "Glucose", "Albumin", "Red cells hold far more potassium than plasma does. LD and AST also rise.", 1],
+["chem", "Hemoglobin A1c reflects average glucose over roughly:", "2–3 months", "2–3 days", "2–3 weeks", "6–12 months", "Glycation tracks the lifespan of the red cell.", 1],
+["chem", "Which marker is preferred for detecting myocardial injury?", "Cardiac troponin (I or T)", "CK-MB", "Myoglobin", "AST", "Troponin is the most sensitive and specific marker of myocardial damage.", 1],
+["chem", "The anion gap is usually calculated as:", "Na⁺ − (Cl⁻ + HCO₃⁻)", "(Na⁺ + K⁺) − Cl⁻", "Cl⁻ − (Na⁺ + HCO₃⁻)", "Na⁺ + Cl⁻ − HCO₃⁻", "Some labs also add K⁺. An increased gap suggests unmeasured anions such as lactate or ketones.", 2],
+["chem", "What is the normal arterial blood pH range?", "7.35–7.45", "7.25–7.35", "7.45–7.55", "6.95–7.05", "", 1],
+["chem", "Bilirubin specimens should be protected from:", "Light", "Cold", "Agitation", "Oxygen", "Light breaks down bilirubin, falsely lowering the result.", 2],
+["chem", "Beer's law states that absorbance is directly proportional to:", "Concentration", "Wavelength", "Transmittance", "Temperature", "A = εbc. Absorbance rises linearly with concentration over the linear range.", 2],
+["chem", "A BUN-to-creatinine ratio above 20:1 most suggests:", "Prerenal azotemia (e.g. dehydration)", "Intrinsic renal failure", "Liver failure", "Low protein intake", "Reduced renal perfusion increases urea reabsorption more than creatinine.", 3],
+["chem", "In hemolytic anemia, which bilirubin fraction rises most?", "Unconjugated (indirect)", "Conjugated (direct)", "Delta bilirubin", "Urine bilirubin", "Excess heme breakdown outpaces the liver's conjugation capacity.", 3],
+["chem", "By CLSI order of draw, which is collected first?", "Blood culture bottles", "Light-blue (citrate)", "Lavender (EDTA)", "Red / gold (serum)", "Order: blood cultures, citrate, serum, heparin, EDTA, then fluoride/oxalate.", 2],
+["micro", "In a Gram stain, what is the primary stain?", "Crystal violet", "Safranin", "Iodine", "Methylene blue", "The order is crystal violet, iodine (mordant), alcohol/acetone decolorizer, then safranin counterstain.", 1],
+["micro", "Gram-positive bacteria appear what color?", "Purple", "Pink / red", "Blue-green", "Colorless", "Their thick peptidoglycan retains the crystal violet–iodine complex.", 1],
+["micro", "Which test separates Staphylococcus from Streptococcus?", "Catalase", "Coagulase", "Oxidase", "Bile solubility", "Staphylococci are catalase-positive; streptococci are catalase-negative.", 2],
+["micro", "Which test separates S. aureus from coagulase-negative staphylococci?", "Coagulase", "Catalase", "Optochin", "Bacitracin", "", 2],
+["micro", "Which stain is used for Mycobacterium?", "Acid-fast (Ziehl-Neelsen or Kinyoun)", "Gram stain", "India ink", "Giemsa", "Mycolic acids in the cell wall retain carbol fuchsin after acid-alcohol decolorizing.", 1],
+["micro", "On MacConkey agar, lactose fermenters appear:", "Pink", "Colorless", "Black", "Green with a metallic sheen", "MacConkey selects for gram-negatives; lactose fermentation drops the pH, turning colonies pink.", 2],
+["micro", "Beta hemolysis on blood agar means:", "Complete clearing around colonies", "Greenish partial hemolysis", "No hemolysis", "A halo only under anaerobic conditions", "Alpha is partial (green), and gamma is none.", 1],
+["micro", "Optochin-susceptible, bile-soluble alpha-hemolytic cocci are:", "Streptococcus pneumoniae", "Viridans streptococci", "Enterococcus faecalis", "Streptococcus agalactiae", "Viridans group streptococci are optochin-resistant and bile-insoluble.", 3],
+["micro", "Which organism is classically presumptively identified as bacitracin (A disk) susceptible?", "Streptococcus pyogenes (group A)", "Streptococcus agalactiae (group B)", "Staphylococcus epidermidis", "Enterococcus faecium", "", 3],
+["micro", "Haemophilus influenzae requires which growth factors?", "X (hemin) and V (NAD)", "X only", "V only", "Neither", "That's why it grows on chocolate agar, not sheep blood agar (except as satellites near S. aureus).", 3],
+["micro", "An India ink prep of CSF showing encapsulated yeast suggests:", "Cryptococcus neoformans", "Candida albicans", "Histoplasma capsulatum", "Aspergillus fumigatus", "The polysaccharide capsule makes a clear halo against the ink. Antigen testing is now preferred.", 2],
+["micro", "A yeast that is germ-tube positive is most likely:", "Candida albicans", "Cryptococcus neoformans", "Candida glabrata", "Saccharomyces cerevisiae", "C. dubliniensis can also be germ-tube positive.", 2],
+["micro", "Oxidase-positive, non-fermenting gram-negative rod with a grape-like odor and green pigment:", "Pseudomonas aeruginosa", "Escherichia coli", "Klebsiella pneumoniae", "Proteus mirabilis", "The green comes from pyocyanin plus pyoverdin.", 2],
+["micro", "Thayer-Martin agar is designed to isolate:", "Neisseria gonorrhoeae", "Haemophilus influenzae", "Bordetella pertussis", "Legionella pneumophila", "It's selective chocolate agar with antimicrobials that suppress normal flora.", 2],
+["micro", "Mycobacterium tuberculosis cultures should be handled at which biosafety level?", "BSL-3", "BSL-1", "BSL-2", "BSL-4", "", 3],
+["bb", "Which red cell donor type is considered universal for emergency release?", "Group O, Rh-negative", "Group AB, Rh-positive", "Group A, Rh-negative", "Group B, Rh-negative", "O red cells lack A and B antigens. O-negative is preferred when the recipient's type is unknown.", 1],
+["bb", "The universal donor for plasma is group:", "AB", "O", "A", "B", "AB plasma contains neither anti-A nor anti-B.", 2],
+["bb", "A group O person naturally has which antibodies?", "Anti-A and anti-B", "Anti-A only", "Anti-B only", "Neither", "These are mostly IgM, formed without prior red cell exposure.", 1],
+["bb", "The direct antiglobulin test (DAT) detects:", "Antibody or complement already bound to red cells in vivo", "Free antibody in the patient's plasma", "ABO type", "Rh antigen weakness only", "The indirect test (IAT, as in an antibody screen) detects antibody in plasma that binds in vitro.", 2],
+["bb", "Rh immune globulin is given to:", "Rh-negative mothers with an Rh-positive (or unknown) fetus", "Rh-positive mothers", "Rh-negative newborns", "Any group O mother", "It prevents alloimmunization to the D antigen.", 2],
+["bb", "Red blood cell units are stored at:", "1–6 °C", "20–24 °C with agitation", "−18 °C or colder", "37 °C", "Platelets are kept at 20–24 °C with agitation, and plasma frozen at −18 °C or colder.", 2],
+["bb", "The Bombay phenotype lacks which antigen?", "H antigen", "D antigen", "Kell antigen", "Duffy antigen", "With no H, A and B can't be built. These people make anti-H and need Bombay blood.", 3],
+["bb", "Acute hemolytic transfusion reactions are most often caused by:", "ABO incompatibility, usually from identification errors", "Anti-Kell", "Platelet antibodies", "Bacterial contamination", "Patient and specimen identification is the main safeguard.", 2],
+["ua", "A positive urine nitrite most suggests:", "Gram-negative bacteria that reduce nitrate (e.g. E. coli)", "Kidney stones", "Glomerular bleeding", "Yeast infection", "A negative nitrite doesn't rule out a UTI. Some organisms don't reduce nitrate, and short bladder time limits conversion.", 1],
+["ua", "Red blood cell casts in urine indicate:", "Glomerular disease (glomerulonephritis)", "Lower urinary tract bleeding", "Pyelonephritis", "Normal finding after exercise", "RBCs entering the tubules at the glomerulus get trapped in the casts.", 2],
+["ua", "White blood cell casts most suggest:", "Pyelonephritis", "Cystitis only", "Nephrotic syndrome", "Prerenal azotemia", "They point to inflammation or infection inside the kidney itself.", 2],
+["ua", "Envelope-shaped (square with an X) crystals are:", "Calcium oxalate dihydrate", "Uric acid", "Triple phosphate", "Cystine", "", 2],
+["ua", "'Coffin-lid' crystals in alkaline urine are:", "Triple phosphate (struvite)", "Calcium oxalate", "Cystine", "Amorphous urates", "They're associated with urease-producing bacteria such as Proteus.", 2],
+["ua", "Colorless hexagonal plates in acidic urine suggest:", "Cystine", "Uric acid", "Cholesterol", "Calcium phosphate", "Cystine crystals are abnormal and point to cystinuria.", 3],
+["qc", "Under Westgard rules, a single control outside ±3 SD violates which rule?", "1-3s (reject the run)", "1-2s (warning)", "2-2s", "R-4s", "", 2],
+["qc", "Coefficient of variation (CV) is calculated as:", "(SD ÷ mean) × 100", "(mean ÷ SD) × 100", "SD × mean", "(range ÷ mean) × 100", "CV expresses imprecision as a percent of the mean.", 2],
+["qc", "A delta check compares a result with:", "The same patient's previous result", "The reference interval", "The control mean", "Another patient's result", "A big unexplained change can flag a mislabeled or contaminated specimen.", 2],
+["qc", "A Levey-Jennings chart plots:", "Control values over time against mean and SD limits", "Patient results by age", "Calibration curves", "Turnaround time by shift", "", 1],
+["heme", "Which pair of findings is characteristic of megaloblastic anemia?", "Macro-ovalocytes and hypersegmented neutrophils", "Basophilic stippling and microcytosis", "Sickle cells and target cells", "Spherocytes and polychromasia", "Vitamin B12 or folate deficiency impairs DNA synthesis, giving large oval red cells and neutrophils with 6 or more lobes.", 2],
+["heme", "Dohle bodies are:", "Blue-gray cytoplasmic RNA remnants in neutrophils", "DNA remnants in red cells", "Precipitated hemoglobin in red cells", "Crystalline rods in blasts", "Seen with infection, burns and pregnancy, and in May-Hegglin anomaly.", 3],
+["heme", "The corrected reticulocyte percentage is the retic % multiplied by:", "Patient Hct ÷ normal Hct (about 45)", "Normal Hct ÷ patient Hct", "Patient Hgb ÷ MCHC", "MCV ÷ 90", "The correction adjusts for the lower number of red cells in anemia.", 3],
+["heme", "Basophilic stippling is most associated with:", "Lead poisoning", "G6PD deficiency", "Splenectomy", "Hereditary spherocytosis", "Stippling is aggregated ribosomal RNA. It is also seen in thalassemia.", 2],
+["heme", "The Philadelphia chromosome, t(9;22), is characteristic of:", "Chronic myeloid leukemia", "Acute promyelocytic leukemia", "Chronic lymphocytic leukemia", "Hairy cell leukemia", "It creates the BCR-ABL1 fusion. Acute promyelocytic leukemia is t(15;17).", 2],
+["heme", "Smudge cells on a smear are most associated with:", "Chronic lymphocytic leukemia", "Infectious mononucleosis", "Acute myeloid leukemia", "Multiple myeloma", "Fragile CLL lymphocytes rupture when the smear is made.", 2],
+["coag", "A prolonged aPTT with a normal PT suggests a deficiency of:", "An intrinsic pathway factor (VIII, IX, XI or XII)", "Factor VII", "Vitamin K-dependent factors in general", "Fibrinogen only", "The PT covers the extrinsic and common pathways, and the aPTT covers the intrinsic and common pathways.", 2],
+["coag", "A prolonged aPTT that corrects in a 1:1 mixing study suggests:", "A factor deficiency", "A factor inhibitor such as a lupus anticoagulant", "Heparin contamination", "A platelet function defect", "An inhibitor also inactivates the factors in the normal plasma, so it does not correct.", 3],
+["coag", "Which test is typically abnormal in von Willebrand disease?", "Ristocetin cofactor (vWF activity)", "Prothrombin time", "Thrombin time", "D-dimer", "Low vWF impairs ristocetin-induced platelet agglutination. The aPTT may be long because factor VIII is low.", 3],
+["chem", "How should a specimen for ammonia be handled?", "On ice, and analyzed promptly", "Left at room temperature for several hours", "Collected in a gray-top tube", "Frozen and thawed repeatedly", "Ammonia rises quickly in vitro as cells release it.", 2],
+["chem", "Pseudohyponatremia from severe hyperlipidemia or hyperproteinemia affects which result by indirect ISE?", "Sodium", "Potassium", "pH", "Ionized calcium", "Indirect ISE dilutes the sample, and the non-aqueous volume makes the sodium read falsely low.", 3],
+["chem", "Which condition causes a high anion gap metabolic acidosis?", "Diabetic ketoacidosis", "Severe diarrhea", "Renal tubular acidosis", "Saline infusion", "Ketoacids are unmeasured anions. Diarrhea and renal tubular acidosis give a normal gap.", 2],
+["chem", "Which test is the usual first-line screen for thyroid function?", "TSH", "Total T4 alone", "Thyroglobulin", "Calcitonin", "A high or low TSH is the most sensitive early sign of primary thyroid disease.", 1],
+["micro", "Which result fits Streptococcus agalactiae (group B)?", "CAMP-positive and hippurate-positive", "Bacitracin-susceptible", "Optochin-susceptible", "Growth in 6.5% NaCl", "Group B strep enhances beta hemolysis of S. aureus in the CAMP test.", 3],
+["micro", "Which medium shows black colonies for H2S-producing Salmonella?", "Hektoen enteric agar", "MacConkey agar", "Chocolate agar", "Columbia CNA agar", "Hektoen enteric and XLD suppress normal flora and show H2S as black centers.", 3],
+["micro", "Which test separates Enterococcus from the group D non-enterococci?", "Growth in 6.5% NaCl", "Optochin susceptibility", "Bacitracin susceptibility", "Catalase", "Both are bile-esculin positive, but only enterococci tolerate 6.5% salt.", 3],
+["micro", "Which organism swarms across a blood agar plate?", "Proteus mirabilis", "Escherichia coli", "Klebsiella pneumoniae", "Pseudomonas aeruginosa", "Swarming growth and a burnt-chocolate odor suggest Proteus.", 2],
+["bb", "An Rh-negative person's red cells lack the:", "D antigen", "C antigen", "Kell antigen", "A antigen", "Rh-negative means D-negative.", 1],
+["bb", "A patient's red cells type as group A. Which plasma is ABO-compatible?", "Group A or AB", "Group O or B", "Group B or AB", "Group O only", "The donor plasma must not contain antibodies against A cells. Group A plasma has anti-B, and AB plasma has neither.", 2],
+["ua", "A positive blood reagent strip with no red cells on microscopy suggests:", "Hemoglobin or myoglobin", "Bacteria", "Crystals", "Yeast", "The strip detects the heme group, so free hemoglobin or myoglobin reacts too.", 2],
+["ua", "Waxy casts suggest:", "Severe, chronic renal disease with stasis", "Dehydration after exercise", "Acute cystitis", "Normal finding in healthy adults", "They are thick, sharply outlined casts that formed slowly in dilated or atrophic tubules.", 3],
+["ua", "Oval fat bodies and Maltese crosses under polarized light suggest:", "Nephrotic syndrome (lipiduria)", "Urinary tract infection", "Prerenal azotemia", "Diabetic ketoacidosis", "Cholesterol esters in the urine are birefringent.", 3],
+["qc", "Which Westgard rule is violated when two consecutive controls exceed the same 2 SD limit?", "2-2s", "1-2s", "R-4s", "1-3s", "It signals systematic error and rejects the run.", 3],
+["qc", "Six or more consecutive control values on one side of the mean show:", "A shift", "A trend", "Random error", "Carryover", "A trend is a steady rise or fall. A shift is a sudden move to a new mean.", 3],
+["qc", "At specimen collection, patients must be identified with:", "At least two patient identifiers", "Room number only", "Physician name only", "Diagnosis only", "For example name and date of birth, checked against the requisition and the label.", 1]
 ];
-const $=id=>document.getElementById(id);
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
-let S={mode:"duo",names:["Player 1","Player 2"],cats:Object.keys(CATS),per:6,timer:true};
-try{Object.assign(S,JSON.parse(localStorage.getItem("br-setup")||"{}"))}catch(e){}
-let G=null,tick=null;
-function setup(){
-  $("scores").hidden=true;$("tag").textContent=`${Q.length} questions · 7 benches`;
-  $("view").innerHTML=`<div class="card"><div class="cap" style="background:linear-gradient(90deg,var(--lav),var(--blue),var(--gold),var(--green),var(--pink),var(--yellow),var(--gray))"></div><div class="label">
-   <p class="q" style="font-size:17px;font-weight:400">Multiple-choice lab trivia. In two-player mode you take turns on the same phone and each get your own questions.</p>
-   <div class="seg" role="group" aria-label="Mode"><button id="m1" aria-pressed="${S.mode==='solo'}">Solo</button><button id="m2" aria-pressed="${S.mode==='duo'}">Two players</button></div>
-   <div class="row" id="namesRow" ${S.mode==='solo'?'hidden':''}><label class="field"><span>Player 1</span><input id="n1" maxlength="14" value="${esc(S.names[0])}"></label><label class="field"><span>Player 2</span><input id="n2" maxlength="14" value="${esc(S.names[1])}"></label></div>
-   <div><div class="tag" style="margin-bottom:6px">Benches</div><div class="cats">${Object.entries(CATS).map(([k,v])=>`<label><input type="checkbox" value="${k}" ${S.cats.includes(k)?"checked":""}><span class="dot" style="background:${v.c}"></span>${v.name}</label>`).join("")}</div></div>
-   <div class="row"><label class="field"><span>Questions each</span><input id="per" type="number" min="3" max="20" value="${S.per}"></label>
-     <label class="field" style="flex-direction:row;display:flex;align-items:center;gap:8px;padding-top:16px"><input id="tm" type="checkbox" ${S.timer?"checked":""} style="width:auto"> 20-second clock</label></div>
-   <button class="btn" id="go">Start round</button></div></div>`;
-  $("m1").onclick=()=>{S.mode="solo";setup()};$("m2").onclick=()=>{S.mode="duo";setup()};
-  $("go").onclick=()=>{
-    S.names=[($("n1")?.value||S.names[0]).trim()||"Player 1",($("n2")?.value||S.names[1]).trim()||"Player 2"];
-    S.cats=[...document.querySelectorAll(".cats input:checked")].map(i=>i.value);if(!S.cats.length)S.cats=Object.keys(CATS);
-    S.per=Math.max(3,Math.min(20,+$("per").value||6));S.timer=$("tm").checked;
-    try{localStorage.setItem("br-setup",JSON.stringify(S))}catch(e){}start()};
+const DIFFN = ["", "Easy", "Medium", "Hard"];
+const opt = (k, allowed, def) => { const v = setting(k, def); return allowed.includes(v) ? v : def; };
+const cleanName = (s, fb) => { if (typeof s !== "string") return fb; const t = s.replace(/[\u0000-\u001f\u007f-\u009f]/g, "").replace(/\s+/g, " ").trim().slice(0, 14); return t || fb; };
+const nPlayers = () => opt("mode", [1, 2, 3, 4], 1);
+const perPlayer = () => opt("per", [5, 10, 15, 20], 10);
+const clockSecs = () => opt("clock", [0, 15, 20, 30], 20);
+const diffMode = () => opt("diff", ["mix", "easy", "hard", "ramp"], "mix");
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+// ---------- saved data (hostile until validated) ----------
+function dataObj() { const d = SAVE.data; return d && typeof d === "object" && !Array.isArray(d) ? d : {}; }
+function savedNames() { const d = dataObj(), out = []; for (let i = 0; i < 4; i++) out.push(cleanName(Array.isArray(d.names) ? d.names[i] : null, "Player " + (i + 1))); return out; }
+function savedCats() { const d = dataObj(), c = Array.isArray(d.cats) ? d.cats.filter(k => typeof k === "string" && CKEYS.includes(k)) : []; return c.length ? [...new Set(c)] : CKEYS.slice(); }
+function savedBenches() { const d = dataObj(), b = d.benches && typeof d.benches === "object" ? d.benches : {}, o = {}; for (const k of CKEYS) if (b[k] === 1) o[k] = 1; return o; }
+function saveData(patch) { const d = dataObj(); SAVE.data = { names: savedNames(), cats: savedCats(), benches: savedBenches(), ...patch }; void d; persist(); }
+
+// ---------- state ----------
+let nextReady = 0, state = "menu", G = null, names = [], cats = CKEYS.slice(), opts = [], qLines = [], exLines = [], ansLines = [], tLeft = 0, tFull = 0, pickK = -1, flashT = 0, nextEl = null, ansWrap = null, lineCache = null;
+
+function buildDeck(players, per, cs) {
+  const need = players * per, dm = diffMode(); let pool = Q.filter(q => cs.includes(q[0]));
+  if (!pool.length) pool = Q.slice();
+  let deck = []; while (deck.length < need) deck.push(...shuffle(pool));
+  deck = deck.slice(0, need * 3 > deck.length ? deck.length : need * 3);
+  let sel;
+  if (dm === "easy") sel = shuffle(pool).sort((a, b) => a[7] - b[7]); else if (dm === "hard") sel = shuffle(pool).sort((a, b) => b[7] - a[7]); else sel = shuffle(pool);
+  const out = []; while (out.length < need) { for (const q of sel) { if (out.length >= need) break; out.push(q); } if (!sel.length) break; }
+  if (dm === "ramp") out.sort((a, b) => a[7] - b[7]); else if (dm !== "mix") return shuffle(out);
+  void deck; return out;
 }
-function start(){
-  const players=S.mode==="solo"?1:2;const pool=shuffle(Q.filter(q=>S.cats.includes(q[0])));
-  const need=S.per*players;const deck=[];while(deck.length<need)deck.push(...shuffle(pool));
-  G={players,deck:deck.slice(0,need),i:0,score:Array(players).fill(0),right:Array(players).fill(0),streak:Array(players).fill(0)};
-  $("scores").hidden=false;handoff();
+function startGame() {
+  const players = nPlayers(); G = { players, per: perPlayer(), deck: buildDeck(players, perPlayer(), cats), i: 0, score: Array(players).fill(0), right: Array(players).fill(0), streak: Array(players).fill(0), best: Array(players).fill(0), hard: Array(players).fill(0), secs: 0 };
+  names = players === 1 ? ["You"] : savedNames().slice(0, players); state = "next"; Kit.hideControls(); nextQuestion();
 }
-const cur=()=>G.i%G.players;
-function renderScores(){$("scores").style.gridTemplateColumns=G.players===1?"1fr":"1fr 1fr";
-  $("scores").innerHTML=G.score.map((s,p)=>`<div class="score ${p===cur()&&G.i<G.deck.length?"on":""}"><span class="n">${esc(G.players===1?"Score":S.names[p])}</span><span class="v">${s}</span></div>`).join("")}
-function handoff(){
-  renderScores();
-  if(G.i>=G.deck.length)return final();
-  if(G.players===2){$("view").innerHTML=`<div class="card"><div class="cap" style="background:var(--accent)"></div><div class="label" style="text-align:center">
-    <div class="tag">Question ${Math.floor(G.i/2)+1} of ${S.per}</div><p class="big">${esc(S.names[cur()])}, you're up</p><p class="muted">Pass the phone over, then tap when ready.</p><button class="btn" id="rdy">Show my question</button></div></div>`;
-    $("rdy").onclick=ask;$("rdy").focus()} else ask();
+const cur = () => G.i % G.players;
+function nextQuestion() {
+  if (G.i >= G.deck.length) return finish();
+  if (G.players > 1) {
+    state = "pass"; Kit.hideControls(); updateHud();
+    card(`<p class="sub">Question ${Math.floor(G.i / G.players) + 1} of ${G.per}</p><h1>Pass to ${escHTML(names[cur()])}</h1><p class="sub">Hand the phone over, then tap when you are ready.</p>`, "Show my question", ask);
+    return;
+  }
+  ask();
 }
-function ask(){
-  const q=G.deck[G.i],cat=CATS[q[0]];const opts=shuffle([0,1,2,3]);
-  $("tag").textContent=G.players===2?`Round ${Math.floor(G.i/2)+1}/${S.per}`:`Question ${G.i+1}/${S.per}`;
-  $("view").innerHTML=`<div class="card"><div class="cap" style="background:${cat.c}"></div><div class="label">
-   <div class="meta"><span class="chip"><span class="dot" style="background:${cat.c}"></span>${cat.name}</span><span>${G.players===2?esc(S.names[cur()])+" · ":""}streak ${G.streak[cur()]}</span></div>
-   ${S.timer?'<div class="bar"><i id="tb" style="width:100%"></i></div>':""}
-   <p class="q">${esc(q[1])}</p>
-   <div class="opts">${opts.map((o,k)=>`<button class="opt" data-o="${o}"><b>${"ABCD"[k]}</b><span>${esc(q[2+o])}</span></button>`).join("")}</div>
-   <div id="after"></div></div></div>`;
-  document.querySelectorAll(".opt").forEach(b=>b.onclick=()=>answer(+b.dataset.o));
-  clearInterval(tick);if(S.timer){const t0=performance.now();tick=setInterval(()=>{const left=1-(performance.now()-t0)/20000;const tb=$("tb");if(tb)tb.style.width=Math.max(0,left*100)+"%";if(left<=0)answer(-1)},100)}
+function ask() {
+  const q = G.deck[G.i], order = shuffle([0, 1, 2, 3]);
+  opts = order.map(o => ({ o, text: q[2 + o] })); pickK = -1; tFull = clockSecs(); tLeft = tFull; state = "ask"; lineCache = null; flashT = 0;
+  buildAnswers(); updateHud();
 }
-function answer(o){
-  clearInterval(tick);const q=G.deck[G.i],p=cur();const ok=o===0;
-  document.querySelectorAll(".opt").forEach(b=>{b.disabled=true;const v=+b.dataset.o;if(v===0)b.classList.add("right");else if(v===o)b.classList.add("wrong")});
-  if(ok){G.streak[p]++;const pts=10+Math.min(G.streak[p]-1,5)*2;G.score[p]+=pts;G.right[p]++}else G.streak[p]=0;
-  renderScores();
-  $("after").innerHTML=`<div class="why"><strong style="color:${ok?"var(--good)":"var(--bad)"}">${ok?"Correct":o===-1?"Time's up":"Not quite"}</strong>${q[6]?esc(q[6]):"Answer: "+esc(q[2])}</div>
-    <div style="margin-top:12px"><button class="btn" id="nx">${G.i+1>=G.deck.length?"See results":G.players===2?"Next player":"Next question"}</button></div>`;
-  $("nx").onclick=()=>{G.i++;handoff()};$("nx").focus();
+function correctK() { return opts.findIndex(x => x.o === 0); }
+function answer(k) {
+  if (state !== "ask") return;
+  const q = G.deck[G.i], p = cur(), ok = k >= 0 && opts[k].o === 0, fast = tFull ? tFull - tLeft : 99;
+  pickK = k; state = "review"; lineCache = null; let pts = 0;
+  if (ok) {
+    G.streak[p]++; G.best[p] = Math.max(G.best[p], G.streak[p]); pts = 10 + Math.min(G.streak[p] - 1, 5) * 2 + (tFull ? Math.round(5 * tLeft / tFull) : 0);
+    G.score[p] += pts; G.right[p]++; if (q[7] === 3) G.hard[p]++;
+    if (G.streak[p] >= 5) award("streak5"); if (tFull && fast <= 3) award("fast");
+    if (diffMode() === "hard" && G.hard[p] >= 5) award("hard5"); else if (G.hard[p] >= 5) award("hard5");
+    const b = savedBenches(); if (!b[q[0]]) { b[q[0]] = 1; saveData({ benches: b }); } if (CKEYS.every(c => b[c])) award("allbench");
+    Kit.sfx("coin"); Kit.haptic(20); burst(180, 250, "#3aa86b", 18, 150, .7);
+  } else { G.streak[p] = 0; Kit.sfx(k < 0 ? "tick" : "lose"); Kit.haptic(k < 0 ? 15 : 45); }
+  G.last = { ok, pts, timeout: k < 0 };
+  showNext(); updateHud();
 }
-function final(){
-  $("tag").textContent="Round complete";
-  let head;if(G.players===1)head=`${G.right[0]} of ${S.per} correct`;else head=G.score[0]===G.score[1]?"It's a tie":`${esc(S.names[G.score[0]>G.score[1]?0:1])} wins`;
-  $("view").innerHTML=`<div class="card"><div class="cap" style="background:var(--accent)"></div><div class="label" style="text-align:center">
-   <p class="big">${head}</p>${G.score.map((s,p)=>`<p class="muted">${esc(G.players===1?"Score":S.names[p])}: <b style="color:var(--ink)">${s}</b> pts · ${G.right[p]}/${S.per} right</p>`).join("")}
-   <div class="row" style="justify-content:center"><button class="btn" id="again">Play again</button><button class="btn ghost" id="set">Change setup</button></div></div></div>`;
-  $("again").onclick=start;$("set").onclick=setup;
+function afterReview() { G.i++; nextQuestion(); }
+function finish() {
+  state = "over"; Kit.hideControls(); updateHud();
+  const players = G.players; let head, best = Math.max(...G.score);
+  const winners = G.score.map((s, i) => s === best ? i : -1).filter(i => i >= 0);
+  if (players === 1) head = `${G.right[0]} of ${G.per} correct`; else head = winners.length > 1 ? "It's a tie" : names[winners[0]] + " wins";
+  if (players === 1 && G.right[0] === G.per && G.per >= 5) award("perfect"); if (players >= 3) award("party"); if (G.per >= 20) award("marathon");
+  Kit.record({ win: players === 1 ? (G.right[0] >= G.per * .7 ? 1 : 0) : 1, score: best }); persist(); Kit.sfx("win");
+  const rows = G.score.map((s, p) => `<p class="sub">${escHTML(players === 1 ? "Score" : names[p])}: <b style="color:var(--ink)">${s}</b> pts · ${G.right[p]}/${G.per} right · best streak ${G.best[p]}</p>`).join("");
+  card(`<h1>${escHTML(head)}</h1>${rows}`, "Play again", () => startGame());
+  const b = document.createElement("button"); b.className = "ghost"; b.textContent = "Menu"; b.onclick = () => { document.getElementById("over").hidden = true; openMenu(); }; document.getElementById("card").append(b);
 }
-setup();
+function updateHud() {
+  if (!G || state === "menu") return stats({});
+  const n = Math.min(Math.floor(G.i / G.players) + 1, G.per);
+  if (G.players === 1) stats({ Q: `${n}/${G.per}` }); else stats({ Q: `${n}/${G.per}`, Turn: names[cur()] });
+}
+
+// ---------- answer controls (big full-width buttons in the controls area) ----------
+function buildAnswers() {
+  const wrap = document.createElement("div"); wrap.className = "tq"; ansWrap = wrap;
+  opts.forEach((x, k) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "ans"; b.dataset.k = String(k); b.setAttribute("aria-label", "Answer " + "ABCD"[k] + ": " + x.text);
+    const l = document.createElement("b"); l.textContent = "ABCD"[k]; const s = document.createElement("span"); s.textContent = x.text; b.append(l, s);
+    b.onclick = () => { if (state !== "ask") return; b.classList.add("pick"); Kit.sfx("click"); Kit.haptic(10); answer(k); };
+    wrap.append(b);
+  });
+  Kit.controls([wrap], []);
+}
+function showNext() {
+  const b = document.createElement("button"); b.type = "button"; b.className = "nextbtn"; b.id = "nextq";
+  b.textContent = G.i + 1 >= G.deck.length ? "See results" : G.players > 1 ? "Next player ▶" : "Next question ▶"; b.onclick = () => { if (state === "review" && performance.now() >= nextReady) { Kit.sfx("click"); afterReview(); } };
+  nextReady = performance.now() + 650; b.classList.add("wait"); setTimeout(() => b.classList.remove("wait"), 650);   // a second tap on the answer must not skip the explanation
+  nextEl = b; Kit.controls([b], []);
+}
+Kit.lifecycle({ pause: () => state === "ask" || state === "review", resume: () => {}, menu: openMenu });
+addEventListener("keydown", e => {
+  if (e.target && e.target.tagName === "INPUT") { if (e.key === "Enter") { const g = document.getElementById("go"); if (g && !document.getElementById("over").hidden) g.click(); } return; }
+  if (e.key === "p" || e.key === "P" || e.key === "Escape") { Kit.pause(); return; }
+  const o = document.getElementById("over");
+  if (o && !o.hidden) { if ((e.key === "Enter" || e.key === " ") && !(e.target.closest && e.target.closest("button"))) { const g = document.getElementById("go"); if (g) g.click(); } return; }
+  if (state === "ask") { const k = "1234".indexOf(e.key) >= 0 && e.key ? "1234".indexOf(e.key) : "abcd".indexOf(String(e.key).toLowerCase()); if (k >= 0 && k < 4 && String(e.key).length === 1) answer(k); }
+  else if (state === "review" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); if (performance.now() >= nextReady) afterReview(); }
+});
+
+// ---------- drawing ----------
+function wrapText(str, font, maxW) {
+  ctx.font = font; const words = String(str).split(" "), lines = []; let c = "";
+  for (const w of words) { const t = c ? c + " " + w : w; if (ctx.measureText(t).width > maxW && c) { lines.push(c); c = w; } else c = t; }
+  if (c) lines.push(c); return lines;
+}
+const F_Q = `600 19px ${FONT}`, F_B = `400 14.5px ${FONT}`, F_BB = `700 15px ${FONT}`;
+function ensureLines() {
+  if (lineCache === (G && G.i) + ":" + state) return; lineCache = (G && G.i) + ":" + state;
+  const q = G.deck[G.i] || G.deck[G.deck.length - 1]; qLines = wrapText(q[1], F_Q, 324);
+  if (state === "review" && G.deck[G.i]) { ansLines = wrapText(q[2], F_BB, 316); exLines = wrapText(q[6] || "", F_B, 324); }
+}
+function fitText(str, font, maxW) { ctx.font = font; if (ctx.measureText(str).width <= maxW) return str; let s = str; while (s.length > 1 && ctx.measureText(s + "…").width > maxW) s = s.slice(0, -1); return s + "…"; }
+function draw() {
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, LW, LH);
+  if (!G || state === "menu") { ctx.fillStyle = "#e4f0f5"; ctx.fillRect(0, 0, LW, LH); CKEYS.forEach((k, i) => { ctx.fillStyle = CATS[k].c; ctx.fillRect(i * LW / 7, 0, LW / 7, 12); }); return; }
+  const q = G.deck[G.i] || G.deck[G.deck.length - 1], cat = CATS[q[0]]; ensureLines();
+  ctx.fillStyle = cat.c; ctx.fillRect(0, 0, LW, 10);
+  // scoreboard tiles
+  const n = G.players, gap = 6, tw = (LW - 20 - gap * (n - 1)) / n;
+  for (let p = 0; p < n; p++) {
+    const x = 10 + p * (tw + gap), on = p === cur() && state !== "over";
+    ctx.fillStyle = on ? "#e1f2f8" : "#f1f4f7"; rr(x, 16, tw, 30, 8); ctx.fill(); ctx.lineWidth = on ? 2 : 1; ctx.strokeStyle = on ? "#0f6e8c" : "#cfd8e0"; ctx.stroke();
+    ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = "#16202b"; ctx.font = `700 13px ${FONT}`; const nm = fitText(n === 1 ? "Score" : names[p], `700 13px ${FONT}`, tw - 56);
+    ctx.fillText(nm, x + 9, 31); ctx.textAlign = "right"; ctx.font = `700 17px ${FONT}`; ctx.fillStyle = "#0f6e8c"; ctx.fillText(String(G.score[p]), x + tw - 9, 31);
+  }
+  // meta row
+  ctx.textAlign = "left"; ctx.fillStyle = cat.c; ctx.beginPath(); ctx.arc(16, 62, 5, 0, TAU); ctx.fill(); ctx.fillStyle = "#16202b"; ctx.font = `700 13px "IBM Plex Sans Condensed", ${FONT}`; ctx.fillText(cat.name.toUpperCase(), 27, 62);
+  ctx.textAlign = "right"; ctx.fillStyle = "#4f5f6e"; ctx.font = `600 12px ${FONT}`; ctx.fillText(`${DIFFN[q[7]]}${G.streak[cur()] > 1 ? " · streak " + G.streak[cur()] : ""}`, LW - 12, 62);
+  // clock
+  if (tFull) { const f = clamp(tLeft / tFull, 0, 1); ctx.fillStyle = "#e1e8ee"; rr(12, 74, LW - 24, 8, 4); ctx.fill(); ctx.fillStyle = f < .25 ? "#d4452f" : "#0f6e8c"; if (f > 0) { rr(12, 74, (LW - 24) * f, 8, 4); ctx.fill(); } }
+  // question
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = "#16202b"; ctx.font = F_Q; let y = 112;
+  for (const l of qLines) { ctx.fillText(l, 18, y); y += 26; }
+  y += 4;
+  if (state === "ask" && LH - 40 - y > 120) {            // specimen tube in this bench's cap colour
+    const tx = LW / 2, ty = y + 14, th = Math.min(150, LH - 44 - ty); ctx.fillStyle = "#e9eef2"; rr(tx - 22, ty + 12, 44, th - 12, 18); ctx.fill(); ctx.fillStyle = "#c93a3a"; rr(tx - 19, ty + 12 + (th - 12) * .35, 38, (th - 12) * .65 - 3, 16); ctx.fill();
+    ctx.fillStyle = cat.c; rr(tx - 25, ty, 50, 22, 6); ctx.fill(); ctx.fillStyle = "#fff"; ctx.globalAlpha = .9; ctx.fillRect(tx - 15, ty + 12 + (th - 12) * .5, 30, 28); ctx.globalAlpha = 1; ctx.fillStyle = "#16202b"; ctx.font = `700 11px ${FONT}`; ctx.textAlign = "center"; ctx.fillText("Q" + (Math.floor(G.i / G.players) + 1), tx, ty + 12 + (th - 12) * .5 + 15); ctx.fillStyle = "rgba(255,255,255,.45)"; ctx.fillRect(tx - 15, ty + 30, 4, th - 44);
+  }
+  if (state === "ask") { ctx.textAlign = "center"; ctx.fillStyle = "#5d6b79"; ctx.font = `600 13px ${FONT}`; ctx.fillText(tFull ? `${Math.ceil(tLeft)} s left · pick an answer below` : "Pick an answer below", LW / 2, LH - 14); }
+  if (state === "review" && G.last) {
+    const L = G.last, col = L.ok ? "#1f8a4c" : L.timeout ? "#b97a00" : "#c23a2b", head = L.ok ? `CORRECT  +${L.pts}` : L.timeout ? "TIME'S UP" : "NOT QUITE";
+    ctx.fillStyle = col; rr(12, y, LW - 24, 30, 8); ctx.fill(); ctx.fillStyle = "#fff"; ctx.font = `700 15px "IBM Plex Sans Condensed", ${FONT}`; ctx.textAlign = "left"; ctx.fillText(head, 24, y + 20);
+    y += 50; ctx.fillStyle = "#4f5f6e"; ctx.font = `700 11px ${FONT}`; ctx.fillText("CORRECT ANSWER", 18, y); y += 18; ctx.fillStyle = "#1f6e3c"; ctx.font = F_BB;
+    for (const l of ansLines) { ctx.fillText(l, 18, y); y += 20; }
+    if (!L.ok && !L.timeout && pickK >= 0) { y += 2; ctx.fillStyle = "#c23a2b"; ctx.font = `600 13px ${FONT}`; ctx.fillText(fitText("You chose: " + opts[pickK].text, `600 13px ${FONT}`, 324), 18, y); y += 22; } else y += 8;
+    ctx.fillStyle = "#16202b"; ctx.font = F_B; for (const l of exLines) { if (y > LH - 8) break; ctx.fillText(l, 18, y); y += 19; }
+  }
+  drawParts();
+}
+loop(dt => {
+  if (!Kit.isPaused()) {
+    stepParts(dt);
+    if (state === "ask" && tFull) { tLeft -= dt; G.secs += dt; if (tLeft <= 0) { tLeft = 0; answer(-1); } }
+    else if (state === "ask") G.secs += dt;
+  }
+  draw();
+});
+
+// ---------- setup flow ----------
+function setupCard() {
+  const players = nPlayers(), pick = opt("bench", ["all", "pick"], "all") === "pick";
+  if (players === 1 && !pick) { cats = CKEYS.slice(); return startGame(); }
+  const nm = savedNames(); let sel = pick ? savedCats() : CKEYS.slice();
+  let html = `<h1>Get set</h1>`;
+  if (players > 1) { html += `<div class="pnames">`; for (let i = 0; i < players; i++) html += `<label for="pn${i}">Player ${i + 1}</label><input type="text" id="pn${i}" maxlength="14" autocomplete="off">`; html += `</div>`; }
+  if (pick) html += `<div class="pk">Benches</div><div class="chips" id="chips"></div>`;
+  card(html, "Start round", () => {
+    const ns = []; for (let i = 0; i < 4; i++) { const el = document.getElementById("pn" + i); ns.push(el ? cleanName(el.value, "Player " + (i + 1)) : nm[i]); }
+    cats = sel.length ? sel.slice() : CKEYS.slice(); saveData({ names: ns, cats: pick ? cats : savedCats() }); startGame();
+  });
+  for (let i = 0; i < players && players > 1; i++) { const el = document.getElementById("pn" + i); el.value = nm[i]; }
+  if (pick) {
+    const box = document.getElementById("chips");
+    for (const k of CKEYS) {
+      const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-pressed", String(sel.includes(k)));
+      const d = document.createElement("i"); d.style.background = CATS[k].c; b.append(d, document.createTextNode(CATS[k].name));
+      b.onclick = () => { sel = sel.includes(k) ? sel.filter(x => x !== k) : [...sel, k]; b.setAttribute("aria-pressed", String(sel.includes(k))); Kit.sfx("click"); };
+      box.append(b);
+    }
+  }
+}
+function openMenu() {
+  state = "menu"; G = null; Kit.hideControls(); stats({});
+  Kit.menu({
+    title: "Bench Rounds", hand: false, bestLabel: "Best score",
+    html: `<p class="sub">Clinical lab trivia across seven benches. Read the question, then tap one of the four big answer buttons. Solo, or pass the phone around with 2 to 4 players.</p>`,
+    settings: [
+      { k: "mode", label: "Players", def: 1, opts: [[1, "Solo"], [2, "2"], [3, "3"], [4, "4"]] },
+      { k: "diff", label: "Difficulty", def: "mix", opts: [["easy", "Easy"], ["mix", "Mixed"], ["hard", "Hard"], ["ramp", "Ramp up"]] },
+      { k: "per", label: "Questions each", def: 10, opts: [[5, "5"], [10, "10"], [15, "15"], [20, "20"]] },
+      { k: "clock", label: "Clock per question", def: 20, opts: [[0, "Off"], [15, "15 s"], [20, "20 s"], [30, "30 s"]] },
+      { k: "bench", label: "Benches", def: "all", opts: [["all", "All seven"], ["pick", "Pick…"]] }
+    ],
+    levels: null,
+    challenges: [{ id: "streak5", text: "Answer 5 in a row correctly" }, { id: "fast", text: "Answer correctly within 3 seconds (clock on)" }, { id: "perfect", text: "Finish a solo round of 5+ questions with none wrong" }, { id: "hard5", text: "Get 5 Hard questions right in one round" }, { id: "allbench", text: "Get a question right on every bench" }, { id: "party", text: "Finish a game with 3 or 4 players" }, { id: "marathon", text: "Finish a 20-question round" }],
+    play: "Start"
+  }, () => setupCard());
+}
+window.T = {
+  get state() { return state; }, get score() { return G ? G.score.slice() : null; }, get i() { return G ? G.i : -1; }, get total() { return G ? G.deck.length : 0; }, get correctK() { return correctK(); },
+  get tLeft() { return tLeft; }, get names() { return names.slice(); }, get streak() { return G ? G.streak.slice() : null; }, get paused() { return Kit.isPaused(); }, get done() { return Object.keys(SAVE.done); },
+  get right() { return G ? G.right.slice() : null; }, get qd() { return G ? G.deck[G.i][7] : 0; }, get cur() { return G ? cur() : -1; }, get nQ() { return Q.length; },
+  setTime(s) { tLeft = s; }, answer(k) { answer(k); }, get diffs() { return G ? G.deck.map(q => q[7]) : []; }, get cats() { return G ? G.deck.map(q => q[0]) : []; },
+  bankCheck() { return Q.every(q => q.length === 8 && q.slice(1, 6).every(x => typeof x === "string" && x) && new Set(q.slice(2, 6)).size === 4 && [1, 2, 3].includes(q[7]) && CKEYS.includes(q[0])); }
+};
+fit(); openMenu();
+
 })();
 </script>
 
-</body></html>
+</html>

@@ -8,23 +8,62 @@ Build a complete, polished browser game called **Swarm Wing**, inspired by Galag
 
 ## The game
 
-A swarm loops in on curved paths, forms up, then peels off to dive at your twin-cannon fighter. Hits during a dive score double; pink leaders take two hits.
+Shoot down swooping waves of insect-like ships over 10 stages, including no-return-fire challenge stages. Catch a wingman capsule for a twin ship; a hit costs the wingman before it costs a life.
 
 Menu text to show the player:
 
-> The swarm loops in, forms up, then peels off to dive at you. Hits during a dive score double.
-> Slide anywhere to move. Twin cannons fire on their own. Pink leaders take two hits.
+> The swarm loops in, forms up, then peels off to dive at you. Hold ◀ ▶ to move and the big FIRE button to shoot, at the same time. Diving hits score double. Catch the cyan capsule for a wingman.
 
 ## Controls (phone first)
 
-Slide anywhere to move; twin cannons fire automatically.
+◀ ▶ hold buttons and a FIRE button, usable together. Auto-fire and a 'Drag ship' mode are settings.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 
 ## Rules and features
 
-- Three lives, waves get faster.
-- Best score saved.
+- 10 stages that unlock, and 7 challenges.
+- A header mute button and pause button; the game pauses itself when you switch apps.
+
+## Start menu settings
+
+Show a start card with segmented buttons for each setting, remembered between visits:
+
+- **Difficulty**: Easy, Normal, Hard
+- **Controls**: ◀ ▶ + FIRE, Drag ship
+- **Auto-fire (buttons mode)**: Off, On
+- **Lives**: 3, 5
+- **Challenge stages**: On, Off
+- **Controls side**: Buttons right, Buttons left
+- **Sound**: On, Off
+- **Vibration**: On, Off
+
+## Levels
+
+10 levels that unlock in order, shown as a numbered grid with a lock icon on locked ones. The selected level's description appears under the grid:
+
+1. Warm-up
+2. Swoop
+3. Pincer
+4. Challenge I
+5. Dive Bombers
+6. Crossfire
+7. Leaders' Guard
+8. Challenge II
+9. Storm
+10. Final Swarm
+
+## Challenges
+
+A collapsible checklist on the start card. When the player completes one, mark it done, save it, and show a short toast:
+
+- Clear stage 1
+- Catch a wingman capsule
+- Shoot 8 diving enemies in one stage
+- Clear a stage without losing a ship
+- Hit 30 of 40 in a challenge stage
+- Perfect a challenge stage (40 of 40)
+- Clear the Final Swarm (stage 10)
 
 ## Look and feel
 

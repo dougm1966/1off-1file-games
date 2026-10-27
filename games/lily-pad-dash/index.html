@@ -1,228 +1,490 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-</head><body>
+<style>[hidden]{display:none!important}</style>
 <title>Lily Pad Dash</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap">
 <style>
-/* Layout: one-screen arcade — score strip, full-height playfield canvas, short help line */
-:root{
-  --bg:#10241a; --panel:#173324; --ink:#effae9; --muted:#9cc4a6; --accent:#ffd34d; --danger:#ff6b57;
-  --f-display:"Lilita One","Arial Black",sans-serif; --f-body:"Nunito",system-ui,sans-serif;
-  color-scheme:dark;
-}
-html,body{height:100%;background:var(--bg);color:var(--ink)}
-body{font-family:var(--f-body);overscroll-behavior:none;
+/* Layout: one-screen arcade cabinet: title/score strip, fitted playfield canvas, one-line controls hint */
+:root{--bg:#0f1a14;--ink:#f2f7e8;--muted:#9fb39a;--accent:#9be15d;--f-display:"Luckiest Guy",Impact,sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
   padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));padding-block:6px}
 .app{height:100%;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
-.hud{display:flex;justify-content:space-between;align-items:center;font-weight:800;gap:8px}
-.hud .title{font-family:var(--f-display);font-size:20px;color:var(--accent);letter-spacing:.02em}
-.hud .stats{display:flex;gap:12px;font-variant-numeric:tabular-nums;font-size:14px}
-.hud .stats span b{color:var(--accent)}
-.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
-canvas{display:block;touch-action:none;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
-.help{font-size:12px;color:var(--muted);text-align:center}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.hud .title{font-family:var(--f-display);font-size:19px;color:var(--accent);white-space:nowrap}
+.hud .stats{display:flex;gap:10px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:flex-end}
+.hud .stats b{color:var(--accent)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+canvas{display:block;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.help{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
 .over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-.card{background:rgba(16,36,26,.94);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:300px;margin:0 16px}
-.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:32px;color:var(--accent)}
-.card p{margin:0}
-.card button{height:48px;border:0;border-radius:12px;background:var(--accent);color:#2a2100;font-family:var(--f-display);font-size:20px;cursor:pointer}
-.card button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.card{background:color-mix(in srgb,var(--bg) 92%,transparent);border:2px solid var(--accent);border-radius:16px;padding:20px;text-align:center;display:grid;gap:10px;max-width:310px;margin:0 16px}
+.card h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;color:var(--accent);line-height:1.1}
+.card p{margin:0;line-height:1.4} .card .sub{color:var(--muted);font-size:14px}
+.card button,.btn{height:48px;border:0;border-radius:12px;background:var(--accent);color:#13240a;font-family:var(--f-display);font-size:19px;cursor:pointer;padding:0 16px}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+/* on-screen controls area: sits under the playfield, never covers it */
+.ctl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 2px calc(4px + env(safe-area-inset-bottom,0px));touch-action:none;-webkit-touch-callout:none}
+.ctl[hidden]{display:none}
+.kgrp{display:flex;align-items:center;gap:10px}.kgrp.r{justify-content:flex-end}.kgrp.c{flex:1;justify-content:center}
+.kpad{width:min(150px,38vw);aspect-ratio:1;touch-action:none;flex:none}
+.kpad svg{width:100%;height:100%;display:block;overflow:visible}
+.kpad .kbase{fill:color-mix(in srgb,var(--ink) 6%,transparent);stroke:color-mix(in srgb,var(--muted) 45%,transparent);stroke-width:1.5}
+.kpad .w{fill:color-mix(in srgb,var(--ink) 9%,transparent);transition:fill .06s}
+.kpad .w.on{fill:var(--accent)}
+.kpad .kdiv{stroke:var(--bg);stroke-width:3}
+.kpad .khub{fill:var(--bg);stroke:color-mix(in srgb,var(--muted) 45%,transparent)}
+.kpad .ka{fill:var(--ink);opacity:.85;pointer-events:none}
+.kstick{width:min(140px,36vw);aspect-ratio:1;border-radius:50%;position:relative;touch-action:none;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.kstick .kring{position:absolute;inset:22%;border-radius:50%;border:1px dashed color-mix(in srgb,var(--muted) 50%,transparent)}
+.kstick .knob{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;background:color-mix(in srgb,var(--ink) 30%,transparent);border:2px solid var(--ink)}
+.kstick.on .knob{background:var(--accent);border-color:var(--accent)}
+.kbtn{min-width:76px;height:76px;padding:0 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex:none;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);color:var(--ink);
+  font:800 14px system-ui,sans-serif;line-height:1.1;text-align:center;touch-action:none;cursor:pointer;transition:transform .05s,background .05s}
+.kbtn.wide{border-radius:18px;min-width:96px}.kbtn.sm{min-width:58px;height:58px;font-size:12px}
+.kbtn.on{background:var(--accent);color:#13240a;transform:scale(.94)}
+.kbtn .big{font-size:24px;line-height:1}
+.ktools{display:flex;gap:6px;margin-left:8px}
+.ktool{width:34px;height:30px;border-radius:8px;border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);background:transparent;color:var(--ink);font-size:14px;padding:0;cursor:pointer}
+.kstats{font-size:12px;color:var(--muted)}
+.ghost{background:transparent!important;color:var(--ink)!important;border:1.5px solid var(--accent)!important}
+
+.card{max-height:calc(100% - 16px);overflow:auto}
+.setl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;margin-top:2px}
+.seg{display:flex;border:1px solid color-mix(in srgb,var(--muted) 40%,transparent);border-radius:10px;overflow:hidden}
+.seg button{flex:1;height:36px;border:0;border-radius:0;background:transparent;color:var(--ink);font:600 13px system-ui,sans-serif;padding:0 4px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#13240a}
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{height:38px;border-radius:8px;font:700 15px system-ui,sans-serif;background:transparent;color:var(--ink);border:1px solid color-mix(in srgb,var(--muted) 40%,transparent)}
+.lvls button[aria-pressed=true]{background:var(--accent);color:#13240a;border-color:var(--accent)}
+.lvls button:disabled{opacity:.45;cursor:default}
+.chal{text-align:left;font-size:13px;color:var(--muted)}.chal summary{cursor:pointer;font-weight:700;color:var(--ink)}.chal div{padding:2px 0}.chal .ok{color:var(--accent)}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg) 90%,transparent);border:1px solid var(--accent);color:var(--ink);padding:6px 12px;border-radius:999px;font:600 13px system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:5;max-width:92%;overflow:hidden;text-overflow:ellipsis}
 </style>
 <div class="app">
-  <div class="hud"><div class="title">Lily Pad Dash</div>
-    <div class="stats"><span>Score <b id="sc">0</b></span><span>Best <b id="hi">0</b></span><span>Lvl <b id="lv">1</b></span><span id="lives">🐸🐸🐸</span></div></div>
-  <div class="stage" id="stage"><canvas id="cv"></canvas>
-    <div class="over" id="over"><div class="card"><h1>Lily Pad Dash</h1>
-      <p>Get the frog across the road and river into all five lily pad bays.</p>
-      <p style="color:var(--muted);font-size:14px">Tap ahead of the frog to hop forward, behind to hop back, beside it to hop left or right. Ride logs and turtles. Watch for diving turtles.</p>
-      <button id="start">Hop in</button></div></div>
-  </div>
-  <div class="help">Tap around the frog to hop · arrow keys work too</div>
+  <div class="hud"><div class="title">Lily Pad Dash</div><div class="stats" id="stats"></div></div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas><div class="over" id="over" hidden><div class="card" id="card"></div></div></div>
+  <div class="help">D-pad hops one square · or swipe on the board</div><div class="ctl" id="ctl" hidden></div>
 </div>
 <script>
 (()=>{
-const C=40,COLS=9,ROWS=13,LW=COLS*C,LH=ROWS*C;
-const cv=document.getElementById("cv"),ctx=cv.getContext("2d");let sc=1;
-const BAYS=[0,2,4,6,8];
-let lanes,frog,level,score,lives,best=0,homes,timer,state="menu",maxRow,deathAnim=0,msg="",msgT=0,t=0;
-try{best=+localStorage.getItem("lpd-best")||0}catch(e){}
-document.getElementById("hi").textContent=best;
-const CARCOL=["#e8443a","#3a7be8","#f2b632","#9b59d0","#2cc0a8","#ff8a3d"];
-function makeLanes(){
-  const k=1+(level-1)*0.18;
-  const L=[];
-  // river rows 1-5
-  const river=[
-    {row:1,type:"log",len:3,gap:3.2,sp:1.1},
-    {row:2,type:"turtle",len:2,gap:2.2,sp:-1.5,dive:true},
-    {row:3,type:"log",len:5,gap:3.5,sp:1.8},
-    {row:4,type:"log",len:2,gap:2.8,sp:-1.3},
-    {row:5,type:"turtle",len:3,gap:2.4,sp:-1.0,dive:true},
-  ];
-  const road=[
-    {row:7,type:"truck",len:2,gap:4.5,sp:-1.0},
-    {row:8,type:"car",len:1,gap:3.6,sp:1.9},
-    {row:9,type:"car",len:1,gap:3.0,sp:-1.4},
-    {row:10,type:"car",len:1,gap:4,sp:1.2},
-    {row:11,type:"car",len:1,gap:3.4,sp:-0.9},
-  ];
-  for(const d of [...river,...road]){
-    const items=[];const period=d.len+d.gap;const n=Math.ceil((COLS+period*2)/period)+1;
-    const off=Math.random()*period;
-    for(let i=0;i<n;i++)items.push({x:-period+i*period+off,len:d.len,col:CARCOL[(Math.random()*CARCOL.length)|0],diveOff:Math.random()*6});
-    L.push({...d,sp:d.sp*k,items,span:n*period});
+const LW=360,LH=520,FONT="'Luckiest Guy', Impact, sans-serif";
+const TAU=Math.PI*2;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),stage=document.getElementById("stage");let SC=1;
+function fit(){SC=Math.min(stage.clientWidth/LW,stage.clientHeight/LH);const d=Math.min(2,devicePixelRatio||1);
+  cv.style.width=LW*SC+"px";cv.style.height=LH*SC+"px";cv.width=Math.round(LW*SC*d);cv.height=Math.round(LH*SC*d);ctx.setTransform(SC*d,0,0,SC*d,0,0)}
+addEventListener("resize",fit);
+const escHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function stats(o){document.getElementById("stats").innerHTML=Object.entries(o).map(([k,v])=>`<span>${escHTML(k)} <b>${escHTML(v)}</b></span>`).join("")}
+function card(html,btn,cb){const o=document.getElementById("over");document.getElementById("card").innerHTML=html+`<button id="go">${btn}</button>`;o.hidden=false;
+  document.getElementById("go").onclick=()=>{o.hidden=true;cb()}}
+function toLocal(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/SC,y:(e.clientY-r.top)/SC}}
+function loop(step){let last=performance.now();function f(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;step(dt);requestAnimationFrame(f)}requestAnimationFrame(f)}
+const getBest=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},setBest=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),pick=a=>a[Math.random()*a.length|0];
+// Pointer on the whole stage (so drags below/beside the canvas still count). Handlers get local canvas coords.
+function pointer(h){let p=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".card,button"))return;e.preventDefault();try{stage.setPointerCapture(e.pointerId)}catch(_){}const l=toLocal(e);p={id:e.pointerId,x0:l.x,y0:l.y,lx:l.x,ly:l.y,t:performance.now()};h.down&&h.down(l,p)});
+  stage.addEventListener("pointermove",e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.move&&h.move(l,l.x-p.lx,l.y-p.ly,p);p.lx=l.x;p.ly=l.y});
+  const up=e=>{if(!p||p.id!==e.pointerId)return;const l=toLocal(e);h.up&&h.up(l,p,performance.now()-p.t);p=null};
+  stage.addEventListener("pointerup",up);stage.addEventListener("pointercancel",up);return ()=>p}
+const keys={};addEventListener("keydown",e=>{keys[e.key]=1;if(e.key.startsWith("Arrow")||e.key===" ")e.preventDefault()});addEventListener("keyup",e=>{keys[e.key]=0});
+const parts=[];
+function burst(x,y,col,n=12,sp=120,life=.6){for(let i=0;i<n;i++){const a=Math.random()*7,s=rnd(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life,m:life,col})}}
+function stepParts(dt){for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=.96;q.vy*=.96;q.l-=dt;if(q.l<=0)parts.splice(i,1)}}
+function drawParts(){for(const q of parts){ctx.globalAlpha=q.l/q.m;ctx.fillStyle=q.col;ctx.fillRect(q.x-1.5,q.y-1.5,3,3)}ctx.globalAlpha=1}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function text(t,x,y,size,col,align="center"){ctx.font=`${size}px ${FONT}`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineWidth=4;ctx.strokeStyle="rgba(0,0,0,.6)";ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y)}
+// ---- menus with settings, level select and challenges (saved per game) ----
+let SAVE={settings:{},unlocked:1,done:{},best:{}};const SKEY="save-"+document.title;
+try{const o=JSON.parse(localStorage.getItem(SKEY)||"{}");const isObj=v=>v&&typeof v==="object"&&!Array.isArray(v);if(isObj(o)){
+  if(isObj(o.settings))for(const[k,v]of Object.entries(o.settings))if(typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<40&&/^[\w.-]*$/.test(v))SAVE.settings[k]=v;
+  if(Number.isFinite(o.unlocked))SAVE.unlocked=Math.max(1,Math.min(99,Math.floor(o.unlocked)));
+  if(isObj(o.done))for(const k of Object.keys(o.done))if(/^[\w-]{1,40}$/.test(k))SAVE.done[k]=1;
+  if(isObj(o.best))for(const[k,v]of Object.entries(o.best))if(Number.isFinite(v))SAVE.best[k]=v;
+  if(isObj(o.stats))SAVE.stats=Object.fromEntries(["played","wins","best","time"].map(k=>[k,Number.isFinite(o.stats[k])?Math.max(0,o.stats[k]):0]));
+  if(isObj(o.data))SAVE.data=o.data;}}catch(e){}
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SAVE))}catch(e){}};
+function setting(k,d){const v=SAVE.settings[k];return typeof v==="number"||typeof v==="string"?v:d}
+let CHAL=[];
+function toast(msg){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";stage.appendChild(t)}t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2200)}
+function award(id){if(SAVE.done[id])return;const c=CHAL.find(c=>c.id===id);if(!c)return;SAVE.done[id]=1;persist();toast("Challenge done: "+c.text)}
+function unlock(n){if(n>SAVE.unlocked){SAVE.unlocked=n;persist()}}
+// cfg: {title, html, settings:[{k,label,opts:[[value,label],...],def}], levels:[names]|null, challenges:[{id,text}], play:"Play"}
+function menu(cfg,onStart){CHAL=cfg.challenges||[];const o=document.getElementById("over"),c=document.getElementById("card");let lvl=clamp(Math.floor(setting("_lvl",1))||1,1,Math.min(SAVE.unlocked,(cfg.levels||[1]).length));
+  const draw=()=>{const done=CHAL.filter(x=>SAVE.done[x.id]).length;
+    c.innerHTML=`<h1>${cfg.title}</h1>${cfg.html||""}
+    ${(cfg.settings||[]).map(s=>`<div class="setl">${s.label}</div><div class="seg">${s.opts.map(([v,l])=>`<button data-k="${s.k}" data-v="${v}" aria-pressed="${String(setting(s.k,s.def))===String(v)}">${l}</button>`).join("")}</div>`).join("")}
+    ${cfg.levels?`<div class="setl">Level</div><div class="lvls">${cfg.levels.map((n,i)=>`<button data-lv="${i+1}" ${i+1>SAVE.unlocked?"disabled":""} aria-pressed="${lvl===i+1}" title="${n}">${i+1>SAVE.unlocked?"🔒":i+1}</button>`).join("")}</div><div class="sub">${cfg.levels[lvl-1]}</div>`:""}
+    ${CHAL.length?`<details class="chal"><summary>Challenges ${done}/${CHAL.length}</summary>${CHAL.map(x=>`<div class="${SAVE.done[x.id]?"ok":""}">${SAVE.done[x.id]?"✓":"○"} ${x.text}</div>`).join("")}</details>`:""}
+    <button id="go">${cfg.play||"Play"}</button>`;
+    c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{SAVE.settings[b.dataset.k]=isNaN(+b.dataset.v)?b.dataset.v:+b.dataset.v;persist();draw()});
+    c.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{lvl=+b.dataset.lv;SAVE.settings._lvl=lvl;persist();draw()});
+    document.getElementById("go").onclick=()=>{o.hidden=true;onStart(lvl)}};
+  draw();o.hidden=false}
+
+// ===== KIT v2: reliable multi-touch, on-screen controls, sound, haptics, pause, stats =====
+// Every finger is tracked by its own touch identifier from touchstart to touchend, so two players
+// (or two thumbs) never steal each other's input. Mouse and pen use pointer events; touch never does,
+// so nothing is counted twice.
+const Kit = (() => {
+  const ctl = document.getElementById("ctl");
+  const hud = document.querySelector(".hud");
+  const now = () => performance.now();
+  const localPt = (cx, cy) => { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / SC, y: (cy - r.top) / SC }; };
+
+  // ---------- sound (synthesised, no files) ----------
+  let AC = null;
+  const soundOn = () => setting("sound", "on") === "on";
+  function audioOn() { if (AC || !soundOn()) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function tone(f, d, type = "square", vol = .07, slide = 0, delay = 0) {
+    if (!AC || !soundOn()) return;
+    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .03);
   }
-  return L;
+  function noise(d, vol = .12, cut = 1800) {
+    if (!AC || !soundOn()) return;
+    const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), ch = b.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); f.type = "lowpass"; f.frequency.value = cut; g.gain.value = vol;
+    s.buffer = b; s.connect(f).connect(g).connect(AC.destination); s.start();
+  }
+  const SFX = {
+    click: () => tone(700, .04, "square", .04), hop: () => tone(420, .09, "square", .05, 1.8), step: () => tone(240, .04, "triangle", .05),
+    coin: () => { tone(988, .07, "square", .05); tone(1319, .12, "square", .05, 0, .07); }, shoot: () => tone(900, .08, "square", .035, .45),
+    hit: () => noise(.1, .14, 2500), thud: () => tone(110, .14, "sine", .2, .6), bounce: () => tone(320, .05, "sine", .09, 1.4),
+    boom: () => { noise(.45, .22, 900); tone(80, .4, "sawtooth", .08, .4); }, lose: () => tone(300, .55, "triangle", .1, .35),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .05, 0, i * .09)), power: () => tone(300, .3, "square", .05, 3),
+    tick: () => tone(1200, .02, "square", .025), splash: () => noise(.3, .16, 1200), whoosh: () => noise(.18, .08, 4000)
+  };
+  const sfx = (n) => { try { SFX[n] && SFX[n](); } catch (e) {} };
+  const haptic = (ms = 10) => { if (setting("vibe", "on") === "on" && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- play-area fingers ----------
+  const fingers = new Map(), H = [];
+  const emit = (type, f) => { for (const h of H) h[type] && h[type](f); };
+  const skip = (t) => t.closest && t.closest(".card,button,.kpad,.kstick,.kbtn");
+  stage.addEventListener("touchstart", (e) => {
+    if (skip(e.target)) return; e.preventDefault(); audioOn();
+    for (const t of e.changedTouches) { const p = localPt(t.clientX, t.clientY); const f = { id: "t" + t.identifier, x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set(f.id, f); emit("start", f); }
+  }, { passive: false });
+  stage.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; const p = localPt(t.clientX, t.clientY); f.dx = p.x - f.x; f.dy = p.y - f.y; f.x = p.x; f.y = p.y; emit("move", f); }
+  }, { passive: false });
+  const tEnd = (e) => { for (const t of e.changedTouches) { const f = fingers.get("t" + t.identifier); if (!f) continue; fingers.delete(f.id); f.dt = now() - f.t0; emit("end", f); } };
+  stage.addEventListener("touchend", tEnd); stage.addEventListener("touchcancel", tEnd);
+  let mouse = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || skip(e.target)) return; audioOn();
+    const p = localPt(e.clientX, e.clientY); mouse = { id: "m", x: p.x, y: p.y, x0: p.x, y0: p.y, dx: 0, dy: 0, t0: now(), owner: null }; fingers.set("m", mouse); emit("start", mouse);
+  });
+  addEventListener("pointermove", (e) => { if (e.pointerType === "touch" || !mouse) return; const p = localPt(e.clientX, e.clientY); mouse.dx = p.x - mouse.x; mouse.dy = p.y - mouse.y; mouse.x = p.x; mouse.y = p.y; emit("move", mouse); });
+  addEventListener("pointerup", (e) => { if (e.pointerType === "touch" || !mouse) return; fingers.delete("m"); mouse.dt = now() - mouse.t0; emit("end", mouse); mouse = null; });
+  function play(h) { H.push(h); }
+  // Classify a finished finger: tap, or swipe with a direction.
+  function gesture(f, min = 18) {
+    const ax = f.x - f.x0, ay = f.y - f.y0, d = Math.hypot(ax, ay);
+    if (d < min) return { tap: f.dt < 350 };
+    return Math.abs(ax) > Math.abs(ay) ? { swipe: [Math.sign(ax), 0] } : { swipe: [0, Math.sign(ay)] };
+  }
+
+  // ---------- on-screen controls (DOM, below the playfield) ----------
+  // Each control tracks its own touch identifiers, so holding one never blocks another.
+  function hold(el, down, up) {
+    const ids = new Set();
+    const d = (id, e) => { e.preventDefault(); audioOn(); if (!ids.size) { el.classList.add("on"); haptic(8); down && down(e); } ids.add(id); };
+    const u = (id, e) => { if (!ids.has(id)) return; ids.delete(id); if (!ids.size) { el.classList.remove("on"); up && up(e); } };
+    el.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) d("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); for (const t of e.changedTouches) u("t" + t.identifier, e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) u("t" + t.identifier, e); });
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; d("m", e); const mu = (ev) => { u("m", ev); removeEventListener("pointerup", mu); }; addEventListener("pointerup", mu); });
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  // D-pad: one square split into four wedges by its diagonals, drawn on screen, so where you touch is where you go.
+  // opts: { on(dx,dy), off(), repeat: ms|0, slide: true lets the thumb roll to another direction }
+  function dpad(opts = {}) {
+    const el = document.createElement("div"); el.className = "kpad"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Direction pad");
+    el.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="49" class="kbase"/>
+      <path class="w" data-d="up" d="M50 50 L18 18 A45 45 0 0 1 82 18 Z"/><path class="w" data-d="right" d="M50 50 L82 18 A45 45 0 0 1 82 82 Z"/>
+      <path class="w" data-d="down" d="M50 50 L82 82 A45 45 0 0 1 18 82 Z"/><path class="w" data-d="left" d="M50 50 L18 82 A45 45 0 0 1 18 18 Z"/>
+      <line x1="18" y1="18" x2="82" y2="82" class="kdiv"/><line x1="82" y1="18" x2="18" y2="82" class="kdiv"/><circle cx="50" cy="50" r="9" class="khub"/>
+      <path class="ka" d="M50 8 l9 11 h-18z"/><path class="ka" d="M92 50 l-11 9 v-18z"/><path class="ka" d="M50 92 l-9 -11 h18z"/><path class="ka" d="M8 50 l11 -9 v18z"/></svg>`;
+    const V = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let cur = null, rep = null, tid = null;
+    const dirAt = (cx, cy) => { const r = el.getBoundingClientRect(), x = cx - r.left - r.width / 2, y = cy - r.top - r.height / 2; if (Math.hypot(x, y) < r.width * .09) return cur; return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : (y > 0 ? "down" : "up"); };
+    const set = (d) => {
+      if (d === cur) return; cur = d; clearInterval(rep); clearTimeout(tid);
+      el.querySelectorAll(".w").forEach((w) => w.classList.toggle("on", w.dataset.d === d));
+      if (!d) { opts.off && opts.off(); return; }
+      haptic(8); opts.on && opts.on(...V[d]);
+      if (opts.repeat) tid = setTimeout(() => { rep = setInterval(() => opts.on && opts.on(...V[d]), opts.repeat); }, Math.max(220, opts.repeat * 1.6));
+    };
+    let owner = null;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); const t = e.changedTouches[0]; if (owner !== null) return; owner = t.identifier; set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); if (!opts.slide) return; for (const t of e.changedTouches) if (t.identifier === owner) set(dirAt(t.clientX, t.clientY)); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; set(null); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; set(dirAt(e.clientX, e.clientY)); const mv = (ev) => opts.slide && set(dirAt(ev.clientX, ev.clientY)); const mu = () => { set(null); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    return el;
+  }
+  // Analog stick: touch anywhere in its pad, the knob follows your thumb; returns x,y in -1..1.
+  function stick(opts = {}) {
+    const el = document.createElement("div"); el.className = "kstick"; el.innerHTML = `<div class="kring"></div><div class="knob"></div>`;
+    const knob = el.querySelector(".knob"); let owner = null, cx = 0, cy = 0; const v = { x: 0, y: 0, on: false };
+    const R = () => el.getBoundingClientRect().width * .36;
+    const upd = (x, y) => { const r = R(); let dx = x - cx, dy = y - cy; const d = Math.hypot(dx, dy); if (d > r) { dx *= r / d; dy *= r / d; } v.x = dx / r; v.y = dy / r; knob.style.transform = `translate(${dx}px,${dy}px)`; opts.move && opts.move(v.x, v.y); };
+    const begin = (x, y) => { const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; v.on = true; el.classList.add("on"); haptic(6); upd(x, y); };
+    const stop = () => { v.on = false; v.x = v.y = 0; knob.style.transform = ""; el.classList.remove("on"); opts.move && opts.move(0, 0); };
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); audioOn(); if (owner !== null) return; const t = e.changedTouches[0]; owner = t.identifier; begin(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === owner) upd(t.clientX, t.clientY); }, { passive: false });
+    const te = (e) => { for (const t of e.changedTouches) if (t.identifier === owner) { owner = null; stop(); } };
+    el.addEventListener("touchend", te); el.addEventListener("touchcancel", te);
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") return; begin(e.clientX, e.clientY); const mv = (ev) => upd(ev.clientX, ev.clientY); const mu = () => { stop(); removeEventListener("pointermove", mv); removeEventListener("pointerup", mu); }; addEventListener("pointermove", mv); addEventListener("pointerup", mu); });
+    el.value = v; return el;
+  }
+  function button(label, opts = {}) {
+    const b = document.createElement("div"); b.className = "kbtn " + (opts.cls || ""); b.setAttribute("role", "button"); b.setAttribute("aria-label", opts.aria || label.replace(/<[^>]+>/g, "")); b.innerHTML = label;
+    let rep = null, tid = null;
+    hold(b, () => { opts.down && opts.down(); if (opts.repeat) tid = setTimeout(() => rep = setInterval(() => opts.down(), opts.repeat), 260); }, () => { clearTimeout(tid); clearInterval(rep); opts.up && opts.up(); });
+    return b;
+  }
+  // Lay out controls under the playfield: left group and right group; the "Controls side" setting swaps them.
+  function controls(left = [], right = [], opts = {}) {
+    ctl.replaceChildren(); ctl.hidden = false;
+    const L = document.createElement("div"), R2 = document.createElement("div"); L.className = "kgrp"; R2.className = "kgrp r";
+    const swap = setting("hand", "right") === "left";
+    (swap ? right : left).forEach((x) => L.append(x)); (swap ? left : right).forEach((x) => R2.append(x));
+    ctl.append(L, R2); if (opts.center) { const C = document.createElement("div"); C.className = "kgrp c"; opts.center.forEach((x) => C.append(x)); ctl.insertBefore(C, R2); }
+    requestAnimationFrame(fit);
+  }
+  function hideControls() { ctl.hidden = true; ctl.replaceChildren(); requestAnimationFrame(fit); }
+
+  // ---------- HUD: sound toggle + pause ----------
+  let onPause = null, onResume = null, paused = false, menuFn = null;
+  const tools = document.createElement("div"); tools.className = "ktools";
+  const sBtn = document.createElement("button"); sBtn.type = "button"; sBtn.className = "ktool";
+  const pBtn = document.createElement("button"); pBtn.type = "button"; pBtn.className = "ktool"; pBtn.innerHTML = "❚❚"; pBtn.setAttribute("aria-label", "Pause");
+  const drawS = () => { sBtn.textContent = soundOn() ? "🔊" : "🔇"; sBtn.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on"); };
+  sBtn.onclick = () => { SAVE.settings.sound = soundOn() ? "off" : "on"; persist(); drawS(); audioOn(); sfx("click"); };
+  pBtn.onclick = () => pause();
+  drawS(); tools.append(sBtn, pBtn); if (hud) hud.append(tools);
+  function lifecycle(o) { onPause = o.pause; onResume = o.resume; menuFn = o.menu; }
+  function pause() {
+    if (paused || !onPause || onPause() === false) return; paused = true;
+    const o = document.getElementById("over"), c = document.getElementById("card");
+    c.innerHTML = `<h1>Paused</h1><button id="go">Resume</button><button class="ghost" id="kq">Quit to menu</button>`; o.hidden = false;
+    document.getElementById("go").onclick = () => { o.hidden = true; paused = false; onResume && onResume(); };
+    document.getElementById("kq").onclick = () => { o.hidden = true; paused = false; menuFn && menuFn(); };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- stats ----------
+  const S = () => (SAVE.stats = SAVE.stats || { played: 0, wins: 0, best: 0, time: 0 });
+  const n0 = (v) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+  function record(o = {}) { const s = S(); s.played++; if (o.win) s.wins++; if (o.score != null && o.score > s.best) s.best = o.score; if (o.secs) s.time += o.secs; persist(); }
+  function statsLine(bestLabel = "Best") { const s = S(); if (!s.played) return ""; return `<p class="kstats">Played ${n0(s.played)}${s.wins ? ` · Won ${n0(s.wins)}` : ""}${s.best ? ` · ${bestLabel} ${n0(s.best)}` : ""}</p>`; }
+
+  // Menu wrapper: game settings, then the shared ones (controls side, sound, vibration), then stats.
+  function menuX(cfg, onStart) {
+    const extra = [];
+    if (cfg.hand) extra.push({ k: "hand", label: "Controls side", def: "right", opts: [["right", "Buttons right"], ["left", "Buttons left"]] });
+    extra.push({ k: "sound", label: "Sound", def: "on", opts: [["on", "On"], ["off", "Off"]] }, { k: "vibe", label: "Vibration", def: "on", opts: [["on", "On"], ["off", "Off"]] });
+    menu({ ...cfg, html: (cfg.html || "") + statsLine(cfg.bestLabel), settings: [...(cfg.settings || []), ...extra] }, (lv) => { audioOn(); drawS(); onStart(lv); });
+  }
+  return { play, gesture, fingers, dpad, stick, button, controls, hideControls, sfx, haptic, lifecycle, pause, record, menu: menuX, audioOn, isPaused: () => paused };
+})();
+
+
+// ---------- board ----------
+const C = 40, COLS = 9, ROWS = 13, BAYS = [0, 2, 4, 6, 8];
+const LEVELS = ["Pond Path", "Morning Rush", "Log Jam", "Diving Turtles", "Fast Lane", "Flood Tide", "Gator Bay", "Night Traffic", "Rapids", "Lily Legend"];
+// lane templates, top river row 1..5, road rows 7..11. kind, dir, speed (cells/s), length (cells), gap (cells)
+const RIVER = [["log", 1, 1.2, 3, 3], ["turtle", -1, 1.5, 2, 2], ["log", 1, 2.0, 4, 3], ["log", -1, 1.0, 2, 3], ["turtle", 1, 1.6, 3, 2]];
+const ROAD = [["truck", -1, 1.1, 2, 4], ["car", 1, 2.2, 1, 3], ["car", -1, 1.6, 1, 2.5], ["bus", 1, 1.0, 2, 3.5], ["car", -1, 1.4, 1, 3]];
+const CARCOL = ["#ff5a5f", "#ffd23f", "#4fc3f7", "#c084fc", "#ff9f43"];
+let lanes = [], frog, homes, state = "menu", level = 1, lives, score, best = 0, timeLeft, maxRow, fly, hops = 0, deaths = 0, levelDeaths = 0, runT = 0, queued = null, flash = 0;
+const diff = () => ({ easy: .75, normal: 1, hard: 1.3 })[setting("diff", "normal")];
+
+function buildLanes() {
+  lanes = [];
+  const sp = (1 + (level - 1) * .09) * diff();
+  RIVER.forEach((t, i) => {
+    let [kind, dir, s, len, gap] = t; if (level >= 6) gap = Math.max(1.5, gap - .7);
+    lanes.push({ row: i + 1, kind, dir, v: s * sp * C * dir, len, gap, dive: kind === "turtle" && level >= 4 && i === 1 ? 1 : (kind === "turtle" && level >= 7 ? 1 : 0), gator: level >= 7 && i === 2 });
+  });
+  ROAD.forEach((t, i) => { let [kind, dir, s, len, gap] = t; if (level >= 5) gap = Math.max(1.6, gap - .8); lanes.push({ row: i + 7, kind, dir, v: s * sp * C * dir * (level >= 8 && i === 1 ? 1.5 : 1), len, gap, col: CARCOL[i] }); });
+  for (const L of lanes) { L.items = []; const span = (L.len + L.gap) * C; L.span = span; const n = Math.ceil((LW + span * 2) / span); for (let k = 0; k < n; k++) L.items.push({ x: -span + k * span + Math.random() * L.gap * C * .5, ph: Math.random() * 6 }); }
 }
-function resetFrog(){frog={c:4,r:12,x:4,fromX:4,fromR:12,hop:1,dir:0};timer=30;maxRow=12}
-function newGame(){level=1;score=0;lives=3;homes=[0,0,0,0,0];lanes=makeLanes();resetFrog();state="play";hud()}
-function hud(){document.getElementById("sc").textContent=score;document.getElementById("lv").textContent=level;
-  document.getElementById("lives").textContent="🐸".repeat(Math.max(0,lives));
-  if(score>best){best=score;try{localStorage.setItem("lpd-best",best)}catch(e){}document.getElementById("hi").textContent=best}}
-function move(dc,dr){
-  if(state!=="play"||frog.hop<1)return;
-  const nr=frog.r+dr;let nx=frog.x+dc;
-  if(frog.r>=6)nx=Math.round(nx); // snap to the grid on land and road
-  if(nr<0||nr>12||nx<-0.3||nx>COLS-0.7)return;
-  frog.fromX=frog.x;frog.fromR=frog.r;frog.r=nr;frog.x=nx;frog.hop=0;
-  frog.dir=dr<0?0:dr>0?Math.PI:dc>0?Math.PI/2:-Math.PI/2;
+function newGame(lv) { level = lv; lives = setting("lives", 3); score = 0; deaths = 0; startLevel(); state = "play"; }
+function startLevel() { homes = [0, 0, 0, 0, 0]; levelDeaths = 0; buildLanes(); runT = 0; resetFrog(); fly = { bay: -1, t: 3 }; hud(); }
+function resetFrog() { frog = { c: 4, r: 12, x: 4 * C + C / 2, y: 12 * C + C / 2, fx: 0, fy: 0, face: 0, hop: 0, dead: 0 }; maxRow = 12; timeLeft = ({ easy: 40, normal: 30, hard: 22 })[setting("diff", "normal")]; queued = null; }
+function hud() { stats({ Lv: level, Score: score, Lives: "🐸".repeat(Math.max(0, lives)) || "0" }); }
+
+// ---------- input: one hop per press, one queued hop during an animation ----------
+function hop(dx, dy) {
+  if (state !== "play" || frog.dead) return;
+  if (frog.hop > 0) { queued = [dx, dy]; return; }
+  const nc = frog.c + dx, nr = frog.r + dy;
+  frog.face = dx ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0);
+  if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) { Kit.haptic(5); return; }
+  frog.c = nc; frog.r = nr; frog.fx = frog.x; frog.fy = frog.y; frog.hop = .13; hops++; Kit.sfx("hop");
 }
-function die(why){if(state!=="play")return;state="dying";deathAnim=0;msg=why;msgT=1.4;lives--;hud()}
-function laneAt(r){return lanes.find(l=>l.row===r)}
-function wrapX(it,l){const p=l.span;let x=((it.x+p/2)%p+p)%p-p/2;return x} // unused helper
-function update(dt){
-  t+=dt;
-  for(const l of lanes)for(const it of l.items){it.x+=l.sp*dt;
-    if(l.sp>0&&it.x>COLS+1)it.x-=l.span; if(l.sp<0&&it.x+it.len<-1)it.x+=l.span;}
-  if(state==="dying"){deathAnim+=dt;if(deathAnim>1){if(lives<=0){state="over";showOver()}else{resetFrog();state="play"}}return}
-  if(state!=="play")return;
-  if(frog.hop<1){frog.hop=Math.min(1,frog.hop+dt/0.13);if(frog.hop>=1)land();return}
-  timer-=dt;if(timer<=0){die("Out of time");return}
-  const l=laneAt(frog.r);
-  if(l&&l.row<=5){ // river
-    const on=l.items.find(it=>frog.x+0.5>it.x+0.15&&frog.x+0.5<it.x+it.len-0.15&&!submerged(l,it));
-    if(!on){die("Splash!");return}
-    frog.x+=l.sp*dt;if(frog.x<-0.4||frog.x>COLS-0.6){die("Swept away");return}
-  } else if(l){ // road
-    if(l.items.some(it=>frog.x+0.8>it.x+0.08&&frog.x+0.2<it.x+it.len-0.08)){die("Squashed!");return}
+Kit.play({
+  end(f) {
+    if (state !== "play" || setting("swipe", "on") !== "on") return;
+    const g = Kit.gesture(f, 16);
+    if (g.swipe) hop(...g.swipe); else if (g.tap && setting("tapfwd", "on") === "on") hop(0, -1);
+  }
+});
+addEventListener("keydown", (e) => { const m = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] }[e.key]; if (m && !e.repeat) hop(...m); if (e.key === "p" || e.key === "Escape") Kit.pause(); });
+function showControls() {
+  const rep = setting("hold", "off") === "on" ? 190 : 0;
+  const pad = Kit.dpad({ on: (dx, dy) => hop(dx, dy), repeat: rep, slide: false });
+  const fwd = Kit.button(`<span class="big">▲</span>HOP`, { down: () => hop(0, -1), repeat: rep, cls: "wide", aria: "Hop forward" });
+  Kit.controls([pad], [fwd]);
+}
+
+// ---------- rules ----------
+function laneAt(r) { return lanes.find((L) => L.row === r); }
+function overlap(L, x0, x1, shrink = 0) { for (const it of L.items) { const a = it.x + shrink, b = it.x + L.len * C - shrink; if (x1 > a && x0 < b) return it; } return null; }
+function submerged(L, it) { return L.dive && Math.sin(runT * 1.1 + it.ph) > .55; }
+function die(why) {
+  if (frog.dead) return; frog.dead = 1.1; frog.why = why; deaths++; levelDeaths++; lives--; Kit.sfx(why === "water" ? "splash" : "hit"); Kit.haptic(60); burst(frog.x, frog.y, why === "water" ? "#7fd3ff" : "#ff6b6b", 22, 140, .7); hud();
+}
+function land() {
+  const r = frog.r;
+  if (r < maxRow) { score += 10 * (maxRow - r); maxRow = r; hud(); }
+  if (r === 0) {
+    const bi = BAYS.indexOf(frog.c);
+    if (bi < 0 || homes[bi]) { die("bank"); return; }
+    homes[bi] = 1; let pts = 50 + Math.round(timeLeft) * 2; if (fly.bay === bi) { pts += 200; fly.bay = -1; fly.t = 5; award("fly"); Kit.sfx("power"); }
+    score += pts; Kit.sfx("coin"); Kit.haptic(25); burst(frog.x, frog.y, "#9be15d", 26, 160, .8); toast(`+${pts}`);
+    if (timeLeft > ({ easy: 40, normal: 30, hard: 22 })[setting("diff", "normal")] - 8) award("quick");
+    if (homes.every(Boolean)) { levelDone(); return; }
+    resetFrog(); hud();
   }
 }
-function submerged(l,it){if(!l.dive)return false;if(it.diveOff>3.5)return false;const ph=(t+it.diveOff*1.7)%7;return ph>5.4&&ph<6.6}
-function sinkAmt(l,it){if(!l.dive||it.diveOff>3.5)return 0;const ph=(t+it.diveOff*1.7)%7;if(ph<4.6||ph>6.9)return 0;if(ph<5.4)return (ph-4.6)/0.8;if(ph<6.6)return 1;return 1-(ph-6.6)/0.3}
-function land(){
-  if(frog.r<maxRow){score+=10*(maxRow-frog.r);maxRow=frog.r;hud()}
-  if(frog.r===0){
-    const b=BAYS.findIndex(c=>Math.abs(frog.x-c)<0.45);
-    if(b<0){die("Missed the bay");return}
-    if(homes[b]){die("Bay taken");return}
-    homes[b]=1;score+=50+Math.round(timer)*2;hud();msg="Home!";msgT=0.9;
-    if(homes.every(h=>h)){level++;score+=200;homes=[0,0,0,0,0];lanes=makeLanes();msg="Level "+level;msgT=1.4;hud()}
-    resetFrog();return;
-  }
-  const l=laneAt(frog.r);
-  if(l&&l.row<=5){const on=l.items.find(it=>frog.x+0.5>it.x+0.15&&frog.x+0.5<it.x+it.len-0.15&&!submerged(l,it));if(!on)die("Splash!")}
+function levelDone() {
+  state = "between"; score += 1000 + lives * 100; Kit.sfx("win"); hud(); unlock(level + 1);
+  if (!levelDeaths) award("clean"); if (level >= 5) award("l5"); if (level >= 10) award("l10"); if (setting("diff", "normal") === "hard" && level >= 3) award("hard3");
+  const fin = level >= 10;
+  if (fin) { Kit.record({ win: 1, score }); best = Math.max(best, score); }
+  setTimeout(() => card(`<h1>${fin ? "Pond champion!" : "All five home!"}</h1><p>${LEVELS[level - 1]} cleared</p><p class="sub">Score ${score}</p>`, fin ? "Play again" : "Next: " + LEVELS[level], () => { if (fin) openMenu(); else { level++; startLevel(); state = "play"; } }), 500);
 }
+function gameOver() {
+  state = "over"; Kit.sfx("lose"); Kit.hideControls(); Kit.record({ score }); if (hops >= 500) award("hops");
+  card(`<h1>Game over</h1><p>Score ${score}</p><p class="sub">Reached ${LEVELS[level - 1]}</p>`, "Menu", openMenu);
+}
+
+function update(dt) {
+  if (state !== "play" || dt <= 0) return;
+  runT += dt;
+  for (const L of lanes) for (const it of L.items) { it.x += L.v * dt; if (L.v > 0 && it.x > LW + L.span * .5) it.x -= L.span * L.items.length; if (L.v < 0 && it.x + L.len * C < -L.span * .5) it.x += L.span * L.items.length; }
+  fly.t -= dt; if (fly.t <= 0) { const free = BAYS.map((_, i) => i).filter((i) => !homes[i]); fly.bay = fly.bay < 0 && free.length ? pick(free) : -1; fly.t = fly.bay < 0 ? rnd(2, 4) : rnd(3, 5); }
+  if (frog.dead) { frog.dead -= dt; if (frog.dead <= 0) { if (lives <= 0) { gameOver(); return; } resetFrog(); } return; }
+  timeLeft -= dt; if (timeLeft <= 0) { die("time"); return; }
+  if (frog.hop > 0) {
+    frog.hop -= dt; const k = 1 - Math.max(0, frog.hop) / .13, tx = frog.c * C + C / 2, ty = frog.r * C + C / 2;
+    frog.x = frog.fx + (tx - frog.fx) * k; frog.y = frog.fy + (ty - frog.fy) * k;
+    if (frog.hop <= 0) { frog.x = tx; frog.y = ty; land(); if (queued && !frog.dead && state === "play") { const q = queued; queued = null; hop(...q); } }
+    return;
+  }
+  const L = laneAt(frog.r);
+  if (L && frog.r <= 5) {
+    const it = overlap(L, frog.x - 4, frog.x + 4, 2);
+    if (!it || submerged(L, it)) { die("water"); return; }
+    if (L.gator && it === L.items[0] && frog.x > it.x + L.len * C - C) { die("gator"); return; }
+    frog.x += L.v * dt; frog.c = Math.round((frog.x - C / 2) / C);
+    if (frog.x < 6 || frog.x > LW - 6) { die("water"); return; }
+  } else if (L) { if (overlap(L, frog.x - 13, frog.x + 13, 3)) { die("car"); return; } }
+}
+
 // ---------- drawing ----------
-function draw(){
-  ctx.clearRect(0,0,LW,LH);
+function draw() {
   // home bank
-  ctx.fillStyle="#1f5a2c";ctx.fillRect(0,0,LW,C);
-  for(let i=0;i<COLS;i++){if(!BAYS.includes(i)){ctx.fillStyle="#2d7a3a";ctx.fillRect(i*C,0,C,C);hedge(i*C,0)}}
+  ctx.fillStyle = "#1f4d2b"; ctx.fillRect(0, 0, LW, C);
+  BAYS.forEach((c, i) => { ctx.fillStyle = "#16405e"; rr(c * C + 3, 6, C - 6, C - 8, 10); ctx.fill(); ctx.fillStyle = "#2c8a3e"; ctx.beginPath(); ctx.ellipse(c * C + C / 2, C / 2 + 2, 14, 10, 0, 0, TAU); ctx.fill();
+    if (homes && homes[i]) drawFrog(c * C + C / 2, C / 2 + 1, 0, .85); else if (fly && fly.bay === i) { ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(c * C + C / 2, C / 2, 4, 0, TAU); ctx.fill(); ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.beginPath(); ctx.ellipse(c * C + C / 2 - 5, C / 2 - 4, 4, 2, -.5, 0, TAU); ctx.ellipse(c * C + C / 2 + 5, C / 2 - 4, 4, 2, .5, 0, TAU); ctx.fill(); } });
   // river
-  const g=ctx.createLinearGradient(0,C,0,C*6);g.addColorStop(0,"#1b5e93");g.addColorStop(1,"#2479b5");ctx.fillStyle=g;ctx.fillRect(0,C,LW,C*5);
-  ctx.strokeStyle="rgba(255,255,255,.12)";ctx.lineWidth=2;
-  for(let r=1;r<=5;r++)for(let i=0;i<5;i++){const x=((i*90+t*20*(r%2?1:-1))%(LW+60)+LW+60)%(LW+60)-30,y=r*C+12+(i%2)*16;
-    ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x+8,y-4,x+16,y);ctx.quadraticCurveTo(x+24,y+4,x+32,y);ctx.stroke()}
-  // bays (lily pads in water)
-  for(const [i,c] of BAYS.entries()){ctx.fillStyle="#1b5e93";ctx.fillRect(c*C,0,C,C);
-    lily(c*C+C/2,C/2+2,15);if(homes[i])drawFrog(c*C+C/2,C/2,0,1,0.85)}
-  // median + start
-  grass(6);grass(12);
+  const g = ctx.createLinearGradient(0, C, 0, C * 6); g.addColorStop(0, "#14507a"); g.addColorStop(1, "#1d6a99"); ctx.fillStyle = g; ctx.fillRect(0, C, LW, C * 5);
+  ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.lineWidth = 2; for (let r = 1; r < 6; r++) for (let k = 0; k < 4; k++) { const x = ((k * 97 + runT * 18 * (r % 2 ? 1 : -1)) % (LW + 40) + LW + 40) % (LW + 40) - 20; ctx.beginPath(); ctx.moveTo(x, r * C + 14 + k * 5); ctx.lineTo(x + 14, r * C + 14 + k * 5); ctx.stroke(); }
+  // median and start
+  ctx.fillStyle = "#3b6b2f"; ctx.fillRect(0, C * 6, LW, C); ctx.fillRect(0, C * 12, LW, C);
+  ctx.fillStyle = "rgba(255,255,255,.05)"; for (let i = 0; i < 18; i++) { ctx.fillRect((i * 53) % LW, C * 6 + (i * 7) % 34, 3, 3); ctx.fillRect((i * 71) % LW, C * 12 + (i * 11) % 34, 3, 3); }
   // road
-  ctx.fillStyle="#2b2d31";ctx.fillRect(0,C*7,LW,C*5);
-  ctx.fillStyle="#3a3c41";ctx.fillRect(0,C*7,LW,3);ctx.fillRect(0,C*12-3,LW,3);
-  ctx.fillStyle="#e9d36b";for(let r=8;r<=11;r++)for(let x=6;x<LW;x+=36)ctx.fillRect(x,r*C-1,18,2);
-  // lanes
-  for(const l of lanes)for(const it of l.items){const x=it.x*C,y=l.row*C;
-    if(l.type==="log")log(x,y,it.len);
-    else if(l.type==="turtle")turtles(x,y,it.len,sinkAmt(l,it));
-    else vehicle(x,y,it.len,it.col,l.sp>0,l.type==="truck");}
-  // timer bar
-  const tw=Math.max(0,timer/30);ctx.fillStyle="rgba(0,0,0,.4)";ctx.fillRect(4,LH-7,LW-8,4);
-  ctx.fillStyle=tw<.3?"#ff6b57":"#ffd34d";ctx.fillRect(4,LH-7,(LW-8)*tw,4);
-  // frog
-  if(state==="play"||state==="dying"){
-    const h=frog.hop,x=(frog.fromX+(frog.x-frog.fromX)*h)*C+C/2,r=frog.fromR+(frog.r-frog.fromR)*h,y=r*C+C/2;
-    const lift=Math.sin(h*Math.PI)*0.18;
-    if(state==="dying"){splat(x,y,deathAnim,laneAt(frog.r)&&frog.r<=5)}
-    else drawFrog(x,y,frog.dir,1+lift,1,h<1);
+  ctx.fillStyle = "#2a2d33"; ctx.fillRect(0, C * 7, LW, C * 5);
+  ctx.strokeStyle = "rgba(255,230,120,.45)"; ctx.setLineDash([14, 14]); ctx.lineWidth = 2; for (let r = 8; r < 12; r++) { ctx.beginPath(); ctx.moveTo(0, r * C); ctx.lineTo(LW, r * C); ctx.stroke(); } ctx.setLineDash([]);
+  // faint grid so the next square is easy to judge
+  if (setting("grid", "on") === "on") { ctx.strokeStyle = "rgba(255,255,255,.06)"; ctx.lineWidth = 1; for (let c = 1; c < COLS; c++) { ctx.beginPath(); ctx.moveTo(c * C, C); ctx.lineTo(c * C, LH); ctx.stroke(); } }
+  for (const L of lanes) for (const it of L.items) drawItem(L, it);
+  if (frog && state !== "menu") {
+    if (setting("grid", "on") === "on" && !frog.dead && state === "play") { ctx.strokeStyle = "rgba(155,225,93,.35)"; ctx.lineWidth = 2; rr(frog.c * C + 2, (frog.r - 1) * C + 2, C - 4, C - 4, 6); if (frog.r > 0) ctx.stroke(); }
+    if (frog.dead) { ctx.globalAlpha = Math.max(0, frog.dead); text(frog.why === "water" ? "💦" : frog.why === "time" ? "⏰" : "💥", frog.x, frog.y, 26, "#fff"); ctx.globalAlpha = 1; }
+    else { const k = frog.hop > 0 ? Math.sin((1 - frog.hop / .13) * Math.PI) : 0; drawFrog(frog.x, frog.y - k * 6, frog.face, 1 + k * .15); }
+    // time bar
+    const full = ({ easy: 40, normal: 30, hard: 22 })[setting("diff", "normal")]; ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fillRect(0, LH - 6, LW, 6); ctx.fillStyle = timeLeft < 8 ? "#ff6b6b" : "#9be15d"; ctx.fillRect(0, LH - 6, LW * Math.max(0, timeLeft) / full, 6);
   }
-  if(msgT>0){ctx.save();ctx.globalAlpha=Math.min(1,msgT*2);ctx.font="28px 'Lilita One', 'Arial Black', sans-serif";ctx.textAlign="center";
-    ctx.lineWidth=5;ctx.strokeStyle="#10241a";ctx.strokeText(msg,LW/2,C*6+28);ctx.fillStyle="#ffd34d";ctx.fillText(msg,LW/2,C*6+28);ctx.restore()}
+  drawParts();
 }
-function grass(r){ctx.fillStyle="#3f8f3a";ctx.fillRect(0,r*C,LW,C);ctx.fillStyle="#4fa548";
-  for(let i=0;i<30;i++){const x=(i*53+r*17)%LW,y=r*C+6+(i*29)%28;ctx.fillRect(x,y,2,5);ctx.fillRect(x+3,y+1,2,4)}
-  ctx.fillStyle="#f2d6f0";for(let i=0;i<5;i++){ctx.beginPath();ctx.arc((i*83+r*31)%LW+10,r*C+10+(i*13)%22,2,0,7);ctx.fill()}}
-function hedge(x,y){ctx.fillStyle="#256b33";for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(x+8+i*8,y+C-8,9,0,7);ctx.fill()}
-  ctx.fillStyle="#3a8e46";for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(x+12+i*8,y+C-18,8,0,7);ctx.fill()}}
-function lily(x,y,r){ctx.fillStyle="#3c9b48";ctx.beginPath();ctx.moveTo(x,y);ctx.arc(x,y,r,0.35,Math.PI*2-0.05);ctx.closePath();ctx.fill();
-  ctx.strokeStyle="#2c7a37";ctx.lineWidth=1;for(let a=0.8;a<6;a+=0.9){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a)*r*.8,y+Math.sin(a)*r*.8);ctx.stroke()}}
-function rrect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
-function log(x,y,len){const w=len*C;ctx.fillStyle="rgba(0,0,0,.25)";rrect(x+3,y+9,w-2,C-14,12);ctx.fill();
-  const g=ctx.createLinearGradient(0,y+6,0,y+C-6);g.addColorStop(0,"#a8703e");g.addColorStop(.5,"#8a5a2f");g.addColorStop(1,"#5e3b1c");
-  ctx.fillStyle=g;rrect(x+1,y+6,w-2,C-12,12);ctx.fill();
-  ctx.strokeStyle="rgba(50,28,10,.5)";ctx.lineWidth=1.5;for(let i=1;i<len*3;i++){ctx.beginPath();ctx.moveTo(x+i*13,y+11);ctx.lineTo(x+i*13+6,y+C-11);ctx.stroke()}
-  ctx.fillStyle="#c99a62";ctx.beginPath();ctx.ellipse(x+w-8,y+C/2,6,C/2-7,0,0,7);ctx.fill();
-  ctx.strokeStyle="#8a5a2f";ctx.beginPath();ctx.ellipse(x+w-8,y+C/2,3,7,0,0,7);ctx.stroke()}
-function turtles(x,y,len,sink){for(let i=0;i<len;i++){const cx=x+i*C+C/2,cy=y+C/2;
-  ctx.save();ctx.globalAlpha=1-sink*0.75;const s=1-sink*0.3;
-  ctx.fillStyle="#6fae5a";for(const [a,b] of [[-12,-11],[12,-11],[-12,11],[12,11]]){ctx.beginPath();ctx.ellipse(cx+a*s,cy+b*s,5*s,3.5*s,Math.atan2(b,a),0,7);ctx.fill()}
-  ctx.beginPath();ctx.arc(cx-16*s,cy,5*s,0,7);ctx.fill();
-  ctx.fillStyle=sink>0.3?"#2f6f8f":"#b8452e";ctx.beginPath();ctx.ellipse(cx,cy,14*s,13*s,0,0,7);ctx.fill();
-  ctx.strokeStyle="rgba(0,0,0,.3)";ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(cx-6*s,cy-10*s);ctx.lineTo(cx-6*s,cy+10*s);ctx.moveTo(cx+6*s,cy-10*s);ctx.lineTo(cx+6*s,cy+10*s);ctx.moveTo(cx-13*s,cy);ctx.lineTo(cx+13*s,cy);ctx.stroke();
-  ctx.restore()}}
-function vehicle(x,y,len,col,right,truck){const w=len*C-6,h=C-14,vx=x+3,vy=y+7;
-  ctx.save();if(!right){ctx.translate(vx*2+w,0);ctx.scale(-1,1)}
-  ctx.fillStyle="rgba(0,0,0,.35)";rrect(vx+2,vy+3,w,h,6);ctx.fill();
-  ctx.fillStyle="#111";for(const wx of truck?[vx+8,vx+w-14,vx+w-24]:[vx+6,vx+w-12])for(const wy of [vy-2,vy+h-3]){ctx.fillRect(wx,wy,8,5)}
-  if(truck){ctx.fillStyle="#dfe3e8";rrect(vx,vy,w-22,h,4);ctx.fill();ctx.fillStyle="#c5cbd3";ctx.fillRect(vx+4,vy+4,w-30,h-8);
-    ctx.fillStyle=col;rrect(vx+w-20,vy+1,20,h-2,5);ctx.fill();ctx.fillStyle="#9fd3ff";ctx.fillRect(vx+w-8,vy+4,5,h-8)}
-  else{const g=ctx.createLinearGradient(0,vy,0,vy+h);g.addColorStop(0,col);g.addColorStop(1,shade(col));ctx.fillStyle=g;rrect(vx,vy,w,h,7);ctx.fill();
-    ctx.fillStyle="#9fd3ff";rrect(vx+w*0.55,vy+3,w*0.22,h-6,3);ctx.fill();ctx.fillStyle="rgba(159,211,255,.6)";rrect(vx+w*0.12,vy+4,w*0.18,h-8,3);ctx.fill()}
-  ctx.fillStyle="#fff6b0";ctx.fillRect(vx+w-3,vy+2,3,4);ctx.fillRect(vx+w-3,vy+h-6,3,4);
-  ctx.fillStyle="#ff3b30";ctx.fillRect(vx,vy+2,2,4);ctx.fillRect(vx,vy+h-6,2,4);ctx.restore()}
-function shade(h){const n=parseInt(h.slice(1),16);return `rgb(${(n>>16)*.6|0},${(n>>8&255)*.6|0},${(n&255)*.6|0})`}
-function drawFrog(x,y,rot,s,alpha=1,jumping=false){ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.scale(s,s);ctx.globalAlpha=alpha;
-  ctx.fillStyle="rgba(0,0,0,.25)";ctx.beginPath();ctx.ellipse(2,3,12,13,0,0,7);ctx.fill();
-  ctx.fillStyle="#2f8f2f";const ext=jumping?5:0;
-  for(const sx of [-1,1]){ctx.beginPath();ctx.ellipse(sx*12,8+ext,5,8,sx*0.5,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(sx*15,14+ext,5,3,0,0,7);ctx.fill();
-    ctx.beginPath();ctx.ellipse(sx*11,-6-ext/2,3.5,6,-sx*0.5,0,7);ctx.fill()}
-  const g=ctx.createRadialGradient(-3,-4,2,0,0,13);g.addColorStop(0,"#9be15d");g.addColorStop(1,"#3fa34d");ctx.fillStyle=g;
-  ctx.beginPath();ctx.ellipse(0,1,10,13,0,0,7);ctx.fill();
-  ctx.fillStyle="#2f7d32";ctx.beginPath();ctx.arc(-3,4,2,0,7);ctx.arc(3,7,1.6,0,7);ctx.fill();
-  for(const sx of [-1,1]){ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(sx*5,-9,4,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(sx*5,-10,2,0,7);ctx.fill()}
-  ctx.restore()}
-function splat(x,y,a,water){ctx.save();if(water){ctx.strokeStyle=`rgba(255,255,255,${1-a})`;ctx.lineWidth=2;for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(x,y,4+a*18+i*6,0,7);ctx.stroke()}}
-  else{ctx.fillStyle=`rgba(63,163,77,${1-a*0.7})`;for(let i=0;i<8;i++){const an=i*0.8;ctx.beginPath();ctx.arc(x+Math.cos(an)*a*14,y+Math.sin(an)*a*14,5,0,7);ctx.fill()}}
-  ctx.restore()}
-// ---------- sizing / loop / input ----------
-function resize(){const st=document.getElementById("stage");const s=Math.min(st.clientWidth/LW,st.clientHeight/LH);sc=s;const d=devicePixelRatio||1;
-  cv.style.width=LW*s+"px";cv.style.height=LH*s+"px";cv.width=Math.round(LW*s*d);cv.height=Math.round(LH*s*d);ctx.setTransform(s*d,0,0,s*d,0,0)}
-let last=performance.now();
-function frame(n){const dt=Math.max(0,Math.min(.05,(n-last)/1000));last=n;if(state!=="menu"&&state!=="over"||true)update(dt);msgT=Math.max(0,msgT-dt);draw();requestAnimationFrame(frame)}
-cv.addEventListener("pointerdown",e=>{e.preventDefault();if(state!=="play")return;const r=cv.getBoundingClientRect();
-  const px=(e.clientX-r.left)/sc,py=(e.clientY-r.top)/sc,fx=frog.x*C+C/2,fy=frog.r*C+C/2,dx=px-fx,dy=py-fy;
-  if(Math.abs(dy)>=Math.abs(dx))move(0,dy<0?-1:1);else move(dx<0?-1:1,0)});
-addEventListener("keydown",e=>{const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(m){e.preventDefault();move(...m)}});
-function showOver(){const o=document.getElementById("over");o.querySelector(".card").innerHTML=`<h1>Game over</h1><p>Score ${score} · Level ${level}</p><p style="color:var(--muted)">Best ${best}</p><button id="start">Hop again</button>`;o.hidden=false;document.getElementById("start").onclick=go}
-function go(){document.getElementById("over").hidden=true;newGame()}
-document.getElementById("start").onclick=go;
-addEventListener("resize",resize);
-level=1;lanes=makeLanes();homes=[0,0,0,0,0];resetFrog();resize();requestAnimationFrame(frame);
+function drawItem(L, it) {
+  const x = it.x, y = L.row * C, w = L.len * C;
+  if (L.kind === "log") {
+    ctx.fillStyle = "#7a4b25"; rr(x + 2, y + 7, w - 4, C - 14, 12); ctx.fill(); ctx.fillStyle = "#94603a"; rr(x + 6, y + 10, w - 12, 6, 3); ctx.fill(); ctx.fillStyle = "#5e3818"; ctx.beginPath(); ctx.ellipse(x + w - 8, y + C / 2, 5, 11, 0, 0, TAU); ctx.fill();
+    if (L.gator && it === L.items[0]) { ctx.fillStyle = "#3d7a2a"; rr(x + w - C, y + 8, C, C - 16, 8); ctx.fill(); ctx.fillStyle = "#fff"; for (let k = 0; k < 4; k++) ctx.fillRect(x + w - C + 6 + k * 8, y + C / 2 - 1, 3, 3); ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.arc(x + w - 10, y + 12, 3, 0, TAU); ctx.fill(); }
+  } else if (L.kind === "turtle") {
+    const sub = submerged(L, it), warn = L.dive && Math.sin(runT * 1.1 + it.ph) > .2;
+    ctx.globalAlpha = sub ? .18 : warn ? .6 : 1;
+    for (let k = 0; k < L.len; k++) { const cx = x + k * C + C / 2, cy = y + C / 2; ctx.fillStyle = "#2f7d32"; ctx.beginPath(); ctx.ellipse(cx, cy, 15, 13, 0, 0, TAU); ctx.fill(); ctx.fillStyle = "#53a653"; ctx.beginPath(); ctx.ellipse(cx, cy, 10, 8, 0, 0, TAU); ctx.fill(); ctx.fillStyle = "#2f7d32"; ctx.beginPath(); ctx.arc(cx + 15 * L.dir, cy, 4, 0, TAU); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  } else {
+    const h = C - 12, yy = y + 6; ctx.fillStyle = "rgba(0,0,0,.3)"; rr(x + 3, yy + 3, w - 4, h, 6); ctx.fill();
+    ctx.fillStyle = L.col; rr(x + 2, yy, w - 4, h, L.kind === "car" ? 9 : 5); ctx.fill();
+    ctx.fillStyle = "rgba(20,30,45,.75)"; const front = L.dir > 0 ? x + w - 14 : x + 6; ctx.fillRect(front, yy + 4, 8, h - 8);
+    if (L.kind !== "car") { ctx.fillStyle = "rgba(255,255,255,.2)"; ctx.fillRect(x + 8, yy + 4, w - 28, 3); }
+    ctx.fillStyle = "#fff6b0"; ctx.fillRect(L.dir > 0 ? x + w - 4 : x + 2, yy + 3, 2, 4); ctx.fillRect(L.dir > 0 ? x + w - 4 : x + 2, yy + h - 7, 2, 4);
+  }
+}
+function drawFrog(x, y, face, s) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(face * Math.PI / 2); ctx.scale(s, s);
+  ctx.fillStyle = "#3f9b2a"; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * 11, 8, 6, 4, sx * .6, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.ellipse(sx * 10, -7, 5, 3, -sx * .6, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = "#6fd13f"; ctx.beginPath(); ctx.ellipse(0, 1, 11, 13, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(-5, -9, 4.5, 0, TAU); ctx.arc(5, -9, 4.5, 0, TAU); ctx.fill(); ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(-5, -10, 2, 0, TAU); ctx.arc(5, -10, 2, 0, TAU); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.beginPath(); ctx.ellipse(-3, 0, 4, 6, 0, 0, TAU); ctx.fill(); ctx.restore();
+}
+loop((dt) => { if (!Kit.isPaused()) { update(dt); stepParts(dt); } draw(); });
+Kit.lifecycle({ pause: () => state === "play", resume: () => {}, menu: openMenu });
+
+function openMenu() {
+  state = "menu"; Kit.hideControls();
+  Kit.menu({
+    title: "Lily Pad Dash", hand: true, bestLabel: "Best",
+    html: `<p class="sub">Hop across the road and river and fill all five lily pads. Use the D-pad under the board: each press is one square. You can also swipe on the board.</p>`,
+    settings: [
+      { k: "diff", label: "Difficulty", def: "normal", opts: [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]] },
+      { k: "lives", label: "Lives", def: 3, opts: [[3, "3"], [5, "5"], [7, "7"]] },
+      { k: "swipe", label: "Swipe on board", def: "on", opts: [["on", "On"], ["off", "Off"]] },
+      { k: "tapfwd", label: "Tap board to hop forward", def: "on", opts: [["on", "On"], ["off", "Off"]] },
+      { k: "hold", label: "Hold to keep hopping", def: "off", opts: [["off", "Off"], ["on", "On"]] },
+      { k: "grid", label: "Grid guide", def: "on", opts: [["on", "On"], ["off", "Off"]] }
+    ],
+    levels: LEVELS,
+    challenges: [{ id: "fly", text: "Eat a fly in a lily bay" }, { id: "quick", text: "Reach a lily pad within 8 seconds" }, { id: "clean", text: "Clear a level without losing a frog" }, { id: "l5", text: "Clear Fast Lane (level 5)" }, { id: "hard3", text: "Clear level 3 on Hard" }, { id: "l10", text: "Clear Lily Legend" }, { id: "hops", text: "Make 500 hops in one game" }],
+    play: "Hop in"
+  }, (lv) => { hops = 0; showControls(); newGame(lv); });
+}
+window.T = { get state() { return state; }, get frog() { return frog; }, get lives() { return lives; }, get score() { return score; } };
+fit(); openMenu();
+
 })();
 </script>
 
-</body></html>
+</html>
