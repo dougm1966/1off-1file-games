@@ -8,7 +8,7 @@ Build a complete, polished browser game called **Artillery Duel**, inspired by t
 
 ## The game
 
-Turn-based tank artillery on destructible terrain, pass-and-play or against a CPU at three skill levels. Wind, six weapons, falling damage and limited fuel for moving.
+Turn-based tank artillery on destructible terrain, pass-and-play or against a CPU at three skill levels, with wind, six weapons and limited fuel.
 
 Menu text to show the player:
 
@@ -16,7 +16,7 @@ Menu text to show the player:
 
 ## Controls (phone first)
 
-Drag back from your tank like a slingshot and let go to fire; a dotted arc shows the start of the shot. Or use the AIM, POWER, MOVE, WEAPON and FIRE buttons under the board.
+Drag back from your tank like a slingshot and let go to fire, or use the AIM, POWER, MOVE, WEAPON and FIRE buttons under the board.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 

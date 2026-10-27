@@ -14,17 +14,17 @@
 
 ## How it plays
 
-Work a lab shift: inspect arriving specimens, route them to the right department or reject them for the right reason, then release results, call critical values and rerun delta-check failures. Ten shifts, up to a mass-casualty night.
+Work a lab shift: route arriving specimens to the right department or reject them for the right reason, then release results, call critical values and rerun delta-check failures. Ten shifts, up to a mass-casualty night.
 
 > You run receiving at a hospital lab. Tap a specimen row to inspect it, then use the six buttons under the board: send it to the right department, or reject it with the right reason. Later, release results, CALL critical values, and rerun delta-check failures. Fast and accurate wins.
 
 ## Controls
 
-Tap a specimen to inspect it, then tap one of the big action buttons under the board (Chem, Heme, Coag, Micro, Blood Bank, Reject; then Release, Call or Rerun for results). A REF button opens tube-top, critical-value and rejection references.
+Tap a specimen to inspect it, then tap one of the big action buttons under the board. A REF button opens tube-top, critical-value and rejection references.
 
 ## Rules and features
 
-- Critical values, delta limits and acceptability rules follow common references; local lab policy can differ.
+- Critical values and rules follow common references; local lab policy can differ.
 - A header mute button and pause button; the game pauses itself when you switch apps.
 
 ## Settings

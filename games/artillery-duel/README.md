@@ -14,13 +14,13 @@
 
 ## How it plays
 
-Turn-based tank artillery on destructible terrain, pass-and-play or against a CPU at three skill levels. Wind, six weapons, falling damage and limited fuel for moving.
+Turn-based tank artillery on destructible terrain, pass-and-play or against a CPU at three skill levels, with wind, six weapons and limited fuel.
 
 > Tank duel on destructible ground. On your turn, drag back from your tank like a slingshot (the dotted arc shows the start of the shot) and let go to fire. Or use the AIM and POWER buttons and press FIRE. Mind the wind arrow. Wreck the other tank to win the round.
 
 ## Controls
 
-Drag back from your tank like a slingshot and let go to fire; a dotted arc shows the start of the shot. Or use the AIM, POWER, MOVE, WEAPON and FIRE buttons under the board.
+Drag back from your tank like a slingshot and let go to fire, or use the AIM, POWER, MOVE, WEAPON and FIRE buttons under the board.
 
 ## Rules and features
 

@@ -8,7 +8,7 @@ Build a complete, polished browser game called **Lab Shift**, inspired by a hosp
 
 ## The game
 
-Work a lab shift: inspect arriving specimens, route them to the right department or reject them for the right reason, then release results, call critical values and rerun delta-check failures. Ten shifts, up to a mass-casualty night.
+Work a lab shift: route arriving specimens to the right department or reject them for the right reason, then release results, call critical values and rerun delta-check failures. Ten shifts, up to a mass-casualty night.
 
 Menu text to show the player:
 
@@ -16,13 +16,13 @@ Menu text to show the player:
 
 ## Controls (phone first)
 
-Tap a specimen to inspect it, then tap one of the big action buttons under the board (Chem, Heme, Coag, Micro, Blood Bank, Reject; then Release, Call or Rerun for results). A REF button opens tube-top, critical-value and rejection references.
+Tap a specimen to inspect it, then tap one of the big action buttons under the board. A REF button opens tube-top, critical-value and rejection references.
 
 Touch must feel good on a phone held in portrait. Add matching keyboard controls for desktop.
 
 ## Rules and features
 
-- Critical values, delta limits and acceptability rules follow common references; local lab policy can differ.
+- Critical values and rules follow common references; local lab policy can differ.
 - A header mute button and pause button; the game pauses itself when you switch apps.
 
 ## Start menu settings
